@@ -69,7 +69,7 @@ async def run():
         }
 
         template_order_placed_detailed = {
-            "name": "order_confirmation_v2",
+            "name": "order_confirmation_v3",
             "category": "UTILITY",
             "language": "en",
             "components": [

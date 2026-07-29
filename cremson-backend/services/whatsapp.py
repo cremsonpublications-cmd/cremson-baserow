@@ -54,7 +54,7 @@ async def send_order_confirmation(
     }
 
     if WHATSAPP_TEMPLATE_NAME != "hello_world":
-        if WHATSAPP_TEMPLATE_NAME in ["order_placed_detailed", "order_placed_details", "order_confirmation_details", "order_confirmation_v2"]:
+        if WHATSAPP_TEMPLATE_NAME in ["order_placed_detailed", "order_placed_details", "order_confirmation_details", "order_confirmation_v2", "order_confirmation_v3"]:
             formatted_items = ""
             if items:
                 lines = []

@@ -1,34 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cremson Next.js UI
 
-## Getting Started
+A modern e-commerce storefront for Cremson Publications, built using Next.js (App Router) and Styled/Vanilla CSS. It features a complete catalog, cart management, checkout with Razorpay SDK integration, and customer order history.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🛠️ Tech Stack & Structure
+- **Framework**: Next.js 14+ (App Router)
+- **State Management**: AppContext (`context/AppContext.js`) for cart, authentication state, and user settings.
+- **Styling**: Vanilla CSS & custom components.
+- **Payment integration**: Razorpay Checkout SDK.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## 🚀 Setup & Installation
 
-## Learn More
+1. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
+2. **Environment Variables**:
+   Create a `.env.local` file in the root of `cremson-next-ui/` containing:
+   ```env
+   NEXT_PUBLIC_API_URL=http://localhost:8000
+   NEXT_PUBLIC_RAZORPAY_KEY_ID=your_razorpay_key_id
+   ```
+3. **Run Development Server**:
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000) to view the storefront.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🛒 Checkout & Payment Flow
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. **Cart Submission**:
+   - The user selects books and clicks "Checkout" in `/cart`.
+   - The app navigates to `/checkout` where shipping/billing addresses are filled out or selected.
 
-## Deploy on Vercel
+2. **Order Creation Request**:
+   - The frontend triggers `POST /api/payment/create-order` on the FastAPI backend, passing the cart items and total price.
+   - The backend responds with a Razorpay `order_id` (e.g., `order_LkuY...`).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. **Razorpay Modal Trigger**:
+   - The frontend loads the Razorpay checkout script and opens the payment overlay.
+   - The user enters payment credentials (test credentials if in Razorpay Test Mode).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. **Payment Verification**:
+   - If successful, Razorpay returns `razorpay_payment_id` and `razorpay_signature`.
+   - The frontend sends these details to the backend via `POST /api/payment/verify`.
+   - On success, the local cart is cleared, and the user is redirected to `/checkout/success` or `/my-orders`.
+   - If failed or cancelled, the user is shown an error message and can try paying again.
+
+---
+
+## 📂 Core Folder Structure
+- **`app/`**: Pages and routers:
+  - `/checkout`: Checkout page with Razorpay loader.
+  - `/my-orders`: Orders list fetching history from the backend.
+  - `/auth`: Sign up and log in page components.
+- **`context/`**: Contains `AppContext.js` managing cart actions and active user state.
+- **`components/`**: Custom interactive UI elements.
