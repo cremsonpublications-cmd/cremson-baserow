@@ -48,7 +48,7 @@ async def run():
         }
 
         template_payment_failed = {
-            "name": "payment_failed_v3",
+            "name": "payment_failed_v4",
             "category": "UTILITY",
             "language": "en",
             "components": [

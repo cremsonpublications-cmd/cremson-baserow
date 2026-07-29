@@ -253,7 +253,7 @@ async def send_payment_failed(
         "to": formatted_phone,
         "type": "template",
         "template": {
-            "name": "payment_failed_v3",
+            "name": "payment_failed_v4",
             "language": {
                 "code": WHATSAPP_TEMPLATE_LANGUAGE
             },

@@ -67,12 +67,12 @@ sequenceDiagram
     alt Payment Successful
         Backend->>Razorpay: 9a. Verify Payment Signature
         Backend->>Baserow: 10a. Save Order Details & Clear Cart
-        Backend->>Meta: 11a. Send "order_confirmation_v2" (Itemized book list)
+        Backend->>Meta: 11a. Send "order_confirmation_v3" (Itemized book list)
         Backend->>Meta: 12a. Send "payment_received_v2" (Payment receipt)
         Backend-->>Frontend: 13a. Return Success JSON
     else Payment Failed
         Backend->>Baserow: 10b. Update Order status to "FAILED"
-        Backend->>Meta: 11b. Send "payment_failed_v3" (Payment failed notification)
+        Backend->>Meta: 11b. Send "payment_failed_v4" (Payment failed notification)
         Backend-->>Frontend: 12b. Return Failure JSON
     end
 ```
@@ -83,17 +83,17 @@ sequenceDiagram
 
 ### 2. WhatsApp Notification System (`services/whatsapp.py`)
 If checkout succeeds, **two separate notifications** are dispatched to the customer:
-1. **Order Confirmation (`order_confirmation_v2`)**: Includes an itemized list of books purchased, quantities, unit prices, and the total order amount.
+1. **Order Confirmation (`order_confirmation_v3`)**: Includes an itemized list of books purchased, quantities, unit prices, and the total order amount.
 2. **Payment Success (`payment_received_v2`)**: Includes the customer name, payment amount, order ID, and payment transaction ID.
 
 If checkout fails (failed/cancelled payment), **only one notification** is dispatched:
-1. **Payment Failed (`payment_failed_v3`)**: Notifies the customer of the failed transaction.
+1. **Payment Failed (`payment_failed_v4`)**: Notifies the customer of the failed transaction.
 
 ---
 
 ## 📋 Meta Template Wording Definitions
 
-### 1. Order Confirmation (`order_confirmation_v2`)
+### 1. Order Confirmation (`order_confirmation_v3`)
 ```text
 Hello {{1}},
 
@@ -117,7 +117,7 @@ Transaction ID: {{4}}
 We are now processing your order. Thank you!
 ```
 
-### 3. Payment Failed (`payment_failed_v3`)
+### 3. Payment Failed (`payment_failed_v4`)
 ```text
 Hello {{1}},
 
