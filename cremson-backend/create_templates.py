@@ -26,7 +26,7 @@ async def run():
         
 
         template_payment_success = {
-            "name": "payment_received_notification",
+            "name": "payment_received_v2",
             "category": "UTILITY",
             "language": "en",
             "components": [
@@ -48,7 +48,7 @@ async def run():
         }
 
         template_payment_failed = {
-            "name": "payment_failed_alert",
+            "name": "payment_failed_v3",
             "category": "UTILITY",
             "language": "en",
             "components": [
@@ -69,7 +69,7 @@ async def run():
         }
 
         template_order_placed_detailed = {
-            "name": "order_confirmation_details",
+            "name": "order_confirmation_v2",
             "category": "UTILITY",
             "language": "en",
             "components": [

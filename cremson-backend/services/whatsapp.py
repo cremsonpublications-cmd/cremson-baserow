@@ -54,7 +54,7 @@ async def send_order_confirmation(
     }
 
     if WHATSAPP_TEMPLATE_NAME != "hello_world":
-        if WHATSAPP_TEMPLATE_NAME in ["order_placed_detailed", "order_placed_details", "order_confirmation_details"]:
+        if WHATSAPP_TEMPLATE_NAME in ["order_placed_detailed", "order_placed_details", "order_confirmation_details", "order_confirmation_v2"]:
             formatted_items = ""
             if items:
                 lines = []
@@ -194,7 +194,7 @@ async def send_payment_success(
         "to": formatted_phone,
         "type": "template",
         "template": {
-            "name": "payment_received_notification",
+            "name": "payment_received_v2",
             "language": {
                 "code": WHATSAPP_TEMPLATE_LANGUAGE
             },
@@ -253,7 +253,7 @@ async def send_payment_failed(
         "to": formatted_phone,
         "type": "template",
         "template": {
-            "name": "payment_failed_alert",
+            "name": "payment_failed_v3",
             "language": {
                 "code": WHATSAPP_TEMPLATE_LANGUAGE
             },
