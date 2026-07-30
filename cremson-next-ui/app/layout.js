@@ -8,8 +8,72 @@ import WishlistDrawer from "../components/WishlistDrawer";
 import QueryProvider from "../lib/providers/QueryProvider";
 
 export const metadata = {
-  title: "Cremson Publications | Best Educational Books & Reference Materials",
-  description: "Discover quality educational books and publications that enhance learning and inspire knowledge. From textbooks to reference materials and lab manuals.",
+  title: {
+    default: "Cremson Publications | Best Educational Books & Reference Materials",
+    template: "%s | Cremson Publications",
+  },
+  description:
+    "Discover quality educational books and publications that enhance learning and inspire knowledge. From textbooks to reference materials and lab manuals.",
+  keywords: [
+    "educational books",
+    "textbooks",
+    "reference materials",
+    "lab manuals",
+    "cremson publications",
+    "school books",
+    "CBSE books"
+   
+  ],
+  authors: [{ name: "Cremson Publications", url: "https://cremsonpublications.com" }],
+  creator: "Cremson Publications",
+  publisher: "Cremson Publications",
+  metadataBase: new URL("https://cremsonpublications.com"),
+  alternates: {
+    canonical: "/",
+  },
+  icons: {
+    icon: [
+      { url: "/icon.png", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/icon.png",
+  },
+  openGraph: {
+    title: "Cremson Publications | Best Educational Books & Reference Materials",
+    description:
+      "Discover quality educational books and publications that enhance learning and inspire knowledge.",
+    url: "https://cremsonpublications.com",
+    siteName: "Cremson Publications",
+    images: [
+      {
+        url: "/opengraph-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Cremson Publications – Quality Educational Books",
+      },
+    ],
+    locale: "en_IN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Cremson Publications | Best Educational Books & Reference Materials",
+    description:
+      "Discover quality educational books and publications that enhance learning and inspire knowledge.",
+    images: ["/opengraph-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export default function RootLayout({ children }) {
