@@ -4,7 +4,8 @@ import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp } from "../../context/AppContext";
-import { Tag, ChevronDown, ChevronUp, Minus, Plus } from "lucide-react";
+import { getEffectiveUnitPrice, getItemTotalPrice } from "../../lib/utils/pricing";
+import { useCoupons } from "../../lib/api/hooks";
 
 function CartSkeleton() {
   return (
@@ -55,34 +56,66 @@ export default function CartPage() {
   const [showCoupons, setShowCoupons] = useState(false);
   const [promoError, setPromoError] = useState("");
 
-  const availableCoupons = [
-    { code: "CREMSON10", description: "10% off on all books", discountType: "percentage", value: 10 },
-    { code: "WELCOME50", description: "Flat ₹50 off on orders above ₹400", discountType: "fixed", value: 50, minOrder: 400 },
-  ];
+  // Fetch coupons from backend API
+  const { data: couponsData } = useCoupons();
+  const availableCoupons = useMemo(() => {
+    const apiCoupons = (couponsData?.results ?? couponsData?.items ?? []).map((c) => ({
+      code: c.code,
+      description: c.description || (c.discount_type === "percentage" ? `${c.discount_value}% off` : `Flat ₹${c.discount_value} off`),
+      discountType: c.discount_type || "percentage",
+      value: Number(c.discount_value ?? c.discount_percentage ?? 0),
+      minOrder: (c.min_order_amount ?? c.minimum_order_amount) ? Number(c.min_order_amount ?? c.minimum_order_amount) : null,
+      maxDiscount: c.max_discount_amount ? Number(c.max_discount_amount) : null,
+      showInUi: c.show_in_ui ?? true,
+      freeDelivery: c.free_delivery ?? false,
+      deliveryDiscount: c.delivery_discount_amount ? Number(c.delivery_discount_amount) : 0,
+      isActive: c.is_active ?? c.active ?? true,
+    })).filter((c) => c.isActive);
+
+    if (apiCoupons.length > 0) return apiCoupons;
+
+    return [
+      { code: "CREMSON10", description: "10% off on all books", discountType: "percentage", value: 10, minOrder: 0, showInUi: true },
+      { code: "WELCOME50", description: "Flat ₹50 off on orders above ₹400", discountType: "fixed", value: 50, minOrder: 400, showInUi: true },
+    ];
+  }, [couponsData]);
 
   const subtotal = useMemo(() => {
-    return cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    return cart.reduce((sum, item) => sum + getItemTotalPrice(item.product, item.quantity), 0);
   }, [cart]);
 
   const totalQuantity = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.quantity, 0);
   }, [cart]);
 
-  const deliveryCharges = useMemo(() => {
+  const rawDeliveryCharges = useMemo(() => {
     if (subtotal === 0) return 0;
     return subtotal >= 500 ? 0 : 50;
   }, [subtotal]);
 
+  const deliveryCharges = useMemo(() => {
+    if (!appliedPromo) return rawDeliveryCharges;
+    if (appliedPromo.freeDelivery) return 0;
+    if (appliedPromo.deliveryDiscount > 0) {
+      return Math.max(0, rawDeliveryCharges - appliedPromo.deliveryDiscount);
+    }
+    return rawDeliveryCharges;
+  }, [rawDeliveryCharges, appliedPromo]);
+
   const promoDiscount = useMemo(() => {
     if (!appliedPromo) return 0;
+    let disc = 0;
     if (appliedPromo.discountType === "percentage") {
-      return Math.round((subtotal * appliedPromo.value) / 100);
-    }
-    if (appliedPromo.discountType === "fixed") {
+      disc = (subtotal * appliedPromo.value) / 100;
+    } else if (appliedPromo.discountType === "fixed") {
       if (appliedPromo.minOrder && subtotal < appliedPromo.minOrder) return 0;
-      return appliedPromo.value;
+      disc = appliedPromo.value;
     }
-    return 0;
+
+    if (appliedPromo.maxDiscount && disc > appliedPromo.maxDiscount) {
+      disc = appliedPromo.maxDiscount;
+    }
+    return Math.round(disc);
   }, [appliedPromo, subtotal]);
 
   React.useEffect(() => {
@@ -198,12 +231,27 @@ export default function CartPage() {
                           <span className="text-black/60 text-xs md:text-sm">{book.category}</span>
                         </div>
                         <div className="flex items-center flex-wrap justify-between mt-2">
-                          <div className="flex items-center space-x-[5px] xl:space-x-2.5">
-                            <span className="font-bold text-black text-xl xl:text-2xl">₹{book.price}</span>
-                            {book.originalPrice && (
-                              <span className="font-bold text-black/40 line-through text-lg xl:text-xl">₹{book.originalPrice}</span>
-                            )}
-                          </div>
+                          {(() => {
+                            const effectivePrice = getEffectiveUnitPrice(book, item.quantity);
+                            const isBulkApplied = effectivePrice < book.price;
+                            return (
+                              <div className="flex flex-col text-left">
+                                <div className="flex items-center space-x-[5px] xl:space-x-2.5">
+                                  <span className="font-bold text-black text-xl xl:text-2xl">₹{effectivePrice}</span>
+                                  {(isBulkApplied || book.originalPrice) && (
+                                    <span className="font-bold text-black/40 line-through text-lg xl:text-xl">
+                                      ₹{isBulkApplied ? (book.mrp || book.originalPrice || book.price) : book.originalPrice}
+                                    </span>
+                                  )}
+                                </div>
+                                {isBulkApplied && (
+                                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 w-fit mt-0.5">
+                                    Bulk Price Override
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                           <div className="flex items-center justify-between bg-gray-900 text-white rounded-full px-3 h-8 md:h-10 min-w-[105px] max-w-[105px] sm:max-w-32 shadow-md">
                             <button onClick={() => updateQuantity(book.id, -1)} className="hover:bg-white/20 rounded-full p-1 transition-all duration-200 cursor-pointer" aria-label="Decrease quantity">
                               <Minus className="w-3.5 h-3.5" />
@@ -324,13 +372,13 @@ export default function CartPage() {
                         <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" />
                         <circle cx="7.5" cy="7.5" r=".5" fill="currentColor" />
                       </svg>
-                      Available Coupons ({availableCoupons.length})
+                      Available Coupons ({availableCoupons.filter((c) => c.showInUi !== false).length})
                     </span>
                     {showCoupons ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
                   {showCoupons && (
                     <div className="mt-3 space-y-2 text-left">
-                      {availableCoupons.map((coupon) => {
+                      {availableCoupons.filter((c) => c.showInUi !== false).map((coupon) => {
                         const isDisabled = coupon.minOrder && subtotal < coupon.minOrder;
                         return (
                           <div

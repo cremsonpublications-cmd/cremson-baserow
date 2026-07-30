@@ -12,20 +12,32 @@ class CouponCreate(BaseModel):
     code: str
     discount_type: Optional[str] = "percentage"
     discount_value: Optional[float] = None
+    discount_percentage: Optional[float] = None
     min_order_amount: Optional[float] = None
+    max_discount_amount: Optional[float] = None
     max_uses: Optional[int] = None
     expiry_date: Optional[str] = None
+    valid_until: Optional[str] = None
     is_active: Optional[bool] = True
+    show_in_ui: Optional[bool] = True
+    free_delivery: Optional[bool] = False
+    delivery_discount_amount: Optional[float] = None
 
 
 class CouponUpdate(BaseModel):
     code: Optional[str] = None
     discount_type: Optional[str] = None
     discount_value: Optional[float] = None
+    discount_percentage: Optional[float] = None
     min_order_amount: Optional[float] = None
+    max_discount_amount: Optional[float] = None
     max_uses: Optional[int] = None
     expiry_date: Optional[str] = None
+    valid_until: Optional[str] = None
     is_active: Optional[bool] = None
+    show_in_ui: Optional[bool] = None
+    free_delivery: Optional[bool] = None
+    delivery_discount_amount: Optional[float] = None
 
 
 @router.get("/", summary="List coupons")

@@ -15,13 +15,30 @@ class ProductCreate(BaseModel):
     mrp: Optional[float] = None
     price: Optional[float] = None
     description: Optional[str] = None
+    short_description: Optional[str] = None
     category_id: Optional[int] = None
     isbn: Optional[str] = None
+    edition: Optional[str] = None
+    weight: Optional[str] = None
+    dimension: Optional[str] = None
     stock_status: Optional[str] = "in_stock"
     status: Optional[str] = None
     is_active: Optional[bool] = True
     main_image: Optional[str] = None
+    side_images: Optional[list] = None
     class_: Optional[str] = None
+    sub_categories: Optional[str] = None
+    delivery_info: Optional[str] = None
+    returns_info: Optional[str] = None
+    enable_bulk_pricing: Optional[bool] = False
+    discount_type: Optional[str] = "none"
+    has_own_discount: Optional[bool] = False
+    own_discount_type: Optional[str] = None
+    own_discount_val: Optional[float] = 0.0
+    own_discount_percentage: Optional[int] = 0
+    use_category_discount: Optional[bool] = False
+    bulk_pricing: Optional[str] = None
+    tags: Optional[str] = None
 
 
 class ProductUpdate(BaseModel):
@@ -30,13 +47,30 @@ class ProductUpdate(BaseModel):
     mrp: Optional[float] = None
     price: Optional[float] = None
     description: Optional[str] = None
+    short_description: Optional[str] = None
     category_id: Optional[int] = None
     isbn: Optional[str] = None
+    edition: Optional[str] = None
+    weight: Optional[str] = None
+    dimension: Optional[str] = None
     stock_status: Optional[str] = None
     status: Optional[str] = None
     is_active: Optional[bool] = None
     main_image: Optional[str] = None
+    side_images: Optional[list] = None
     class_: Optional[str] = None
+    sub_categories: Optional[str] = None
+    delivery_info: Optional[str] = None
+    returns_info: Optional[str] = None
+    enable_bulk_pricing: Optional[bool] = None
+    discount_type: Optional[str] = None
+    has_own_discount: Optional[bool] = None
+    own_discount_type: Optional[str] = None
+    own_discount_val: Optional[float] = None
+    own_discount_percentage: Optional[int] = None
+    use_category_discount: Optional[bool] = None
+    bulk_pricing: Optional[str] = None
+    tags: Optional[str] = None
 
 
 def map_product_out(row: dict) -> dict:
@@ -83,29 +117,8 @@ def map_product_out(row: dict) -> dict:
 
 
 def map_product_in(data: dict, existing_mrp: float = 0.0) -> dict:
-    # Handle price mapping to discount fields
-    if "price" in data:
-        price = data.pop("price")
-        # mrp can come from data or from existing_mrp
-        mrp_val = data.get("mrp")
-        if mrp_val is not None:
-            try:
-                mrp = float(mrp_val)
-            except (ValueError, TypeError):
-                mrp = 0.0
-        else:
-            mrp = existing_mrp
-
-        if price is not None and mrp > 0:
-            if price < mrp:
-                data["has_own_discount"] = True
-                data["own_discount_percentage"] = int(round(((mrp - price) / mrp) * 100))
-            else:
-                data["has_own_discount"] = False
-                data["own_discount_percentage"] = 0
-        else:
-            data["has_own_discount"] = False
-            data["own_discount_percentage"] = 0
+    # Clean up price field so it doesn't get sent as an unknown field to Baserow
+    data.pop("price", None)
 
     # Handle class_ mapping to classes
     if "class_" in data:
@@ -125,6 +138,7 @@ async def list_products(
     search: str = Query(None, description="Search string"),
     category_id: Optional[int] = Query(None, description="Filter by category ID"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    order_by: Optional[str] = Query("-id", description="Order by field"),
 ):
     """Return a paginated list of products. Optionally filter by category_id and/or is_active."""
     filters = {}
@@ -133,18 +147,25 @@ async def list_products(
     if is_active is not None:
         filters["is_active"] = str(is_active).lower()
 
+    # Fetch rows from Baserow and sort descending by row ID so newest products are on Page 1
     res = await client.get_rows(
         TABLE_IDS["products"],
-        page=page,
-        size=size,
+        page=1,
+        size=200,
         search=search,
         filters=filters if filters else None,
     )
     if isinstance(res, dict) and "results" in res:
-        res["results"] = [map_product_out(r) for r in res["results"]]
+        all_results = sorted([map_product_out(r) for r in res["results"]], key=lambda x: x.get("id", 0), reverse=True)
+        start = (page - 1) * size
+        end = start + size
+        return {
+            "count": len(all_results),
+            "results": all_results[start:end],
+        }
     elif isinstance(res, list):
-        res = [map_product_out(r) for r in res]
-    return res
+        return sorted([map_product_out(r) for r in res], key=lambda x: x.get("id", 0), reverse=True)
+    return {"count": 0, "results": []}
 
 
 @router.get("/{row_id}", summary="Get a single product")
@@ -165,18 +186,7 @@ async def create_product(body: ProductCreate):
 @router.patch("/{row_id}", summary="Update product")
 async def update_product(row_id: int, body: ProductUpdate):
     data = {k: v for k, v in body.model_dump(exclude_none=True).items()}
-    
-    existing_mrp = 0.0
-    if "price" in data and "mrp" not in data:
-        # Fetch the existing product to get mrp
-        try:
-            existing = await client.get_row(TABLE_IDS["products"], row_id)
-            existing_mrp_val = existing.get("mrp")
-            existing_mrp = float(existing_mrp_val) if existing_mrp_val is not None else 0.0
-        except Exception:
-            pass
-            
-    data = map_product_in(data, existing_mrp)
+    data = map_product_in(data)
     row = await client.update_row(TABLE_IDS["products"], row_id, data)
     return map_product_out(row)
 

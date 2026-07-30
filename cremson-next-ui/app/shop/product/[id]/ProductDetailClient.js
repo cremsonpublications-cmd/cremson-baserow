@@ -47,6 +47,7 @@ export default function ProductDetailClient({ initialBook, bookId }) {
   const [selectedBoughtIds, setSelectedBoughtIds] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [showReviewForm, setShowReviewForm] = useState(false);
+  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [reviewerName, setReviewerName] = useState("");
   const [reviewText, setReviewText] = useState("");
   const [reviewRating, setReviewRating] = useState(5);
@@ -348,16 +349,80 @@ export default function ProductDetailClient({ initialBook, bookId }) {
                 </span>
               </div>
 
-              {/* Pricing */}
-              <div className="flex items-center space-x-2.5 sm:space-x-3 mb-5">
-                <span className="font-bold text-black text-2xl sm:text-[32px]">₹{book.price}</span>
-                {book.originalPrice && (
-                  <>
-                    <span className="text-black/30 line-through text-2xl sm:text-[32px]">₹{book.originalPrice}</span>
-                    <span className="text-red-500 font-bold text-xs sm:text-sm px-3 py-1 bg-red-50 rounded-full">{book.discount}</span>
-                  </>
-                )}
-              </div>
+              {/* Bulk Pricing Tier Evaluation */}
+              {(() => {
+                const currentQty = quantityInCart > 0 ? quantityInCart : 1;
+                let activeBulkTier = null;
+                if (book.enable_bulk_pricing && book.bulk_pricing) {
+                  let tiers = [];
+                  if (Array.isArray(book.bulk_pricing)) {
+                    tiers = book.bulk_pricing;
+                  } else if (typeof book.bulk_pricing === "string") {
+                    try { tiers = JSON.parse(book.bulk_pricing); } catch {}
+                  }
+                  if (Array.isArray(tiers)) {
+                    const sorted = [...tiers].sort((a, b) => Number(b.min_qty) - Number(a.min_qty));
+                    activeBulkTier = sorted.find((t) => currentQty >= Number(t.min_qty));
+                  }
+                }
+
+                const effectiveUnitPrice = activeBulkTier ? Number(activeBulkTier.price) : book.price;
+                const showBulkDiscountNotice = !!activeBulkTier;
+
+                return (
+                  <div>
+                    {/* Pricing */}
+                    <div className="flex items-center space-x-2.5 sm:space-x-3 mb-2">
+                      <span className="font-bold text-black text-2xl sm:text-[32px]">₹{effectiveUnitPrice}</span>
+                      {showBulkDiscountNotice ? (
+                        <>
+                          <span className="text-black/30 line-through text-2xl sm:text-[32px]">₹{book.mrp || book.originalPrice || book.price}</span>
+                          <span className="text-emerald-700 font-bold text-xs sm:text-sm px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-full">
+                            Bulk Price Applied (₹{effectiveUnitPrice}/book)
+                          </span>
+                        </>
+                      ) : (
+                        book.originalPrice && (
+                          <>
+                            <span className="text-black/30 line-through text-2xl sm:text-[32px]">₹{book.originalPrice}</span>
+                            <span className="text-red-500 font-bold text-xs sm:text-sm px-3 py-1 bg-red-50 rounded-full">{book.discount}</span>
+                          </>
+                        )
+                      )}
+                    </div>
+
+                    {/* Bulk Pricing Available Info Banner */}
+                    {book.enable_bulk_pricing && book.bulk_pricing && (
+                      <div className="mb-4 p-3 bg-amber-50/60 border border-amber-200 rounded-xl text-left">
+                        <span className="text-xs font-bold text-amber-800 uppercase tracking-wide flex items-center gap-1 mb-1">
+                          📦 Bulk Pricing Tiers
+                        </span>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {(() => {
+                            let tiers = [];
+                            if (Array.isArray(book.bulk_pricing)) tiers = book.bulk_pricing;
+                            else if (typeof book.bulk_pricing === "string") {
+                              try { tiers = JSON.parse(book.bulk_pricing); } catch {}
+                            }
+                            return (Array.isArray(tiers) ? tiers : []).sort((a, b) => Number(a.min_qty) - Number(b.min_qty)).map((tier, idx) => (
+                              <span
+                                key={idx}
+                                className={`text-xs px-2.5 py-1 rounded-md font-semibold border ${
+                                  currentQty >= Number(tier.min_qty)
+                                    ? "bg-amber-500 text-white border-amber-600 shadow-sm"
+                                    : "bg-white text-gray-700 border-gray-200"
+                                }`}
+                              >
+                                {tier.min_qty}+ books: ₹{tier.price}/each
+                              </span>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               <hr className="h-[1px] border-t-black/10 mb-5" />
 
@@ -411,7 +476,10 @@ export default function ProductDetailClient({ initialBook, bookId }) {
               {/* Product trust factors */}
               <div className="mt-4 space-y-4 pt-4 border-t border-gray-100">
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <button className="flex items-center gap-3 text-gray-700 hover:text-black transition-colors text-left">
+                  <button 
+                    onClick={() => setShowDeliveryModal(true)}
+                    className="flex items-center gap-3 text-gray-700 hover:text-black transition-colors text-left cursor-pointer"
+                  >
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-truck w-6 h-6 text-black">
                       <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"></path>
                       <path d="M15 18H9"></path>
@@ -881,6 +949,76 @@ export default function ProductDetailClient({ initialBook, bookId }) {
           </div>
         )}
       </div>
+
+      {/* Delivery & Return Information Modal */}
+      {showDeliveryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto shadow-xl text-left">
+            <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
+              <h2 className="text-xl font-semibold text-gray-900">Delivery &amp; Return Information</h2>
+              <button
+                onClick={() => setShowDeliveryModal(false)}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer p-1"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x w-6 h-6">
+                  <path d="M18 6 6 18"></path>
+                  <path d="m6 6 12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-8">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-truck w-5 h-5 mr-2 text-gray-600">
+                    <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"></path>
+                    <path d="M15 18H9"></path>
+                    <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"></path>
+                    <circle cx="17" cy="18" r="2"></circle>
+                    <circle cx="7" cy="18" r="2"></circle>
+                  </svg>
+                  Delivery Information
+                </h3>
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <div className="text-gray-700 text-sm leading-relaxed whitespace-pre-line">
+                    We aim to deliver your order safely and on time. All orders are usually delivered within 4–5 working days from the date of dispatch.
+                    {"\n"}Delivery timelines may vary slightly depending on your location, courier service availability, and order size.
+                    {"\n\n"}Delivery Charges:
+                    {"\n"}Applicable as per your delivery address and order value. The exact delivery charge (if any) will be displayed at checkout before you make the payment.
+                    {"\n\n"}Once your order has been shipped, you will receive an email or WhatsApp notification with your tracking details so you can monitor your delivery status in real time.
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-rotate-ccw w-5 h-5 mr-2 text-gray-600">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                    <path d="M3 3v5h5"></path>
+                  </svg>
+                  Returns &amp; Exchanges
+                </h3>
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <div className="text-gray-700 text-sm leading-relaxed whitespace-pre-line">
+                    We take utmost care in packaging and dispatching your order. However, if you happen to receive a damaged, defective, or incorrect product, we will be happy to offer an exchange.
+                    {"\n\n"}Please note the following terms:
+                    {"\n"}• Exchange is applicable only in cases where the product received is damaged, misprinted, or incorrect.
+                    {"\n"}• We do not offer returns or refunds for any other reasons (such as change of mind or wrong selection).
+                    {"\n"}• Customers must notify us within 14 days of delivery to be eligible for an exchange.
+                    {"\n"}• We do not arrange return pickups. You will need to ship the product back to our address (as provided in the exchange confirmation email).
+                    {"\n"}• Once we receive and verify the returned product, a replacement copy will be dispatched to you at no additional cost.
+                    {"\n"}• The exchanged product will be the same title and edition as originally ordered (unless otherwise agreed upon in writing).
+                    {"\n\n"}—
+                    {"\n\n"}How to Raise an Exchange Request
+                    {"\n\n"}To initiate an exchange or report a damaged/incorrect product:
+                    {"\n"}1. Email us at info@cremsonpublications.com within 14 days of receiving your order.
+                    {"\n"}2. Mention your Order ID, the issue faced, and attach clear photographs of the product and packaging.
+                    {"\n"}3. Our team will review your request and respond with the return shipping details and next steps.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

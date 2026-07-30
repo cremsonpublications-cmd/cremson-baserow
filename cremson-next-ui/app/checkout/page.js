@@ -7,6 +7,7 @@ import { useApp } from "../../context/AppContext";
 import { Mail, User, CreditCard, Shield, Truck, ChevronDown, Plus, MapPin } from "lucide-react";
 import api from "../../lib/api/axios";
 import { getAddresses, addAddress } from "../../lib/api/addresses";
+import { getEffectiveUnitPrice, getItemTotalPrice } from "../../lib/utils/pricing";
 
 // Load Razorpay script once
 function loadRazorpay() {
@@ -151,7 +152,7 @@ export default function CheckoutPage() {
 
   // Calculations
   const subtotal = useMemo(() => {
-    return cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    return cart.reduce((sum, item) => sum + getItemTotalPrice(item.product, item.quantity), 0);
   }, [cart]);
 
   const totalQuantity = useMemo(() => {
@@ -228,15 +229,18 @@ export default function CheckoutPage() {
                   apartment: apartment || "",
                 }
               },
-              items: cart.map((item) => ({
-                name: item.product.title,
-                author: item.product.author || "",
-                quantity: item.quantity,
-                productId: item.product.id,
-                totalPrice: item.product.price * item.quantity,
-                currentPrice: item.product.price,
-                image: item.product.image || "",
-              })),
+              items: cart.map((item) => {
+                const effectiveUnitPrice = getEffectiveUnitPrice(item.product, item.quantity);
+                return {
+                  name: item.product.title,
+                  author: item.product.author || "",
+                  quantity: item.quantity,
+                  productId: item.product.id,
+                  totalPrice: getItemTotalPrice(item.product, item.quantity),
+                  currentPrice: effectiveUnitPrice,
+                  image: item.product.image || "",
+                };
+              }),
               order_summary: {
                 subTotal: subtotal,
                 grandTotal: finalTotal,
@@ -741,7 +745,7 @@ export default function CheckoutPage() {
                         <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
                       </div>
                       <div className="text-sm font-medium text-gray-900">
-                        ₹{(item.product.price * item.quantity).toFixed(2)}
+                        ₹{getItemTotalPrice(item.product, item.quantity).toFixed(2)}
                       </div>
                     </div>
                   ))}
