@@ -125,3 +125,70 @@ We noticed that your payment of {{2}} for Order {{3}} failed or was cancelled.
 
 Thank you!
 ```
+
+---
+
+## 💬 WhatsApp Conversational Chat Flow
+
+### Architecture Diagram
+```mermaid
+sequenceDiagram
+    participant Customer as Customer WhatsApp
+    participant Meta as Meta Cloud API
+    participant Webhook as GET/POST /api/webhooks/whatsapp
+    participant Router as routers/whatsapp.py
+    participant Service as services/whatsapp_chat.py
+    participant State as utils/conversation_state.py
+    participant Baserow as Baserow Database
+    participant Shipway as Shipway Tracking
+
+    Customer->>Meta: Send Message ("Hi", "1", "2", "CR10025")
+    Meta->>Webhook: POST /api/webhooks/whatsapp (Payload)
+    Webhook->>Router: Validate Webhook Signature & Extract Message
+    Router->>Service: handle_incoming_message(from_phone, text) [Background Task]
+    Service->>State: Get current conversation state
+    alt State: MAIN_MENU / Greeting
+        Service->>Customer: Send Welcome Menu (1: Browse Books, 2: My Orders, 3: Track Order, 4: Support)
+    else Option 1: Browse Books
+        Service->>Customer: Redirect link to website (https://your-domain.com/books)
+    else Option 2: My Orders
+        Service->>Baserow: Search Orders by customer phone number
+        Baserow-->>Service: Return matching customer orders
+        Service->>State: Save state WAITING_FOR_ORDER_SELECTION
+        Service->>Customer: Send recent order summary & selection list
+    else Option 3 / Waiting Order ID: Track Order
+        alt State: WAITING_FOR_ORDER_ID
+            Service->>Baserow: Search Order by Order ID (e.g. CR10025)
+            Baserow-->>Service: Return order details & AWB / tracking_url
+            Service->>State: Reset state to MAIN_MENU
+            Service->>Customer: Send order details & Shipway tracking link
+        else Prompt for Order ID
+            Service->>State: Save state WAITING_FOR_ORDER_ID
+            Service->>Customer: "Please enter your Order ID."
+        end
+    else Option 4: Contact Support
+        Service->>Customer: Support Email & Phone details
+    end
+```
+
+### Incoming Webhook
+- **GET `/api/webhooks/whatsapp`**: Webhook verification endpoint for Meta Graph API setup (`hub.challenge`).
+- **POST `/api/webhooks/whatsapp`**: Webhook endpoint that receives incoming customer messages and processes them asynchronously via `services/whatsapp_chat.py`.
+
+### Menu Structure & Conversation Flow
+- **Greeting (`Hi` / `Hello` / `Start`)**:
+  - Displays welcome greeting and options 1-4.
+- **1️⃣ Browse Books**:
+  - Directs customer to `https://your-domain.com/books`.
+- **2️⃣ My Orders**:
+  - Looks up Baserow Orders table using sender phone number (`from` phone from Meta webhook).
+  - Returns recent orders list and prompts user to select an order number for detailed breakdown and tracking link.
+- **3️⃣ Track Order**:
+  - Prompts user for Order ID (e.g., `CR10025` or `BOOK5`).
+  - Searches Baserow by `order_id` and returns status, courier name, AWB, and direct Shipway tracking link.
+- **4️⃣ Contact Support**:
+  - Returns Cremson Publications support email and phone details.
+
+### State Management
+- Managed in-memory via `utils/conversation_state.py` with automatic expiration (TTL = 30 mins).
+- Zero database schema changes required.

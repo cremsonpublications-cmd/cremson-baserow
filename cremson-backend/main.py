@@ -17,6 +17,7 @@ from routers import payment as payment_router
 from routers import cart as cart_router
 from routers import wishlist as wishlist_router
 from routers import webhooks as webhooks_router
+from routers import whatsapp as whatsapp_router
 
 app = FastAPI(
     title="Cremson Backend API",
@@ -39,6 +40,7 @@ app.include_router(payment_router.router, prefix="/api/payment", tags=["Payment"
 app.include_router(cart_router.router, prefix="/api/cart", tags=["Cart"])
 app.include_router(wishlist_router.router, prefix="/api/wishlist", tags=["Wishlist"])
 app.include_router(webhooks_router.router, prefix="/api/webhooks", tags=["Webhooks"])
+app.include_router(whatsapp_router.router, prefix="/api/webhooks", tags=["WhatsApp Chat Webhook"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
