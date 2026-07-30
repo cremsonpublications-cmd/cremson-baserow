@@ -9,7 +9,7 @@ router = APIRouter()
 
 JWT_SECRET    = os.getenv("JWT_SECRET", "changeme")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-TOKEN_EXPIRE  = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+TOKEN_EXPIRE  = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "14400"))
 
 ADMIN_EMAIL    = "cremsonpublications@gmail.com"
 ADMIN_PASSWORD = "12345678"
@@ -25,7 +25,7 @@ async def admin_login(body: AdminLoginRequest):
     if body.email.lower().strip() != ADMIN_EMAIL or body.password != ADMIN_PASSWORD:
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
 
-    expire = datetime.now(timezone.utc) + timedelta(minutes=TOKEN_EXPIRE * 24)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=TOKEN_EXPIRE)
     token = jwt.encode(
         {
             "sub": "admin",

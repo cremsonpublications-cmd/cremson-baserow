@@ -185,11 +185,35 @@ export default function MyOrdersPage() {
           </div>
         </div>
 
-        {/* Orders list */}
         {isLoading ? (
-          <div className="bg-white border border-gray-200 rounded p-12 text-center shadow-sm">
-            <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-xs text-gray-500">Loading your orders...</p>
+          <div className="space-y-3">
+            {[1, 2, 3].map((n) => (
+              <div
+                key={n}
+                className="bg-white border border-gray-200 rounded p-4 sm:p-5 shadow-sm animate-pulse grid grid-cols-1 md:grid-cols-12 gap-4 items-center"
+              >
+                <div className="md:col-span-6 flex items-start gap-4">
+                  <div className="w-16 h-16 bg-gray-200 rounded" />
+                  <div className="flex-1 space-y-2 py-1">
+                    <div className="h-4 bg-gray-200 rounded w-3/4" />
+                    <div className="h-3 bg-gray-200 rounded w-1/2" />
+                    <div className="h-3 bg-gray-200 rounded w-1/3" />
+                  </div>
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-1/2" />
+                  <div className="h-3 bg-gray-200 rounded w-1/3" />
+                </div>
+                <div className="md:col-span-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-gray-200" />
+                    <div className="h-3.5 bg-gray-200 rounded w-1/3" />
+                  </div>
+                  <div className="h-3 bg-gray-200 rounded w-3/4 ml-4" />
+                  <div className="h-3 bg-gray-200 rounded w-1/4 ml-4" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : orderItemsList.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded p-12 text-center shadow-sm">

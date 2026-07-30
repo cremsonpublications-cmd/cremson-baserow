@@ -9,6 +9,9 @@ import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+import re
+from services.baserow import BaserowClient
+from config import TABLE_IDS
 
 import httpx
 
@@ -87,21 +90,83 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
         "Content-Type": "application/json",
     }
 
-    # Build products array from items or fall back to a single generic product
+    def parse_weight_kg(weight_str: Any) -> float:
+        if not weight_str:
+            return 0.5
+        s = str(weight_str).lower().strip()
+        match = re.search(r"([0-9]+(?:\.[0-9]+)?)", s)
+        if not match:
+            return 0.5
+        val = float(match.group(1))
+        if "gm" in s or "g" in s and "kg" not in s:
+            return val / 1000.0
+        return val
+
+    def parse_dimension_cm(dim_str: Any) -> tuple:
+        default_dim = (20.0, 15.0, 2.0)
+        if not dim_str:
+            return default_dim
+        s = str(dim_str).lower().strip()
+        parts = re.split(r"[,x*]", s)
+        if len(parts) < 3:
+            return default_dim
+        parsed = []
+        for p in parts[:3]:
+            match = re.search(r"([0-9]+(?:\.[0-9]+)?)", p)
+            if match:
+                parsed.append(float(match.group(1)))
+            else:
+                parsed.append(None)
+        if len(parsed) == 3 and all(val is not None for val in parsed):
+            return (parsed[0], parsed[1], parsed[2])
+        return default_dim
+
+    # Build products array and calculate aggregated weight/dimensions
     items: List[dict] = order.get("items") or []
+    total_weight_kg = 0.0
+    max_length = 0.0
+    max_breadth = 0.0
+    total_height = 0.0
+    
+    baserow = BaserowClient()
+
     if items:
-        products = [
-            {
-                "product": item.get("name") or item.get("title") or "Book",
-                "price": float(item.get("currentPrice") or item.get("price") or 0),
-                "product_code": str(item.get("product_id") or item.get("id") or "BOOK"),
-                "product_quantity": int(item.get("quantity") or item.get("qty") or 1),
+        products = []
+        for item in items:
+            name = item.get("name") or item.get("title") or "Book"
+            price = float(item.get("currentPrice") or item.get("price") or 0)
+            prod_id = str(item.get("product_id") or item.get("productId") or item.get("id") or "BOOK")
+            qty = int(item.get("quantity") or item.get("qty") or 1)
+            
+            products.append({
+                "product": name,
+                "price": price,
+                "product_code": prod_id,
+                "product_quantity": qty,
                 "discount": 0,
                 "tax_rate": 0,
                 "tax_title": "GST",
-            }
-            for item in items
-        ]
+            })
+            
+            # Fetch product details from Baserow
+            weight_kg = 0.5
+            length = 20.0
+            breadth = 15.0
+            height = 2.0
+            
+            if prod_id.isdigit():
+                try:
+                    prod_row = await baserow.get_row(TABLE_IDS["products"], int(prod_id))
+                    if prod_row:
+                        weight_kg = parse_weight_kg(prod_row.get("weight"))
+                        length, breadth, height = parse_dimension_cm(prod_row.get("dimension"))
+                except Exception as e:
+                    logger.error(f"[Shipway] Error fetching product {prod_id} details: {e}")
+            
+            total_weight_kg += weight_kg * qty
+            max_length = max(max_length, length)
+            max_breadth = max(max_breadth, breadth)
+            total_height += height * qty
     else:
         products = [
             {
@@ -114,9 +179,19 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
                 "tax_title": "GST",
             }
         ]
+        total_weight_kg = 0.5
+        max_length = 20.0
+        max_breadth = 15.0
+        total_height = 5.0
 
-    # Weight must be in grams for Shipway v2
-    weight_grams = str(int(order.get("weight_grams") or order.get("weight", 0.5) * 1000 or 500))
+    if max_length <= 0:
+        max_length = 20.0
+    if max_breadth <= 0:
+        max_breadth = 15.0
+    if total_height <= 0:
+        total_height = 5.0
+
+    weight_grams = str(int(total_weight_kg * 1000))
 
     payload: Dict[str, Any] = {
         "order_id": order["order_id"],
@@ -133,9 +208,9 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
         "shipping_zipcode": str(order.get("pincode", "")),
         "shipping_country": "India",
         "order_weight": weight_grams,
-        "length": str(order.get("length", 20)),
-        "breadth": str(order.get("breadth", 15)),
-        "height": str(order.get("height", 5)),
+        "length": str(int(max_length)),
+        "breadth": str(int(max_breadth)),
+        "height": str(int(total_height)),
         "collectable_amount": "0",
         "comment": f"Cremson order {order['order_id']}",
     }

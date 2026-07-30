@@ -24,7 +24,8 @@ import {
   DollarSign,
   Briefcase,
   Layers,
-  ChevronDown
+  ChevronDown,
+  Copy
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
@@ -400,6 +401,7 @@ export default function AdminProducts() {
   const [editProduct, setEditProduct] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState(null);
 
   const debouncedSearch = useDebounce(search, 400);
 
@@ -436,6 +438,33 @@ export default function AdminProducts() {
     e.stopPropagation();
     setEditProduct(product);
     setModalOpen(true);
+  }
+
+  async function handleDuplicate(e, product) {
+    e.stopPropagation();
+    setDuplicatingId(product.id);
+    try {
+      const payload = {
+        name: product.name || "",
+        author: product.author || "",
+        mrp: product.mrp != null ? Number(product.mrp) : null,
+        price: product.price != null ? Number(product.price) : null,
+        description: product.description || "",
+        category_id: product.category_id != null ? Number(product.category_id) : (product.category != null ? Number(product.category) : null),
+        isbn: product.isbn || "",
+        stock_status: product.stock_status || "in_stock",
+        status: product.status || "",
+        is_active: product.is_active ?? true,
+        main_image: product.main_image || "",
+        class_: product.class_ || product.class || "",
+      };
+      await adminCreateProduct(payload);
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+    } catch (err) {
+      alert(err?.response?.data?.detail || "Failed to duplicate product.");
+    } finally {
+      setDuplicatingId(null);
+    }
   }
 
   function handleDelete(e, product) {
@@ -634,6 +663,18 @@ export default function AdminProducts() {
                     {/* Actions */}
                     <td className="px-5 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={(e) => handleDuplicate(e, product)}
+                          disabled={duplicatingId === product.id}
+                          className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all disabled:opacity-50"
+                          title="Copy/Duplicate Product"
+                        >
+                          {duplicatingId === product.id ? (
+                            <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
                         <button
                           onClick={(e) => openEdit(e, product)}
                           className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"

@@ -29,7 +29,7 @@ router = APIRouter()
 # ── Config ────────────────────────────────────────────────────────────────────
 JWT_SECRET    = os.getenv("JWT_SECRET", "changeme")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-TOKEN_EXPIRE  = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+TOKEN_EXPIRE  = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "14400"))
 
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer  = HTTPBearer()

@@ -102,6 +102,7 @@ async def _create_shipway_shipment(
         "order_id": order_id,
         "order_date": order_date,
         "total_amount": total_amount,
+        "items": items,
         "items_description": items_desc,
         "customer_name": cust_name,
         "customer_email": cust_email,
