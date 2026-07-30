@@ -2,10 +2,8 @@ name: Deploy Backend
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'cremson-backend/**'
+    tags:
+      - '*'
 
 jobs:
   deploy:
@@ -18,9 +16,10 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
-            echo "Pulling latest code from GitHub..."
+            echo "Checking out tagged version ${{ github.ref_name }}..."
             cd /opt/cremson-baserow
-            git pull origin main
+            git fetch --all --tags
+            git checkout ${{ github.ref_name }}
             
             echo "Installing backend dependencies..."
             cd cremson-backend
