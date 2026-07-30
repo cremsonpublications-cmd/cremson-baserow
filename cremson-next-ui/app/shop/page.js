@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useApp } from "../../context/AppContext";
 import { useProducts, useCategories } from "../../lib/api/hooks";
 import { ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
 
 const SORT_OPTIONS = [
   { value: "default", label: "Default" },
@@ -97,8 +98,8 @@ function CustomCheckbox({ checked, onChange, label }) {
   );
 }
 
-export default function Shop() {
-  const { addToCart, toggleWishlist, wishlist, searchQuery, cart, updateQuantity, removeFromCart } = useApp();
+function Shop() {
+  const { addToCart, toggleWishlist, wishlist, searchQuery, setSearchQuery, cart, updateQuantity, removeFromCart } = useApp();
 
   const { data: booksData = [], isLoading: dataLoading } = useProducts();
   const { data: categoriesData } = useCategories({ size: 100 });
@@ -151,6 +152,75 @@ export default function Shop() {
   }, [booksData]);
 
   const effectiveMaxPrice = maxPrice ?? priceRange.max;
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Initial URL parsing to state on page load
+  const isInitialSyncRef = useRef(false);
+  useEffect(() => {
+    if (isInitialSyncRef.current) return;
+    if (!booksData.length) return; // Wait until product data is available so we have correct defaults/ranges
+
+    const params = new URLSearchParams(window.location.search);
+    const search = params.get("search") || params.get("q") || "";
+    const cats = params.get("categories") ? params.get("categories").split(",") : [];
+    const subs = params.get("subCategories") ? params.get("subCategories").split(",") : [];
+    const auths = params.get("authors") ? params.get("authors").split(",") : [];
+    const cls = params.get("classes") ? params.get("classes").split(",") : [];
+    const ed = params.get("editions") ? params.get("editions").split(",") : [];
+    const st = params.get("statuses") ? params.get("statuses").split(",") : [];
+    const price = params.get("maxPrice") ? Number(params.get("maxPrice")) : null;
+    const sort = params.get("sortBy") || "default";
+    const pg = params.get("page") ? Number(params.get("page")) : 1;
+
+    if (search) setSearchQuery(search);
+    if (cats.length) setSelectedCategories(cats);
+    if (subs.length) setSelectedSubCategories(subs);
+    if (auths.length) setSelectedAuthors(auths);
+    if (cls.length) setSelectedClasses(cls);
+    if (ed.length) setSelectedEditions(ed);
+    if (st.length) setSelectedStatuses(st);
+    if (price !== null) setMaxPrice(price);
+    if (sort !== "default") setSortBy(sort);
+    if (pg > 1) setCurrentPage(pg);
+
+    isInitialSyncRef.current = true;
+  }, [booksData, setSearchQuery]);
+
+  // Sync state to URL search parameters
+  useEffect(() => {
+    if (!isInitialSyncRef.current) return; // Don't overwrite URL before parsing it
+
+    const params = new URLSearchParams();
+    if (searchQuery) params.set("search", searchQuery);
+    if (selectedCategories.length > 0) params.set("categories", selectedCategories.join(","));
+    if (selectedSubCategories.length > 0) params.set("subCategories", selectedSubCategories.join(","));
+    if (selectedAuthors.length > 0) params.set("authors", selectedAuthors.join(","));
+    if (selectedClasses.length > 0) params.set("classes", selectedClasses.join(","));
+    if (selectedEditions.length > 0) params.set("editions", selectedEditions.join(","));
+    if (selectedStatuses.length > 0) params.set("statuses", selectedStatuses.join(","));
+    if (maxPrice !== null && maxPrice !== priceRange.max) params.set("maxPrice", maxPrice);
+    if (sortBy !== "default") params.set("sortBy", sortBy);
+    if (currentPage > 1) params.set("page", currentPage);
+
+    const qs = params.toString();
+    const dest = qs ? `/shop?${qs}` : "/shop";
+    router.replace(dest, { scroll: false });
+  }, [
+    searchQuery,
+    selectedCategories,
+    selectedSubCategories,
+    selectedAuthors,
+    selectedClasses,
+    selectedEditions,
+    selectedStatuses,
+    maxPrice,
+    sortBy,
+    currentPage,
+    router,
+    priceRange.max
+  ]);
 
   // Filter & Sort Logic
   const filteredBooks = useMemo(() => {
@@ -966,5 +1036,24 @@ export default function Shop() {
         </div>
       </div>
     </main>
+  );
+}
+
+function ShopFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500 mx-auto mb-4"></div>
+        <p className="text-gray-600 font-semibold">Loading Shop...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function ShopPage() {
+  return (
+    <Suspense fallback={<ShopFallback />}>
+      <Shop />
+    </Suspense>
   );
 }

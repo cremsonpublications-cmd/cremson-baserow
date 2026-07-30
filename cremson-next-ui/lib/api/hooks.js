@@ -10,11 +10,12 @@ export function useProducts(params = {}) {
   });
 }
 
-export function useProduct(id) {
+export function useProduct(id, initialData) {
   return useQuery({
     queryKey: ["product", id],
     queryFn: () => fetchProduct(id),
     enabled: !!id,
+    initialData,
   });
 }
 
