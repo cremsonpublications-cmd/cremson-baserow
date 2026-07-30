@@ -1,5 +1,7 @@
 "use client";
 
+export const runtime = "edge";
+
 import React, { useState, useEffect, use } from "react";
 import { useApp } from "../../../../context/AppContext";
 import { useProduct } from "../../../../lib/api/hooks";

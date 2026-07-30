@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cremson-baserow-dev",
+  "pages_build_output_dir": ".vercel/output/static",
+  "compatibility_date": "2024-09-23",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "vars": {
+    "NEXT_PUBLIC_API_URL": "http://200.141.5.200:8000"
+  }
+}
