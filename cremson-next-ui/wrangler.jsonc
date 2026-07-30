@@ -7,7 +7,6 @@
     "nodejs_compat"
   ],
   "vars": {
-    "NEXT_PUBLIC_API_URL": "",
-    "BACKEND_API_URL": "http://200.141.5.200:8000"
+    "NEXT_PUBLIC_API_URL": "https://api.cremsonpublications.com"
   }
 }
