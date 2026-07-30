@@ -45,8 +45,25 @@ export function mapProduct(p) {
 }
 
 export async function fetchAllProducts(params = {}) {
-  const { data } = await api.get("/api/products/", { params: { size: 200, ...params } });
-  return (data.results || []).filter((p) => p.name).map(mapProduct);
+  let allResults = [];
+  let page = 1;
+  let hasNext = true;
+
+  while (hasNext) {
+    const { data } = await api.get("/api/products/", {
+      params: { size: 200, page, ...params }
+    });
+    const results = data.results || [];
+    allResults = [...allResults, ...results];
+
+    if (data.next && results.length === 200) {
+      page += 1;
+    } else {
+      hasNext = false;
+    }
+  }
+
+  return allResults.filter((p) => p.name).map(mapProduct);
 }
 
 export async function fetchProduct(id) {
