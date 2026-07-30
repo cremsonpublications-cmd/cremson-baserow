@@ -213,7 +213,7 @@ export default function CheckoutPage() {
           try {
             const orderDetails = {
               order_status: "Confirmed",
-              order_date: new Date().toISOString().split("T")[0],
+              order_date: new Date().toISOString(),
               user_info: {
                 name: `${firstName} ${lastName}`,
                 email: email,

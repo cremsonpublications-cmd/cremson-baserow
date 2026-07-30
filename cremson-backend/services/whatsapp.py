@@ -1,17 +1,95 @@
-import httpx
-import os
-from typing import Optional, List
-from dotenv import load_dotenv
-from config import WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_TEMPLATE_NAME, WHATSAPP_TEMPLATE_LANGUAGE
+"""
+WhatsApp Business Cloud API (Meta Graph API v25.0)
+Sends order, payment and shipping status notifications to customers.
+"""
 
-load_dotenv(override=True)
+import logging
+from typing import List, Optional
+
+import httpx
+
+from config import (
+    WHATSAPP_ACCESS_TOKEN,
+    WHATSAPP_PHONE_NUMBER_ID,
+    WHATSAPP_TEMPLATE_LANGUAGE,
+    WHATSAPP_TEMPLATE_NAME,
+)
+
+logger = logging.getLogger(__name__)
+
+_GRAPH_URL = (
+    f"https://graph.facebook.com/v25.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
+)
+_HEADERS = {
+    "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
+    "Content-Type": "application/json",
+}
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _format_phone(phone: str) -> str:
-    """Ensure phone is in international format without +: 91XXXXXXXXXX"""
+    """Return phone in international format without +: 91XXXXXXXXXX"""
     phone = "".join(filter(str.isdigit, phone))
     if len(phone) == 10:
         phone = "91" + phone
     return phone
+
+
+async def _send_template(
+    phone: str,
+    template_name: str,
+    parameters: List[dict],
+    log_tag: str = "",
+) -> None:
+    """
+    Core sender: posts one template message to the Meta Graph API.
+    All public send_* functions delegate here.
+    """
+    if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
+        logger.warning("[WhatsApp] Credentials not set — skipping")
+        return
+
+    formatted = _format_phone(phone)
+    if not formatted:
+        logger.warning(f"[WhatsApp] Invalid phone — skipping {log_tag}")
+        return
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": formatted,
+        "type": "template",
+        "template": {
+            "name": template_name,
+            "language": {"code": WHATSAPP_TEMPLATE_LANGUAGE},
+            "components": [{"type": "body", "parameters": parameters}],
+        },
+    }
+
+    logger.info(f"[WhatsApp] → {log_tag} template={template_name} to={formatted}")
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(_GRAPH_URL, headers=_HEADERS, json=payload)
+            if resp.status_code == 200:
+                logger.info(f"[WhatsApp] ✓ {log_tag} sent to {formatted}")
+            else:
+                logger.error(
+                    f"[WhatsApp] ✗ {log_tag} HTTP {resp.status_code}: {resp.text}"
+                )
+    except Exception as exc:
+        logger.error(f"[WhatsApp] Error sending {log_tag}: {exc}")
+
+
+def _txt(value: str) -> dict:
+    val = str(value).strip() if value is not None else ""
+    if not val:
+        val = "-"
+    return {"type": "text", "text": val}
+
+
+# ── Existing notifications (unchanged behaviour) ───────────────────────────────
+
 
 async def send_order_confirmation(
     phone: str,
@@ -21,87 +99,38 @@ async def send_order_confirmation(
     item_count: int,
     items: Optional[List[dict]] = None,
 ):
-    """
-    Send an order confirmation WhatsApp message via Meta WhatsApp Business Cloud API.
-    Uses the configured template (default: hello_world).
-    """
-    if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
-        print("[WhatsApp] WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID not set — skipping notification")
-        return
+    """Order confirmed — itemised list. Template: order_confirmation_v4"""
+    formatted_items = ""
+    if items:
+        lines = []
+        for item in items:
+            name = item.get("name") or item.get("title") or "Book"
+            qty = item.get("quantity") or item.get("qty") or 1
+            price = item.get("currentPrice") or item.get("price") or 0.0
+            total_price = item.get("totalPrice") or (price * qty)
+            lines.append(f"- {name} ({qty} x ₹{price:.2f}) = ₹{total_price:.2f}")
+        formatted_items = "\n".join(lines)
+    else:
+        formatted_items = f"- {item_count} item(s)"
 
-    formatted_phone = _format_phone(phone)
-    if not formatted_phone:
-        print("[WhatsApp] Invalid phone number — skipping notification")
-        return
+    template = (
+        WHATSAPP_TEMPLATE_NAME
+        if WHATSAPP_TEMPLATE_NAME != "hello_world"
+        else "order_confirmation_v5"
+    )
 
-    url = f"https://graph.facebook.com/v25.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
-    
-    headers = {
-        "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
+    await _send_template(
+        phone,
+        template,
+        [
+            _txt(customer_name),
+            _txt(order_id),
+            _txt(formatted_items),
+            _txt(f"₹{total_amount:.2f}"),
+        ],
+        log_tag=f"order_confirmation order={order_id}",
+    )
 
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": formatted_phone,
-        "type": "template",
-        "template": {
-            "name": WHATSAPP_TEMPLATE_NAME,
-            "language": {
-                "code": WHATSAPP_TEMPLATE_LANGUAGE
-            }
-        }
-    }
-
-    if WHATSAPP_TEMPLATE_NAME != "hello_world":
-        if WHATSAPP_TEMPLATE_NAME in ["order_placed_detailed", "order_placed_details", "order_confirmation_details", "order_confirmation_v2", "order_confirmation_v3"]:
-            formatted_items = ""
-            if items:
-                lines = []
-                for item in items:
-                    name = item.get("name") or item.get("title") or "Book"
-                    qty = item.get("quantity") or item.get("qty") or 1
-                    price = item.get("currentPrice") or item.get("price") or 0.0
-                    total_price = item.get("totalPrice") or (price * qty)
-                    lines.append(f"- {name} ({qty} x ₹{price:.2f}) = ₹{total_price:.2f}")
-                formatted_items = "\n".join(lines)
-            else:
-                formatted_items = f"- {item_count} item(s)"
-
-            payload["template"]["components"] = [
-                {
-                    "type": "body",
-                    "parameters": [
-                        {"type": "text", "text": customer_name},
-                        {"type": "text", "text": order_id},
-                        {"type": "text", "text": formatted_items},
-                        {"type": "text", "text": f"₹{total_amount:.2f}"}
-                    ]
-                }
-            ]
-        else:
-            payload["template"]["components"] = [
-                {
-                    "type": "body",
-                    "parameters": [
-                        {"type": "text", "text": customer_name},
-                        {"type": "text", "text": order_id},
-                        {"type": "text", "text": str(item_count)},
-                        {"type": "text", "text": f"₹{total_amount:.2f}"}
-                    ]
-                }
-            ]
-
-    try:
-        print(f"[WhatsApp] Sending payload to {url}: {payload}")
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(url, headers=headers, json=payload)
-            if response.status_code == 200:
-                print(f"[WhatsApp] Notification sent successfully to {formatted_phone}")
-            else:
-                print(f"[WhatsApp] Failed: {response.status_code} — {response.text}")
-    except Exception as e:
-        print(f"[WhatsApp] Error sending notification: {e}")
 
 async def send_order_status_update(
     phone: str,
@@ -109,58 +138,14 @@ async def send_order_status_update(
     order_id: str,
     new_status: str,
 ):
-    """
-    Send an order status update WhatsApp message via Meta WhatsApp Business Cloud API.
-    """
-    if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
-        print("[WhatsApp] WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID not set — skipping notification")
-        return
+    """Generic status update. Template: uses WHATSAPP_TEMPLATE_NAME"""
+    await _send_template(
+        phone,
+        WHATSAPP_TEMPLATE_NAME,
+        [_txt(customer_name), _txt(order_id), _txt(new_status)],
+        log_tag=f"status_update order={order_id} status={new_status}",
+    )
 
-    formatted_phone = _format_phone(phone)
-    if not formatted_phone:
-        print("[WhatsApp] Invalid phone number — skipping notification")
-        return
-
-    url = f"https://graph.facebook.com/v25.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
-    
-    headers = {
-        "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": formatted_phone,
-        "type": "template",
-        "template": {
-            "name": WHATSAPP_TEMPLATE_NAME,
-            "language": {
-                "code": WHATSAPP_TEMPLATE_LANGUAGE
-            }
-        }
-    }
-
-    if WHATSAPP_TEMPLATE_NAME != "hello_world":
-        payload["template"]["components"] = [
-            {
-                "type": "body",
-                "parameters": [
-                    {"type": "text", "text": customer_name},
-                    {"type": "text", "text": order_id},
-                    {"type": "text", "text": new_status}
-                ]
-            }
-        ]
-
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(url, headers=headers, json=payload)
-            if response.status_code == 200:
-                print(f"[WhatsApp] Status update sent successfully to {formatted_phone}")
-            else:
-                print(f"[WhatsApp] Failed: {response.status_code} — {response.text}")
-    except Exception as e:
-        print(f"[WhatsApp] Error sending status update: {e}")
 
 async def send_payment_success(
     phone: str,
@@ -169,58 +154,19 @@ async def send_payment_success(
     amount: float,
     transaction_id: str,
 ):
-    """
-    Send a payment success WhatsApp message via Meta WhatsApp Business Cloud API.
-    Template: payment_received_success
-    """
-    if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
-        print("[WhatsApp] WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID not set — skipping notification")
-        return
+    """Payment received confirmation. Template: payment_received_v4"""
+    await _send_template(
+        phone,
+        "payment_received_v4",
+        [
+            _txt(customer_name),
+            _txt(f"₹{amount:.2f}"),
+            _txt(order_id),
+            _txt(transaction_id),
+        ],
+        log_tag=f"payment_success order={order_id}",
+    )
 
-    formatted_phone = _format_phone(phone)
-    if not formatted_phone:
-        print("[WhatsApp] Invalid phone number — skipping notification")
-        return
-
-    url = f"https://graph.facebook.com/v25.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
-    
-    headers = {
-        "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": formatted_phone,
-        "type": "template",
-        "template": {
-            "name": "payment_received_v2",
-            "language": {
-                "code": WHATSAPP_TEMPLATE_LANGUAGE
-            },
-            "components": [
-                {
-                    "type": "body",
-                    "parameters": [
-                        {"type": "text", "text": customer_name},
-                        {"type": "text", "text": f"₹{amount:.2f}"},
-                        {"type": "text", "text": order_id},
-                        {"type": "text", "text": transaction_id}
-                    ]
-                }
-            ]
-        }
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(url, headers=headers, json=payload)
-            if response.status_code == 200:
-                print(f"[WhatsApp] Payment success message sent to {formatted_phone}")
-            else:
-                print(f"[WhatsApp] Failed: {response.status_code} — {response.text}")
-    except Exception as e:
-        print(f"[WhatsApp] Error sending payment success message: {e}")
 
 async def send_payment_failed(
     phone: str,
@@ -228,54 +174,156 @@ async def send_payment_failed(
     order_id: str,
     amount: float,
 ):
+    """Payment failed alert. Template: payment_failed_v6"""
+    await _send_template(
+        phone,
+        "payment_failed_v6",
+        [_txt(customer_name), _txt(f"₹{amount:.2f}"), _txt(order_id)],
+        log_tag=f"payment_failed order={order_id}",
+    )
+
+
+# ── Shipway shipping notifications ────────────────────────────────────────────
+# Each function maps to one WhatsApp template approved in Meta Business Manager.
+# Template variable positions match the order shown in each docstring.
+
+
+async def send_shipment_created(
+    phone: str,
+    customer_name: str,
+    order_id: str,
+    awb: str,
+    courier_name: str,
+    tracking_url: str,
+):
     """
-    Send a payment failed WhatsApp message via Meta WhatsApp Business Cloud API.
-    Template: payment_failed
+    Triggered right after Shipway creates the shipment (background task).
+    Template: shipment_created_v1
+    Body vars: {{1}}=name  {{2}}=order_id  {{3}}=awb  {{4}}=courier  {{5}}=tracking_url
     """
-    if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
-        print("[WhatsApp] WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID not set — skipping notification")
-        return
+    await _send_template(
+        phone,
+        "shipment_created_v1",
+        [
+            _txt(customer_name),
+            _txt(order_id),
+            _txt(awb),
+            _txt(courier_name),
+            _txt(tracking_url),
+        ],
+        log_tag=f"shipment_created order={order_id} awb={awb}",
+    )
 
-    formatted_phone = _format_phone(phone)
-    if not formatted_phone:
-        print("[WhatsApp] Invalid phone number — skipping notification")
-        return
 
-    url = f"https://graph.facebook.com/v25.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
-    
-    headers = {
-        "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
+async def send_pickup_requested(
+    phone: str,
+    customer_name: str,
+    order_id: str,
+    tracking_url: str,
+):
+    """
+    Triggered when admin clicks 'Packed & Ready for Pickup'.
+    Template: pickup_requested_v2
+    Body vars: {{1}}=name  {{2}}=order_id  {{3}}=tracking_url
+    """
+    await _send_template(
+        phone,
+        "pickup_requested_v2",
+        [_txt(customer_name), _txt(order_id), _txt(tracking_url)],
+        log_tag=f"pickup_requested order={order_id}",
+    )
 
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": formatted_phone,
-        "type": "template",
-        "template": {
-            "name": "payment_failed_v4",
-            "language": {
-                "code": WHATSAPP_TEMPLATE_LANGUAGE
-            },
-            "components": [
-                {
-                    "type": "body",
-                    "parameters": [
-                        {"type": "text", "text": customer_name},
-                        {"type": "text", "text": f"₹{amount:.2f}"},
-                        {"type": "text", "text": order_id}
-                    ]
-                }
-            ]
-        }
-    }
 
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(url, headers=headers, json=payload)
-            if response.status_code == 200:
-                print(f"[WhatsApp] Payment failed message sent to {formatted_phone}")
-            else:
-                print(f"[WhatsApp] Failed: {response.status_code} — {response.text}")
-    except Exception as e:
-        print(f"[WhatsApp] Error sending payment failed message: {e}")
+async def send_picked_up(
+    phone: str,
+    customer_name: str,
+    order_id: str,
+    tracking_url: str,
+):
+    """
+    Triggered by PICKED_UP webhook event from Shipway.
+    Template: picked_up_v1
+    Body vars: {{1}}=name  {{2}}=order_id  {{3}}=tracking_url
+    """
+    await _send_template(
+        phone,
+        "picked_up_v1",
+        [_txt(customer_name), _txt(order_id), _txt(tracking_url)],
+        log_tag=f"picked_up order={order_id}",
+    )
+
+
+async def send_in_transit(
+    phone: str,
+    customer_name: str,
+    order_id: str,
+    tracking_url: str,
+):
+    """
+    Triggered by IN_TRANSIT webhook event from Shipway.
+    Template: in_transit_v1
+    Body vars: {{1}}=name  {{2}}=order_id  {{3}}=tracking_url
+    """
+    await _send_template(
+        phone,
+        "in_transit_v1",
+        [_txt(customer_name), _txt(order_id), _txt(tracking_url)],
+        log_tag=f"in_transit order={order_id}",
+    )
+
+
+async def send_out_for_delivery(
+    phone: str,
+    customer_name: str,
+    order_id: str,
+    tracking_url: str,
+):
+    """
+    Triggered by OUT_FOR_DELIVERY webhook event from Shipway.
+    Template: out_for_delivery_v2
+    Body vars: {{1}}=name  {{2}}=order_id  {{3}}=tracking_url
+    """
+    await _send_template(
+        phone,
+        "out_for_delivery_v2",
+        [_txt(customer_name), _txt(order_id), _txt(tracking_url)],
+        log_tag=f"out_for_delivery order={order_id}",
+    )
+
+
+async def send_delivered(
+    phone: str,
+    customer_name: str,
+    order_id: str,
+    tracking_url: str,
+):
+    """
+    Triggered by DELIVERED webhook event from Shipway.
+    Template: delivered_v2
+    Body vars: {{1}}=name  {{2}}=order_id
+    """
+    await _send_template(
+        phone,
+        "delivered_v2",
+        [_txt(customer_name), _txt(order_id)],
+        log_tag=f"delivered order={order_id}",
+    )
+
+
+async def send_rto(
+    phone: str,
+    customer_name: str,
+    order_id: str,
+    tracking_url: str,
+):
+    """
+    Triggered by RTO webhook event from Shipway.
+    Template: rto_v2
+    Body vars: {{1}}=name  {{2}}=order_id
+    """
+    await _send_template(
+        phone,
+        "rto_v2",
+        [_txt(customer_name), _txt(order_id)],
+        log_tag=f"rto order={order_id}",
+    )

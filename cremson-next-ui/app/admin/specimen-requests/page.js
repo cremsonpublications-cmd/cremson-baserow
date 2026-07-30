@@ -4,6 +4,17 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../../../lib/api/axios";
 import { adminUpdateSpecimenStatus } from "../../../lib/api/admin";
+import { 
+  Search, 
+  X, 
+  ChevronLeft, 
+  ChevronRight,
+  BookOpen,
+  Filter,
+  Eye,
+  ChevronDown,
+  Layers
+} from "lucide-react";
 
 const PAGE_SIZE = 20;
 const SPECIMEN_STATUSES = ["Pending", "Approved", "Rejected", "Dispatched"];
@@ -19,16 +30,16 @@ function useDebounce(value, delay) {
 
 function StatusBadge({ status }) {
   const map = {
-    pending: "bg-yellow-100 text-yellow-800",
-    approved: "bg-green-100 text-green-800",
-    rejected: "bg-red-100 text-red-800",
-    shipped: "bg-blue-100 text-blue-800",
-    dispatched: "bg-blue-100 text-blue-800",
-    completed: "bg-green-100 text-green-800",
+    pending: "bg-yellow-50 text-yellow-755 border-yellow-100",
+    approved: "bg-emerald-50 text-emerald-755 border-emerald-100",
+    rejected: "bg-rose-50 text-rose-755 border-rose-100",
+    shipped: "bg-blue-50 text-blue-755 border-blue-100",
+    dispatched: "bg-blue-50 text-blue-755 border-blue-100",
+    completed: "bg-emerald-50 text-emerald-755 border-emerald-100",
   };
-  const cls = map[status?.toLowerCase()] || "bg-gray-100 text-gray-600";
+  const cls = map[status?.toLowerCase()] || "bg-slate-50 text-slate-700 border-slate-200";
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${cls}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border capitalize ${cls}`}>
       {status || "—"}
     </span>
   );
@@ -63,55 +74,70 @@ function RequestModal({ request, onClose, onStatusUpdated }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-slate-900/60 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        
+        {/* Modal Header */}
+        <div className="flex items-center justify-between p-6 border-b border-slate-100 sticky top-0 bg-white z-10">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Specimen Request</h2>
-            <p className="text-sm text-gray-500 font-mono">#{request.id}</p>
+            <h2 className="text-lg font-bold text-slate-900 font-sans">Specimen Request Details</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Showing school/institution dispatch parameters for ID: #{request.id}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-650 hover:bg-slate-50 rounded-full transition-all">
+            <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-6">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Update Status</p>
+
+        {/* Modal Content */}
+        <div className="p-6 overflow-y-auto flex-1 bg-slate-5/30 space-y-6 text-left">
+          
+          {/* Status Box */}
+          <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4">
+            <p className="text-[10px] font-bold text-blue-700 uppercase tracking-wider mb-2.5">Update Dispatch Status</p>
             <div className="flex items-center gap-3">
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                <option value="">— Select Status —</option>
-                {SPECIMEN_STATUSES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
+              <div className="relative min-w-[150px]">
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white appearance-none cursor-pointer text-slate-800"
+                >
+                  <option value="">— Select Status —</option>
+                  {SPECIMEN_STATUSES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              </div>
               <button
                 onClick={handleStatusUpdate}
                 disabled={!selectedStatus || updatingStatus}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="px-4 py-2 text-xs font-bold text-white bg-blue-605 hover:bg-blue-700 active:bg-blue-800 rounded-xl disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
               >
-                {updatingStatus ? "Updating..." : "Update"}
+                {updatingStatus ? "Updating..." : "Update Status"}
               </button>
             </div>
-            {statusError && <p className="text-red-600 text-xs mt-2">{statusError}</p>}
+            {statusError && <p className="text-red-750 text-xs mt-2.5 font-bold">{statusError}</p>}
           </div>
 
-          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-            {Object.entries(request).map(([key, value]) => (
-              <div key={key} className={key === "message" || key === "notes" || key === "address" ? "sm:col-span-2" : ""}>
-                <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">{key.replace(/_/g, " ")}</dt>
-                <dd className="text-sm text-gray-900 break-words">
-                  {typeof value === "object" && value !== null
-                    ? <pre className="bg-gray-50 rounded p-2 text-xs text-gray-700 overflow-x-auto">{JSON.stringify(value, null, 2)}</pre>
-                    : renderValue(value)}
-                </dd>
-              </div>
-            ))}
+          {/* Key-Value Details */}
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
+            {Object.entries(request).map(([key, value]) => {
+              const isLongText = key === "message" || key === "notes" || key === "address";
+              return (
+                <div key={key} className={isLongText ? "sm:col-span-2 bg-slate-50/50 p-4 rounded-xl border border-slate-100" : ""}>
+                  <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{key.replace(/_/g, " ")}</dt>
+                  <dd className="text-xs font-semibold text-slate-800 break-words leading-relaxed">
+                    {typeof value === "object" && value !== null ? (
+                      <pre className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-[11px] font-mono text-slate-700 overflow-x-auto">
+                        {JSON.stringify(value, null, 2)}
+                      </pre>
+                    ) : (
+                      renderValue(value)
+                    )}
+                  </dd>
+                </div>
+              );
+            })}
           </dl>
         </div>
       </div>
@@ -119,7 +145,7 @@ function RequestModal({ request, onClose, onStatusUpdated }) {
   );
 }
 
-const COLS = ["ID", "Name", "Email", "Institution", "Book/Product", "Status", "Requested At", "Actions"];
+const COLS = ["ID", "Name", "Email", "Institution", "Book Title", "Status", "Requested At", "Actions"];
 
 export default function AdminSpecimenRequests() {
   const queryClient = useQueryClient();
@@ -167,72 +193,156 @@ export default function AdminSpecimenRequests() {
   }
 
   return (
-    <div className="p-8">
-      <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Specimen Requests</h1>
-        <span className="bg-blue-100 text-blue-800 text-sm font-semibold px-2.5 py-0.5 rounded-full">{count.toLocaleString()}</span>
+    <div className="p-6 max-w-7xl mx-auto space-y-6 text-left">
+      
+      {/* Header Info Area */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Specimen Requests</h1>
+            <span className="bg-red-50 text-red-800 text-xs font-black px-2.5 py-0.5 rounded-full border border-red-100">
+              {count.toLocaleString()} Requests
+            </span>
+          </div>
+          <p className="text-sm text-slate-550 mt-1">Review school and teacher textbook sample copy requests, update approvals and shipping status.</p>
+        </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow p-4 mb-6">
-        <input type="text" placeholder="Search by name, email, institution..." value={search} onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-md border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      {/* Filter toolbar */}
+      <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-[0_4px_20px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row gap-4 items-center justify-between">
+        
+        {/* Search */}
+        <div className="relative w-full sm:max-w-md">
+          <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+          <input 
+            type="text" 
+            placeholder="Search specimen requests by teacher, school, email..." 
+            value={search} 
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-slate-200 bg-slate-50/50 hover:bg-slate-55 focus:bg-white rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-slate-900" 
+          />
+          {search && (
+            <button 
+              onClick={() => setSearch("")} 
+              className="absolute right-3 top-2.5 p-0.5 text-slate-400 hover:text-slate-650 hover:bg-slate-200 rounded-full"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+
+        {search && (
+          <button 
+            onClick={() => setSearch("")} 
+            className="text-xs font-bold text-red-500 hover:text-red-750 hover:bg-red-50 px-3 py-2 rounded-xl transition-all cursor-pointer"
+          >
+            Clear Filters
+          </button>
+        )}
+
       </div>
 
-      <div className="bg-white rounded-xl shadow overflow-hidden">
+      {/* Grid List Table */}
+      <div className="bg-white border border-slate-100 rounded-2xl shadow-[0_4px_25px_rgb(0,0,0,0.015)] overflow-hidden">
         {isLoading ? (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50"><tr>{COLS.map((h) => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>)}</tr></thead>
-              <tbody className="divide-y divide-gray-200 animate-pulse">
-                {Array.from({ length: 10 }).map((_, i) => (
+            <table className="min-w-full divide-y divide-slate-100 text-left">
+              <thead className="bg-slate-50/75">
+                <tr>{COLS.map((h) => <th key={h} className="px-5 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">{h}</th>)}</tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 animate-pulse bg-white">
+                {Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i}>
-                    {COLS.map((h) => <td key={h} className="px-4 py-3"><div className="h-4 bg-gray-200 rounded" style={{ width: `${60 + Math.random() * 80}px` }} /></td>)}
+                    <td className="px-5 py-4"><div className="h-4 w-8 bg-slate-150 rounded" /></td>
+                    <td className="px-5 py-4"><div className="h-4 w-28 bg-slate-150 rounded" /></td>
+                    <td className="px-5 py-4"><div className="h-4 w-32 bg-slate-150 rounded" /></td>
+                    <td className="px-5 py-4"><div className="h-4 w-36 bg-slate-150 rounded" /></td>
+                    <td className="px-5 py-4"><div className="h-4 w-40 bg-slate-150 rounded" /></td>
+                    <td className="px-5 py-4"><div className="h-5 w-16 bg-slate-150 rounded-full" /></td>
+                    <td className="px-5 py-4"><div className="h-4 w-20 bg-slate-150 rounded" /></td>
+                    <td className="px-5 py-4"><div className="h-4 w-16 bg-slate-150 rounded" /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : requests.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-            <p className="text-lg font-medium">No specimen requests found</p>
+          <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white">
+            <Layers className="w-12 h-12 text-slate-200 mb-3" />
+            <p className="text-sm font-semibold text-slate-500">No specimen textbook requests found.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50"><tr>{COLS.map((h) => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>)}</tr></thead>
-              <tbody className="divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-slate-100 text-left">
+              <thead className="bg-slate-50/75">
+                <tr>{COLS.map((h) => <th key={h} className="px-5 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">{h}</th>)}</tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
                 {requests.map((req) => (
-                  <tr key={req.id} onClick={() => setSelected(req)} className="hover:bg-gray-50 cursor-pointer transition-colors">
-                    <td className="px-4 py-3 text-sm text-gray-500 font-mono">{req.id}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                      {req.name ?? req.full_name ?? req.first_name ?? "—"}
+                  <tr 
+                    key={req.id} 
+                    onClick={() => setSelected(req)} 
+                    className="hover:bg-slate-50/80 cursor-pointer transition-colors active:bg-slate-150/40"
+                  >
+                    {/* ID */}
+                    <td className="px-5 py-4 text-xs font-bold text-slate-500 font-mono">
+                      #{req.id}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 max-w-[180px] truncate">
+
+                    {/* Name */}
+                    <td className="px-5 py-4 text-xs font-bold text-slate-900 whitespace-nowrap">
+                      {req.name ?? req.full_name ?? "—"}
+                    </td>
+
+                    {/* Email */}
+                    <td className="px-5 py-4 text-xs text-slate-650 max-w-[150px] truncate">
                       {req.email ?? "—"}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 max-w-[160px] truncate">
-                      {req.institution ?? req.school ?? req.college ?? req.organization ?? "—"}
+
+                    {/* Institution */}
+                    <td className="px-5 py-4 text-xs text-slate-550 max-w-[150px] truncate" title={req.institution ?? req.school}>
+                      {req.institution ?? req.school ?? "—"}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 max-w-[180px] truncate">
-                      {req.book_name ?? req.product_name ?? req.book ?? req.product ?? "—"}
+
+                    {/* Book Title */}
+                    <td className="px-5 py-4 text-xs font-semibold text-slate-700 max-w-[160px] truncate" title={req.book_name ?? req.product_name}>
+                      {req.book_name ?? req.product_name ?? "—"}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+
+                    {/* Status */}
+                    <td className="px-5 py-4 whitespace-nowrap">
                       <StatusBadge status={req.status ?? req.request_status} />
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                      {formatDate(req.created_at ?? req.requested_at ?? req.date)}
+
+                    {/* Date */}
+                    <td className="px-5 py-4 text-xs text-slate-500 whitespace-nowrap">
+                      {formatDate(req.created_at ?? req.requested_at)}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                      <select
-                        defaultValue=""
-                        onChange={(e) => handleInlineStatusChange(e, req, e.target.value)}
-                        className="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                      >
-                        <option value="" disabled>Update</option>
-                        {SPECIMEN_STATUSES.map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
+
+                    {/* Inline Status Dropdown */}
+                    <td className="px-5 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2">
+                        <div className="relative">
+                          <select
+                            defaultValue=""
+                            onChange={(e) => handleInlineStatusChange(e, req, e.target.value)}
+                            className="border border-slate-200 rounded-xl px-2.5 py-1 text-[10px] font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-750 cursor-pointer appearance-none pr-6"
+                          >
+                            <option value="" disabled>Update</option>
+                            {SPECIMEN_STATUSES.map((s) => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-2 top-1.5 w-3 h-3 text-slate-400 pointer-events-none" />
+                        </div>
+                        <button
+                          onClick={() => setSelected(req)}
+                          className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
+                          title="View Request Detail"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -242,16 +352,32 @@ export default function AdminSpecimenRequests() {
         )}
       </div>
 
+      {/* Pagination */}
       {!isLoading && totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4 px-1">
-          <p className="text-sm text-gray-500">Page <strong>{page}</strong> of <strong>{totalPages}</strong> &mdash; {count.toLocaleString()} results</p>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-1 py-2">
+          <p className="text-xs font-bold text-slate-550">
+            Page <span className="text-slate-900 font-black">{page}</span> of <span className="text-slate-900 font-black">{totalPages}</span> &mdash; {count.toLocaleString()} specimen requests
+          </p>
           <div className="flex gap-2">
-            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors">← Prev</button>
-            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors">Next →</button>
+            <button 
+              onClick={() => setPage((p) => Math.max(1, p - 1))} 
+              disabled={page === 1} 
+              className="inline-flex items-center gap-1 px-4 py-2 border border-slate-200 bg-white rounded-xl text-xs font-bold text-slate-700 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-all cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> Previous
+            </button>
+            <button 
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))} 
+              disabled={page === totalPages} 
+              className="inline-flex items-center gap-1 px-4 py-2 border border-slate-200 bg-white rounded-xl text-xs font-bold text-slate-700 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-all cursor-pointer"
+            >
+              Next <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       )}
 
+      {/* Detail Modal */}
       {selected && (
         <RequestModal
           request={selected}

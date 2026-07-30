@@ -15,6 +15,8 @@ export const adminDeleteCategory = (id) => api.delete(`/api/categories/${id}`).t
 // Orders
 export const adminGetOrders = (params) => api.get("/api/orders/", { params }).then(r => r.data);
 export const adminUpdateOrderStatus = (id, status) => api.patch(`/api/orders/${id}`, { order_status: status }).then(r => r.data);
+export const adminMarkReadyForPickup = (orderId) => api.post(`/api/orders/${orderId}/ready-for-pickup`).then(r => r.data);
+
 
 // Coupons
 export const adminGetCoupons = (params) => api.get("/api/coupons/", { params }).then(r => r.data);

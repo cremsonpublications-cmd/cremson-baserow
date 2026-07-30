@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import api from "../../../lib/api/axios";
+import { Shield, Lock, Mail, Loader2 } from "lucide-react";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -34,44 +35,63 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        {/* Logo / Title */}
-        <div className="text-center mb-8">
-          <span className="text-2xl font-bold text-white tracking-tight">Cremson Admin</span>
-          <p className="text-gray-400 text-sm mt-1">Sign in to access the admin panel</p>
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black flex items-center justify-center px-4 relative overflow-hidden">
+      
+      {/* Dynamic ambient background blobs */}
+      <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-red-600/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-80 h-80 bg-blue-600/10 rounded-full blur-[100px] pointer-events-none" />
+
+      <div className="w-full max-w-md relative z-10">
+        
+        {/* Logo / Header */}
+        <div className="text-center mb-8 space-y-2">
+          <div className="inline-flex p-3 bg-red-950/40 border border-red-500/20 rounded-2xl mb-2 text-red-500 shadow-inner">
+            <Shield className="w-8 h-8" />
+          </div>
+          <h1 className="text-2xl font-black text-white tracking-tight uppercase">Cremson Publications</h1>
+          <p className="text-slate-400 text-xs font-semibold tracking-wider uppercase">Administrative Portal Access</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
+        {/* Card */}
+        <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-[0_20px_50px_rgba(0,0,0,0.3)] text-left animate-in fade-in zoom-in-95 duration-350">
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                placeholder="admin@example.com"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+            
+            {/* Email Input */}
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email Address</label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  placeholder="admin@cremson.com"
+                  className="w-full border border-slate-800 bg-slate-950/50 hover:bg-slate-950 focus:bg-slate-950 text-white rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-600/50 transition-all placeholder-slate-600"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                placeholder="••••••••"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+            {/* Password Input */}
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  className="w-full border border-slate-800 bg-slate-950/50 hover:bg-slate-950 focus:bg-slate-950 text-white rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-600/50 transition-all placeholder-slate-600"
+                />
+              </div>
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">
+              <div className="bg-red-950/30 border border-red-500/30 text-red-400 text-xs font-bold rounded-xl px-4 py-2.5 leading-relaxed">
                 {error}
               </div>
             )}
@@ -79,12 +99,24 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm transition-colors disabled:opacity-60"
+              className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 active:from-red-700 active:to-red-800 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider transition-all disabled:opacity-60 shadow-lg shadow-red-950/35 cursor-pointer"
             >
-              {loading ? "Signing in…" : "Sign In"}
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Authenticating...
+                </>
+              ) : (
+                "Sign In"
+              )}
             </button>
           </form>
         </div>
+        
+        {/* Footer */}
+        <p className="text-center text-[10px] text-slate-600 mt-8 font-semibold tracking-wider">
+          SECURE AREA &bull; UNAUTHORIZED ACCESS PROHIBITED
+        </p>
       </div>
     </div>
   );
