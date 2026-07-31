@@ -1,5 +1,7 @@
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from routers import (
     users,
     orders,
@@ -25,6 +27,34 @@ app = FastAPI(
     version="1.0.0",
     description="REST API layer that proxies Baserow tables for the Cremson Next.js frontend.",
 )
+
+@app.exception_handler(httpx.HTTPStatusError)
+async def httpx_status_error_handler(request, exc: httpx.HTTPStatusError):
+    try:
+        err_data = exc.response.json()
+        error_code = err_data.get("error")
+        detail = err_data.get("detail") or error_code or str(exc)
+        
+        # User-friendly translation for unique constraint errors
+        if error_code == "ERROR_FIELD_DATA_CONSTRAINT" or "violates a field constraint" in str(detail):
+            path = request.url.path
+            if "teachers" in path:
+                detail = "A teacher with this Whatsapp Phone number already exists."
+            else:
+                detail = "This record violates a database unique constraint."
+    except Exception:
+        detail = exc.response.text or str(exc)
+    return JSONResponse(
+        status_code=exc.response.status_code,
+        content={"detail": detail}
+    )
+
+@app.exception_handler(httpx.RequestError)
+async def httpx_request_error_handler(request, exc: httpx.RequestError):
+    return JSONResponse(
+        status_code=503,
+        content={"detail": f"Database service connection failure: {str(exc)}"}
+    )
 
 app.add_middleware(
     CORSMiddleware,

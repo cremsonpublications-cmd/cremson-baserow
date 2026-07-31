@@ -50,7 +50,10 @@ class BaserowClient:
 
         if filters:
             for field_name, value in filters.items():
-                url += f"&filter__{quote(str(field_name))}__equal={quote(str(value))}"
+                # Baserow rejects the 'equal' operator for single_select and multiple_select fields.
+                # We use 'contains' for select fields to match their string values.
+                op = "contains" if field_name in ["Status", "Interest Level", "DecisionPower", "Board", "Series", "DeliveryStatus", "FollowUpStage", "DispatchMethod"] else "equal"
+                url += f"&filter__{quote(str(field_name))}__{op}={quote(str(value))}"
 
         if contains_filters:
             for field_name, value in contains_filters.items():

@@ -35,3 +35,29 @@ export const adminUpdateSpecimenStatus = (id, status) => api.patch(`/api/specime
 // Shipping Settings
 export const adminGetShippingSettings = (params) => api.get("/api/shipping-settings/", { params }).then(r => r.data);
 export const adminUpdateShippingSetting = (id, data) => api.patch(`/api/shipping-settings/${id}`, data).then(r => r.data);
+
+// CRM
+// Schools
+export const adminCreateSchool = (data) => api.post("/api/crm/schools", data).then(r => r.data);
+export const adminUpdateSchool = (id, data) => api.patch(`/api/crm/schools/${id}`, data).then(r => r.data);
+export const adminDeleteSchool = (id) => api.delete(`/api/crm/schools/${id}`).then(r => r.data);
+
+// Teachers
+export const adminCreateTeacher = (data) => api.post("/api/crm/teachers", data).then(r => r.data);
+export const adminUpdateTeacher = (id, data) => api.patch(`/api/crm/teachers/${id}`, data).then(r => r.data);
+export const adminDeleteTeacher = (id) => api.delete(`/api/crm/teachers/${id}`).then(r => r.data);
+
+// Books (CRM)
+export const adminCreateCRMBook = (data) => api.post("/api/crm/books", data).then(r => r.data);
+export const adminUpdateCRMBook = (id, data) => api.patch(`/api/crm/books/${id}`, data).then(r => r.data);
+export const adminDeleteCRMBook = (id) => api.delete(`/api/crm/books/${id}`).then(r => r.data);
+
+// Subjects
+export const adminCreateSubject = (data) => api.post("/api/crm/subjects", data).then(r => r.data);
+export const adminUpdateSubject = (id, data) => api.patch(`/api/crm/subjects/${id}`, data).then(r => r.data);
+export const adminDeleteSubject = (id) => api.delete(`/api/crm/subjects/${id}`).then(r => r.data);
+
+// Specimen Requests (CRM)
+export const adminCreateSpecimenRequest = (data) => api.post("/api/specimen-requests/", data).then(r => r.data);
+export const adminUpdateSpecimenRequest = (id, data) => api.patch(`/api/specimen-requests/${id}`, data).then(r => r.data);
+export const adminDeleteSpecimenRequest = (id) => api.delete(`/api/specimen-requests/${id}`).then(r => r.data);

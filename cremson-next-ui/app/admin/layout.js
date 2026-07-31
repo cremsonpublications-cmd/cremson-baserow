@@ -23,7 +23,7 @@ import {
 
 const navLinks = [
   { href: "/admin",                  label: "Dashboard",         Icon: LayoutDashboard },
-  { href: "/admin/crm",              label: "CRM Database Hub",   Icon: Database        },
+  { href: "/admin/crm?tab=schools",  label: "CRM Database Hub",   Icon: Database        },
   { href: "/admin/categories",       label: "Categories",        Icon: FolderOpen      },
   { href: "/admin/products",         label: "Products",          Icon: Package         },
   { href: "/admin/coupons",          label: "Coupons",           Icon: Ticket          },
@@ -54,8 +54,9 @@ export default function AdminLayout({ children }) {
   }
 
   function isActive(href) {
-    if (href === "/admin") return pathname === "/admin";
-    return pathname.startsWith(href);
+    const cleanHref = href.split("?")[0];
+    if (cleanHref === "/admin") return pathname === "/admin";
+    return pathname.startsWith(cleanHref);
   }
 
   if (isLoginPage) return <>{children}</>;
