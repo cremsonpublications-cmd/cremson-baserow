@@ -102,7 +102,36 @@ async def handle_incoming_message(from_phone: str, message_text: str) -> None:
 
     logger.info(f"[WhatsApp Chat] Current session state for {from_phone}: {current_state}")
 
-    # Handle greetings or explicit restart commands anytime
+    # 1. Check for Bulk Order Flow Keywords (AiSensy Flow match)
+    bulk_keywords = ["bulk order", "place order", "order", "interested", "adopt", "yes"]
+    if any(k in clean_text.lower() for k in bulk_keywords):
+        set_conversation_state(from_phone, "MAIN_MENU")
+        bulk_reply = (
+            "That's wonderful news! 🎉\n"
+            "Thank you for choosing Cremson Publications for this Session! 🙏\n\n"
+            "Here's how you can place your bulk order:\n"
+            "__________________________________\n\n"
+            "🌐 OPTION 1 — Order on our Website\n"
+            "https://cremsonpublications.com/shop\n"
+            "__________________________________\n\n"
+            "📋 OPTION 2 — Fill the Order Form\n"
+            "https://tinyurl.com/yeyhhfmf\n"
+            "__________________________________\n\n"
+            "💬 OPTION 3 — Order via WhatsApp\n"
+            "Simply reply with:\n"
+            "- 📖 Book name\n"
+            "- 📊 Quantity required\n"
+            "- 🏫 School name\n"
+            "- 📍 Delivery address\n\n"
+            "Our team will confirm your order within 24 working hours!\n"
+            "__________________________________\n\n"
+            "Looking forward to a long association! 😊\n\n"
+            "Team Cremson Publications"
+        )
+        await send_text_message(from_phone, bulk_reply)
+        return
+
+    # 2. Handle greetings or explicit restart commands anytime
     if clean_text.lower() in ["hi", "hello", "start", "menu", "help"]:
         set_conversation_state(from_phone, "MAIN_MENU")
         await send_text_message(from_phone, get_welcome_menu())
