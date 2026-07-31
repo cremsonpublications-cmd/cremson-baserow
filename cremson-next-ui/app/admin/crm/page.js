@@ -14,7 +14,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
-  ChevronDown
+  ChevronDown,
+  Eye
 } from "lucide-react";
 
 const TABS = [
@@ -51,8 +52,8 @@ export default function AdminCRMHub() {
     if (val === null || val === undefined) return <span className="text-gray-300">—</span>;
     if (typeof val === "boolean") {
       return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-          val ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-red-50 text-red-700 border-red-100"
+        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+          val ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
         }`}>
           {val ? "Active" : "Inactive"}
         </span>
@@ -63,7 +64,7 @@ export default function AdminCRMHub() {
       return (
         <div className="flex flex-wrap gap-1">
           {val.map((item, idx) => (
-            <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+            <span key={idx} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
               {typeof item === "object" ? item.value || item.id : String(item)}
             </span>
           ))}
@@ -77,168 +78,189 @@ export default function AdminCRMHub() {
   }
 
   return (
-    <div className="space-y-6 text-left">
-      
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">CRM Database Hub</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Browse and inspect full relational Baserow CRM tables synced directly with your self-hosted server.
-          </p>
-        </div>
+    <div className="lg:p-8">
+      {/* Page Title */}
+      <h2 className="text-2xl font-semibold text-gray-900 mb-8 mt-[20px] sm:mt-0">CRM Database</h2>
 
-        <a
-          href="http://200.141.5.200"
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-        >
-          Open Baserow UI <ExternalLink className="w-4 h-4" />
-        </a>
-      </div>
-
-      {/* Navigation Tabs Bar */}
-      <div className="flex overflow-x-auto gap-2 border-b border-gray-200 pb-2">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id);
-                setPage(1);
-                setSearch("");
-              }}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap cursor-pointer ${
-                isActive
-                  ? "bg-blue-50 text-blue-600 border border-blue-200 font-semibold"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-              }`}
-            >
-              <Icon className={`w-4 h-4 ${isActive ? "text-blue-600" : "text-gray-400"}`} />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Main Content Card matching Admin Products */}
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-        
-        {/* Card Header & Search */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
-              All {currentTabObj.label}
-            </h2>
-
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto items-center">
-              <div className="relative w-full sm:w-80">
-                <Search className="absolute left-3.5 top-3 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder={`Search ${currentTabObj.label.toLowerCase()}...`}
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
-                  }}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-gray-900"
-                />
-                {search && (
-                  <button onClick={() => setSearch("")} className="absolute right-3 top-3 text-gray-400 hover:text-gray-600">
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-
-              <div className="text-xs font-medium text-gray-500 whitespace-nowrap">
-                Showing <span className="text-gray-900 font-bold">{records.length}</span> of {count.toLocaleString()}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Data Table */}
-        {isLoading ? (
-          <div className="p-12 text-center text-gray-400 space-y-3">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-sm font-medium text-gray-500">Loading records from Baserow...</p>
-          </div>
-        ) : records.length === 0 ? (
-          <div className="p-16 text-center text-gray-400">
-            <Building2 className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm font-medium text-gray-600">No records found in this table</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-left">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
-                  {Object.keys(records[0] || {})
-                    .filter((k) => k !== "id" && k !== "order")
-                    .slice(0, 6)
-                    .map((colKey) => (
-                      <th key={colKey} className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                        {colKey.replace(/_/g, " ")}
-                      </th>
-                    ))}
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white text-sm text-gray-700">
-                {records.map((row) => (
-                  <tr
-                    key={row.id}
-                    onClick={() => setSelectedRecord(row)}
-                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+      <div className="bg-gray-50 min-h-screen">
+        <div className="max-w-7xl mx-auto">
+          
+          {/* Top Actions / Navigation Tabs Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+            <div className="flex overflow-x-auto gap-2">
+              {TABS.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      setPage(1);
+                      setSearch("");
+                    }}
+                    className={`inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors duration-200 text-sm cursor-pointer ${
+                      isActive
+                        ? "bg-blue-600 hover:bg-blue-700 text-white"
+                        : "bg-white hover:bg-gray-100 text-gray-700 border border-gray-300"
+                    }`}
                   >
-                    <td className="px-6 py-4 font-semibold font-mono text-gray-900">#{row.id}</td>
-                    {Object.keys(row)
-                      .filter((k) => k !== "id" && k !== "order")
-                      .slice(0, 6)
-                      .map((colKey) => (
-                        <td key={colKey} className="px-6 py-4 max-w-[220px] truncate">
-                          {renderCellValue(row[colKey])}
-                        </td>
-                      ))}
-                    <td className="px-6 py-4 text-right font-medium text-blue-600 hover:text-blue-800">
-                      Inspect &rarr;
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                    <Icon className="w-4 h-4 mr-2" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
 
-        {/* Card Footer / Pagination */}
-        {!isLoading && totalPages > 1 && (
-          <div className="p-4 border-t border-gray-200 flex items-center justify-between bg-white">
-            <p className="text-xs text-gray-500 font-medium">
-              Page <span className="text-gray-900 font-bold">{page}</span> of <span className="text-gray-900 font-bold">{totalPages}</span>
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3.5 py-1.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors flex items-center gap-1"
-              >
-                <ChevronLeft className="w-4 h-4" /> Previous
-              </button>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-3.5 py-1.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors flex items-center gap-1"
-              >
-                Next <ChevronRight className="w-4 h-4" />
-              </button>
+            <a
+              href="http://200.141.5.200"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors duration-200 bg-gray-900 hover:bg-gray-800 text-white text-sm cursor-pointer ml-auto"
+            >
+              Open Baserow UI <ExternalLink className="w-4 h-4 ml-2" />
+            </a>
+          </div>
+
+          {/* Table Card matching Products exactly */}
+          <div className="bg-white rounded-lg shadow-lg border border-gray-200">
+            
+            {/* Card Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <h2 className="text-xl font-semibold text-gray-900">All {currentTabObj.label}</h2>
+                
+                <div className="flex items-center gap-3 flex-wrap justify-end">
+                  {/* Search input */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" aria-hidden="true" />
+                    <input
+                      type="text"
+                      placeholder={`Search ${currentTabObj.label.toLowerCase()}...`}
+                      value={search}
+                      onChange={(e) => {
+                        setSearch(e.target.value);
+                        setPage(1);
+                      }}
+                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none w-full sm:w-80 text-sm"
+                    />
+                    {search && (
+                      <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider w-16">S.No</th>
+                    <th className="px-6 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                    {Object.keys(records[0] || {})
+                      .filter((k) => k !== "id" && k !== "order")
+                      .slice(0, 5)
+                      .map((colKey) => (
+                        <th key={colKey} className="px-6 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                          {colKey.replace(/_/g, " ")}
+                        </th>
+                      ))}
+                    <th className="px-6 py-4 text-right text-sm font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {isLoading ? (
+                    Array.from({ length: 8 }).map((_, i) => (
+                      <tr key={i} className="animate-pulse">
+                        <td className="px-4 py-4"><div className="h-4 w-6 bg-gray-200 rounded" /></td>
+                        <td className="px-6 py-4"><div className="h-4 w-12 bg-gray-200 rounded" /></td>
+                        <td className="px-6 py-4"><div className="h-4 w-32 bg-gray-200 rounded" /></td>
+                        <td className="px-6 py-4"><div className="h-4 w-24 bg-gray-200 rounded" /></td>
+                        <td className="px-6 py-4"><div className="h-4 w-28 bg-gray-200 rounded" /></td>
+                        <td className="px-6 py-4"><div className="h-4 w-20 bg-gray-200 rounded" /></td>
+                        <td className="px-6 py-4 text-right"><div className="h-5 w-12 bg-gray-200 rounded ml-auto" /></td>
+                      </tr>
+                    ))
+                  ) : records.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-16 text-center text-gray-400 text-sm">
+                        No records found in this table.
+                      </td>
+                    </tr>
+                  ) : (
+                    records.map((row, index) => {
+                      const sno = (page - 1) * 20 + index + 1;
+                      return (
+                        <tr
+                          key={row.id}
+                          onClick={() => setSelectedRecord(row)}
+                          className="hover:bg-gray-50 transition-colors cursor-pointer"
+                        >
+                          <td className="px-4 py-4 text-sm font-medium text-gray-500">
+                            {sno}
+                          </td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900 font-mono">
+                            #{row.id}
+                          </td>
+                          {Object.keys(row)
+                            .filter((k) => k !== "id" && k !== "order")
+                            .slice(0, 5)
+                            .map((colKey) => (
+                              <td key={colKey} className="px-6 py-4 text-sm text-gray-900 max-w-[240px] truncate">
+                                {renderCellValue(row[colKey])}
+                              </td>
+                            ))}
+                          <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-end space-x-2">
+                              <button
+                                onClick={() => setSelectedRecord(row)}
+                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                title="Inspect Record"
+                              >
+                                <Eye className="w-4 h-4" aria-hidden="true" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
-        )}
+
+          {/* Pagination */}
+          {!isLoading && totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6">
+              <p className="text-sm text-gray-500">
+                Page <span className="font-semibold text-gray-900">{page}</span> of{" "}
+                <span className="font-semibold text-gray-900">{totalPages}</span> &mdash; {count.toLocaleString()} records
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 bg-white rounded-lg text-sm font-medium text-gray-700 disabled:opacity-40 hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Previous
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 bg-white rounded-lg text-sm font-medium text-gray-700 disabled:opacity-40 hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  Next <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+        </div>
       </div>
 
       {/* Record Inspector Modal */}
@@ -247,7 +269,7 @@ export default function AdminCRMHub() {
           <div className="bg-white rounded-lg border border-gray-200 shadow-lg w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Record Inspection #{selectedRecord.id}</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Record Details #{selectedRecord.id}</h2>
                 <p className="text-xs text-gray-500 capitalize mt-0.5">Table: {currentTabObj.label}</p>
               </div>
               <button
