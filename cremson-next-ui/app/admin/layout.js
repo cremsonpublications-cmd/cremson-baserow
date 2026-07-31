@@ -18,6 +18,7 @@ import {
   LogOut,
   Home,
   Database,
+  Users,
 } from "lucide-react";
 
 const navLinks = [
