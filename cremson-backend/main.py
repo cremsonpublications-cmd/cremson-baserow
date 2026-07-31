@@ -18,6 +18,7 @@ from routers import cart as cart_router
 from routers import wishlist as wishlist_router
 from routers import webhooks as webhooks_router
 from routers import whatsapp as whatsapp_router
+from routers import crm as crm_router
 
 app = FastAPI(
     title="Cremson Backend API",
@@ -57,6 +58,7 @@ app.include_router(
     prefix="/api/shipping-settings",
     tags=["Shipping Settings"],
 )
+app.include_router(crm_router.router, prefix="/api/crm", tags=["CRM"])
 
 
 @app.get("/", tags=["Health"])

@@ -17,11 +17,12 @@ import {
   Menu,
   LogOut,
   Home,
-  Users,
+  Database,
 } from "lucide-react";
 
 const navLinks = [
   { href: "/admin",                  label: "Dashboard",         Icon: LayoutDashboard },
+  { href: "/admin/crm",              label: "CRM Database Hub",   Icon: Database        },
   { href: "/admin/categories",       label: "Categories",        Icon: FolderOpen      },
   { href: "/admin/products",         label: "Products",          Icon: Package         },
   { href: "/admin/coupons",          label: "Coupons",           Icon: Ticket          },
