@@ -20,26 +20,27 @@ import {
   Database,
   Users,
   BookOpen,
+  Newspaper,
 } from "lucide-react";
 
 const navLinks = [
-  { href: "/admin",                  label: "Dashboard",         Icon: LayoutDashboard },
-  { href: "/admin/crm?tab=schools",  label: "CRM Database Hub",   Icon: Database        },
-  { href: "/admin/categories",       label: "Categories",        Icon: FolderOpen      },
-  { href: "/admin/products",         label: "Products",          Icon: Package         },
-  { href: "/admin/coupons",          label: "Coupons",           Icon: Ticket          },
-  { href: "/admin/orders",           label: "Orders",            Icon: ShoppingCart    },
-  { href: "/admin/users",            label: "Users",             Icon: Users           },
-  { href: "/admin/specimen-requests",label: "Specimen Requests", Icon: FileText        },
-  { href: "/admin/specimen-books",   label: "Specimen Books",    Icon: BookOpen        },
-  { href: "/admin/reviews",          label: "Reviews",           Icon: MessageSquare   },
-  { href: "/admin/settings",          label: "Settings",          Icon: Settings        },
+  { href: "/admin", label: "Dashboard", Icon: LayoutDashboard },
+  { href: "/admin/crm?tab=schools", label: "CRM Database Hub", Icon: Database },
+  { href: "/admin/categories", label: "Categories", Icon: FolderOpen },
+  { href: "/admin/products", label: "Products", Icon: Package },
+  { href: "/admin/coupons", label: "Coupons", Icon: Ticket },
+  { href: "/admin/orders", label: "Orders", Icon: ShoppingCart },
+  { href: "/admin/users", label: "Users", Icon: Users },
+  { href: "/admin/specimen-requests", label: "Specimen Requests", Icon: FileText },
+  { href: "/admin/specimen-books", label: "Specimen Books", Icon: BookOpen },
+  { href: "/admin/reviews", label: "Reviews", Icon: MessageSquare },
+  { href: "/admin/settings", label: "Settings", Icon: Settings },
 ];
 
 export default function AdminLayout({ children }) {
-  const pathname  = usePathname();
-  const router    = useRouter();
-  const [checked, setChecked]         = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+  const [checked, setChecked] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isLoginPage = pathname === "/admin/login";

@@ -11,7 +11,7 @@ echo "   Cremson Full Stack Startup"
 echo "========================================"
 echo ""
 
-# ── Kill any existing processes on ports 8000 and 3000 ───────────────────────
+# ── Kill any existing processes on ports 8000 and 3000 ────────────────────────
 for PORT in 8000 3000; do
   PID=$(lsof -ti tcp:$PORT 2>/dev/null)
   if [ -n "$PID" ]; then
@@ -21,7 +21,7 @@ for PORT in 8000 3000; do
   fi
 done
 
-# ── 1. Create venv if not exists ─────────────────────────────────────────────
+# ── 1. Create venv if not exists ──────────────────────────────────────────────
 if [ ! -d "$VENV" ]; then
   echo "[1/4] Creating Python virtual environment..."
   python3 -m venv "$VENV"
@@ -29,7 +29,7 @@ else
   echo "[1/4] Virtual environment already exists — skipping."
 fi
 
-# ── 2. Activate venv ─────────────────────────────────────────────────────────
+# ── 2. Activate venv ──────────────────────────────────────────────────────────
 echo "[2/4] Activating virtual environment..."
 source "$VENV/bin/activate"
 
@@ -59,11 +59,11 @@ fi
 
 echo ""
 echo "========================================"
-echo "   Starting servers..."
+echo "   Starting all servers..."
 echo "========================================"
 echo ""
 
-# ── Start backend ─────────────────────────────────────────────────────────────
+# ── Start backend (Port 8000) ─────────────────────────────────────────────────
 echo "▶ Starting Backend → http://localhost:8000"
 cd "$BACKEND"
 uvicorn main:app --reload --host 0.0.0.0 --port 8000 > /tmp/cremson-backend.log 2>&1 &
@@ -91,9 +91,9 @@ echo ""
 echo "  ✅ Backend is ready!"
 echo "  Swagger docs → http://localhost:8000/docs"
 
-# ── Start frontend ────────────────────────────────────────────────────────────
+# ── Start frontend (Port 3000) ────────────────────────────────────────────────
 echo ""
-echo "▶ Starting Frontend → http://localhost:3000"
+echo "▶ Starting Frontend Website → http://localhost:3000"
 cd "$FRONTEND"
 npm run dev > /tmp/cremson-frontend.log 2>&1 &
 FRONTEND_PID=$!
@@ -121,18 +121,21 @@ echo "  ✅ Frontend is ready!"
 
 echo ""
 echo "========================================"
-echo "  ✅ Both servers running!"
-echo "     Frontend → http://localhost:3000"
-echo "     Backend  → http://localhost:8000"
-echo "     Swagger  → http://localhost:8000/docs"
-echo "     Logs     → /tmp/cremson-backend.log"
-echo "               /tmp/cremson-frontend.log"
+echo "  ✅ All servers are running!"
 echo ""
-echo "  Press Ctrl+C to stop all."
+echo "     • Next.js Website:  http://localhost:3000"
+echo "     • FastAPI Backend:  http://localhost:8000"
+echo "     • Swagger Docs:     http://localhost:8000/docs"
+echo ""
+echo "     Logs:"
+echo "     - Backend:  tail -f /tmp/cremson-backend.log"
+echo "     - Frontend: tail -f /tmp/cremson-frontend.log"
+echo ""
+echo "  Press Ctrl+C to stop all servers."
 echo "========================================"
 echo ""
 
 # ── Graceful shutdown on Ctrl+C ──────────────────────────────────────────────
-trap "echo ''; echo 'Stopping servers...'; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; deactivate 2>/dev/null; exit 0" SIGINT SIGTERM
+trap "echo ''; echo 'Stopping all servers...'; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; deactivate 2>/dev/null; exit 0" SIGINT SIGTERM
 
 wait
