@@ -20,7 +20,20 @@ import {
   X,
   Sparkles,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
+
+const BlockNoteEditor = dynamic(
+  () => import("../../../components/BlockNoteEditor"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="p-8 text-center text-gray-400 bg-gray-50 rounded-2xl border border-gray-200">
+        Loading Notion-style Editor...
+      </div>
+    ),
+  }
+);
 
 const CATEGORY_COLORS = {
   News: "bg-teal-100 text-teal-800 border-teal-200",
@@ -490,15 +503,18 @@ export default function AdminBlogsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-                  Full Content (HTML) *
-                </label>
-                <textarea
-                  rows={8}
-                  required
-                  value={formData.content}
-                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Full Content (Notion WYSIWYG Editor) *
+                  </label>
+                  <span className="text-[11px] font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
+                    Type / for Slash Menu (Images, Tables, Headings)
+                  </span>
+                </div>
+                <BlockNoteEditor
+                  key={editingBlog ? editingBlog.id : "new"}
+                  initialHTML={formData.content}
+                  onChangeHTML={(html) => setFormData((prev) => ({ ...prev, content: html }))}
                 />
               </div>
 
