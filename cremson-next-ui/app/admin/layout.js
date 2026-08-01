@@ -20,6 +20,7 @@ import {
   Database,
   Users,
   BookOpen,
+  Newspaper,
 } from "lucide-react";
 
 const navLinks = [
@@ -27,6 +28,7 @@ const navLinks = [
   { href: "/admin/crm?tab=schools",  label: "CRM Database Hub",   Icon: Database        },
   { href: "/admin/categories",       label: "Categories",        Icon: FolderOpen      },
   { href: "/admin/products",         label: "Products",          Icon: Package         },
+  { href: "/admin/blogs",            label: "News & Blogs",      Icon: Newspaper       },
   { href: "/admin/coupons",          label: "Coupons",           Icon: Ticket          },
   { href: "/admin/orders",           label: "Orders",            Icon: ShoppingCart    },
   { href: "/admin/users",            label: "Users",             Icon: Users           },

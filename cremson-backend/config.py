@@ -38,4 +38,5 @@ TABLE_IDS = {
     "cart_items": int(os.getenv("TABLE_CART_ITEMS", "772")),
     "wishlist_items": int(os.getenv("TABLE_WISHLIST_ITEMS", "773")),
     "shipment_history": int(os.getenv("TABLE_SHIPMENT_HISTORY", "774")),
+    "blogs": int(os.getenv("TABLE_BLOGS", "0")),
 }
