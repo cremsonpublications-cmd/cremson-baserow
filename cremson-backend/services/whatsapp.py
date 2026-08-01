@@ -96,10 +96,11 @@ async def send_order_confirmation(
     customer_name: str,
     order_id: str,
     total_amount: float,
-    item_count: int,
+    transaction_id: str = "-",
+    item_count: int = 1,
     items: Optional[List[dict]] = None,
 ):
-    """Order confirmed — itemised list. Template: order_confirmation_v4"""
+    """Order placed & payment confirmed — single itemised template: order_confirmation_v6"""
     formatted_items = ""
     if items:
         lines = []
@@ -108,15 +109,15 @@ async def send_order_confirmation(
             qty = item.get("quantity") or item.get("qty") or 1
             price = item.get("currentPrice") or item.get("price") or 0.0
             total_price = item.get("totalPrice") or (price * qty)
-            lines.append(f"- {name} ({qty} x ₹{price:.2f}) = ₹{total_price:.2f}")
+            lines.append(f"• {name} ({qty} x ₹{price:.2f}) = ₹{total_price:.2f}")
         formatted_items = "\n".join(lines)
     else:
-        formatted_items = f"- {item_count} item(s)"
+        formatted_items = f"• {item_count} item(s)"
 
     template = (
         WHATSAPP_TEMPLATE_NAME
         if WHATSAPP_TEMPLATE_NAME != "hello_world"
-        else "order_confirmation_v5"
+        else "order_confirmation_v6"
     )
 
     await _send_template(
@@ -125,6 +126,7 @@ async def send_order_confirmation(
         [
             _txt(customer_name),
             _txt(order_id),
+            _txt(transaction_id),
             _txt(formatted_items),
             _txt(f"₹{total_amount:.2f}"),
         ],
@@ -154,17 +156,13 @@ async def send_payment_success(
     amount: float,
     transaction_id: str,
 ):
-    """Payment received confirmation. Template: payment_received_v4"""
-    await _send_template(
-        phone,
-        "payment_received_v4",
-        [
-            _txt(customer_name),
-            _txt(f"₹{amount:.2f}"),
-            _txt(order_id),
-            _txt(transaction_id),
-        ],
-        log_tag=f"payment_success order={order_id}",
+    """Deprecated: Payment success is now sent via send_order_confirmation (order_confirmation_v6)"""
+    await send_order_confirmation(
+        phone=phone,
+        customer_name=customer_name,
+        order_id=order_id,
+        total_amount=amount,
+        transaction_id=transaction_id,
     )
 
 

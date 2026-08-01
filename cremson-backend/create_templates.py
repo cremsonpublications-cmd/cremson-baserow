@@ -15,7 +15,7 @@ if not ACCESS_TOKEN:
 
 templates = [
     {
-        "name": "order_confirmation_v5",
+        "name": "order_confirmation_v6",
         "category": "UTILITY",
         "language": "en",
         "components": [
@@ -23,40 +23,21 @@ templates = [
                 "type": "BODY",
                 "text": (
                     "Hello {{1}},\n\n"
-                    "Great news! Your order *{{2}}* has been successfully placed.\n\n"
-                    "📦 *Items Purchased:*\n{{3}}\n\n"
-                    "💰 *Total Amount:* *{{4}}*\n\n"
-                    "Thank you for shopping with Cremson Publications!"
+                    "Great news! Your payment for Order *{{2}}* was successful and your order has been placed.\n"
+                    "Transaction ID: {{3}}\n\n"
+                    "📦 *Items Purchased:*\n{{4}}\n\n"
+                    "💰 *Total Amount:* *{{5}}*\n\n"
+                    "We are now processing your order. Thank you for shopping with Cremson Publications!"
                 ),
                 "example": {
                     "body_text": [
                         [
                             "Arjunan Cahippa",
-                            "BOOK2304",
-                            "- Tamil Grammar Guide (1 x ₹250.00) = ₹250.00",
-                            "₹950.00"
+                            "BOOK2311",
+                            "pay_TJa291havfGQzB",
+                            "• Physical Education Text Book XIIth (1 x ₹384.00) = ₹384.00",
+                            "₹434.00"
                         ]
-                    ]
-                }
-            }
-        ]
-    },
-    {
-        "name": "payment_received_v4",
-        "category": "UTILITY",
-        "language": "en",
-        "components": [
-            {
-                "type": "BODY",
-                "text": (
-                    "Hello {{1}},\n\n"
-                    "Your payment of {{2}} for Order {{3}} was successful. \n"
-                    "Transaction ID: {{4}}\n\n"
-                    "We are now processing your order. Thank you!"
-                ),
-                "example": {
-                    "body_text": [
-                        ["Arjunan Cahippa", "₹950.00", "BOOK2304", "pay_txn_123"]
                     ]
                 }
             }

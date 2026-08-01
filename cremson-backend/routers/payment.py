@@ -305,7 +305,7 @@ async def verify_payment(body: VerifyPaymentRequest, background_tasks: Backgroun
         baserow_row_id = created_row.get("id", 0)
         logger.info(f"[Payment] Order saved: order_id={order_id} row_id={baserow_row_id}")
 
-        # ── Step 3: WhatsApp — payment success + order confirmation ──────────
+        # ── Step 3: WhatsApp — single combined order & payment confirmation ──
         try:
             user_info = body.user_info or {}
             phone = user_info.get("phone", "") or user_info.get("whatsapp_phone", "")
@@ -314,18 +314,12 @@ async def verify_payment(body: VerifyPaymentRequest, background_tasks: Backgroun
             item_count = sum(i.get("quantity", 1) for i in (body.items or []))
 
             if phone:
-                await send_payment_success(
-                    phone=phone,
-                    customer_name=name,
-                    order_id=order_id,
-                    amount=total,
-                    transaction_id=body.razorpay_payment_id,
-                )
                 await send_order_confirmation(
                     phone=phone,
                     customer_name=name,
                     order_id=order_id,
                     total_amount=total,
+                    transaction_id=body.razorpay_payment_id,
                     item_count=item_count,
                     items=body.items,
                 )
@@ -342,6 +336,7 @@ async def verify_payment(body: VerifyPaymentRequest, background_tasks: Backgroun
                         customer_name=name,
                         order_id=order_id,
                         total_amount=total,
+                        transaction_id=body.razorpay_payment_id,
                         item_count=item_count,
                         items=body.items,
                     )

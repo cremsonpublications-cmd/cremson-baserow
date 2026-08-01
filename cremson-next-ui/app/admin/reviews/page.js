@@ -5,18 +5,25 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../../../lib/api/axios";
 import { adminDeleteReview } from "../../../lib/api/admin";
 import ConfirmModal from "../components/ConfirmModal";
-import { 
-  Search, 
-  X, 
-  Trash2, 
-  Star, 
+import {
+  Search,
+  X,
+  Trash2,
+  Star,
   MessageSquare,
-  ChevronLeft, 
-  ChevronRight,
-  Eye
+  Eye,
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
+
+const RATING_OPTIONS = [
+  { value: "", label: "All Ratings" },
+  { value: "5", label: "⭐⭐⭐⭐⭐  5 Stars" },
+  { value: "4", label: "⭐⭐⭐⭐  4 Stars" },
+  { value: "3", label: "⭐⭐⭐  3 Stars" },
+  { value: "2", label: "⭐⭐  2 Stars" },
+  { value: "1", label: "⭐  1 Star" },
+];
 
 function useDebounce(value, delay) {
   const [debounced, setDebounced] = useState(value);
@@ -29,71 +36,72 @@ function useDebounce(value, delay) {
 
 function StarRating({ rating }) {
   const n = Number(rating);
-  if (!n) return <span className="text-slate-400">—</span>;
+  if (!n) return <span className="text-gray-400">—</span>;
   return (
     <span className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((i) => (
-        <Star 
-          key={i} 
-          className={`w-3.5 h-3.5 ${i <= n ? "text-amber-450 fill-amber-400 stroke-amber-500" : "text-slate-200 fill-slate-100"}`} 
+        <Star
+          key={i}
+          className={`w-3.5 h-3.5 ${i <= n ? "text-amber-400 fill-amber-400" : "text-gray-200 fill-gray-100"}`}
         />
       ))}
-      <span className="text-[10px] font-bold text-slate-500 ml-1.5">{n}</span>
+      <span className="text-xs font-semibold text-gray-500 ml-1">{n}</span>
     </span>
   );
 }
 
 function ReviewModal({ review, onClose, onDelete }) {
   if (!review) return null;
-  function renderValue(val) {
+
+  const fields = [
+    { label: "Review ID", key: "id" },
+    { label: "Product", key: "product_name", alt: "product" },
+    { label: "User", key: "user_name", alt: "user_email" },
+    { label: "Rating", key: "rating", alt: "stars" },
+    { label: "Comment", key: "review_text", alt: "comment" },
+    { label: "Created At", key: "created_at", alt: "date" },
+  ];
+
+  function renderVal(key, altKey) {
+    const val = review[key] ?? review[altKey];
     if (val === null || val === undefined) return "—";
+    if (key === "rating" || key === "stars") return <StarRating rating={val} />;
     if (typeof val === "boolean") return val ? "Yes" : "No";
-    if (typeof val === "object") return JSON.stringify(val, null, 2);
     return String(val);
   }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-slate-950/60 backdrop-blur-md transition-all duration-300">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-100 sticky top-0 bg-white z-10">
+        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-white sticky top-0 z-10 text-left">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Review Details</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Showing full database row parameters for Review ID: {review.id}</p>
+            <h2 className="text-xl font-bold text-slate-900">Review Details</h2>
+            <p className="text-xs text-slate-400 font-mono mt-1">ID: {review.id}</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => onDelete(review)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors cursor-pointer"
             >
-              <Trash2 className="w-4 h-4" /> Delete Review
+              <Trash2 className="w-3.5 h-3.5" /> Delete
             </button>
-            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-650 hover:bg-slate-50 rounded-full transition-all">
+            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full transition-all cursor-pointer">
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Modal Content */}
-        <div className="p-6 overflow-y-auto flex-1 bg-slate-5/30 text-left">
-          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
-            {Object.entries(review).map(([key, value]) => {
-              const isLongText = key === "review_text" || key === "comment" || key === "body";
-              return (
-                <div key={key} className={isLongText ? "sm:col-span-2 bg-slate-50/50 p-4 rounded-xl border border-slate-100" : ""}>
-                  <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{key.replace(/_/g, " ")}</dt>
-                  <dd className="text-xs font-semibold text-slate-800 break-words leading-relaxed">
-                    {typeof value === "object" && value !== null ? (
-                      <pre className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-[11px] font-mono text-slate-700 overflow-x-auto">
-                        {JSON.stringify(value, null, 2)}
-                      </pre>
-                    ) : (
-                      renderValue(value)
-                    )}
-                  </dd>
-                </div>
-              );
-            })}
+        {/* Modal Body */}
+        <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50 text-left space-y-3">
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {fields.map(({ label, key, alt }) => (
+              <div key={key} className={`bg-white border border-slate-100 rounded-xl p-4 ${key === "review_text" ? "sm:col-span-2" : ""}`}>
+                <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</dt>
+                <dd className="text-xs font-semibold text-slate-800 break-words leading-relaxed">{renderVal(key, alt)}</dd>
+              </div>
+            ))}
           </dl>
         </div>
       </div>
@@ -101,21 +109,21 @@ function ReviewModal({ review, onClose, onDelete }) {
   );
 }
 
-const COLS = ["ID", "Product", "User", "Rating", "Comment", "Created At", "Actions"];
-
 export default function AdminReviews() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [ratingFilter, setRatingFilter] = useState("");
   const [selected, setSelected] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const debouncedSearch = useDebounce(search, 400);
-  useEffect(() => { setPage(1); }, [debouncedSearch]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, ratingFilter]);
 
   const params = { page, size: PAGE_SIZE };
   if (debouncedSearch) params.search = debouncedSearch;
+  if (ratingFilter) params.rating = ratingFilter;
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-reviews", params],
@@ -127,11 +135,13 @@ export default function AdminReviews() {
 
   const reviews = data?.results ?? data?.items ?? [];
   const count = data?.count ?? data?.total ?? 0;
-  const totalPages = Math.ceil(count / PAGE_SIZE);
+  const totalPages = Math.ceil(count / PAGE_SIZE) || 1;
 
   function formatDate(dateStr) {
     if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   }
 
   function handleDelete(review) {
@@ -158,178 +168,190 @@ export default function AdminReviews() {
     }
   }
 
+  const hasClear = search || ratingFilter;
+
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6 text-left">
-      
-      {/* Header Info Area */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Reviews</h1>
-            <span className="bg-red-50 text-red-800 text-xs font-black px-2.5 py-0.5 rounded-full border border-red-100">
-              {count.toLocaleString()} Reviews
-            </span>
-          </div>
-          <p className="text-sm text-slate-550 mt-1">Audit customer ratings, feedback, written test reviews, and remove offensive material.</p>
-        </div>
-      </div>
+    <div className="lg:p-8 text-left">
+      <h2 className="text-2xl font-semibold text-gray-900 mb-8 mt-[20px] sm:mt-0">Reviews</h2>
 
-      {/* Filter toolbar */}
-      <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-[0_4px_20px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row gap-4 items-center justify-between">
-        
-        {/* Search */}
-        <div className="relative w-full sm:max-w-md">
-          <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="Search reviews by user name, comments or content..." 
-            value={search} 
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 bg-slate-50/50 hover:bg-slate-55 focus:bg-white rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-slate-900" 
-          />
-          {search && (
-            <button 
-              onClick={() => setSearch("")} 
-              className="absolute right-3 top-2.5 p-0.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          )}
-        </div>
+      <div className="rounded-lg">
+        <div className="h-[calc(100vh-120px)] flex flex-col">
+          <div className="max-w-7xl mx-auto w-full h-full flex flex-col">
+            <div className="bg-white rounded-lg shadow-lg border border-gray-200 flex flex-col flex-1 min-h-[600px]">
 
-        {search && (
-          <button 
-            onClick={() => setSearch("")} 
-            className="text-xs font-bold text-red-500 hover:text-red-750 hover:bg-red-50 px-3 py-2 rounded-xl transition-all cursor-pointer"
-          >
-            Clear Filters
-          </button>
-        )}
+              {/* Header & Filter Controls */}
+              <div className="p-4 md:p-6 border-b border-gray-200 flex-shrink-0 bg-white">
+                <div className="space-y-4">
 
-      </div>
+                  {/* Top Bar: Search + Count */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
+                      <input
+                        type="text"
+                        placeholder="Search reviews..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="pl-8 md:pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none w-full sm:w-80"
+                      />
+                    </div>
+                    <div className="text-sm text-gray-600">Total: {count} reviews</div>
+                  </div>
 
-      {/* Grid List Table */}
-      <div className="bg-white border border-slate-100 rounded-2xl shadow-[0_4px_25px_rgb(0,0,0,0.015)] overflow-hidden">
-        {isLoading ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-100 text-left">
-              <thead className="bg-slate-50/75">
-                <tr>{COLS.map((h) => <th key={h} className="px-5 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">{h}</th>)}</tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 animate-pulse bg-white">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i}>
-                    <td className="px-5 py-4"><div className="h-4 w-8 bg-slate-150 rounded" /></td>
-                    <td className="px-5 py-4"><div className="h-4 w-40 bg-slate-150 rounded" /></td>
-                    <td className="px-5 py-4"><div className="h-4 w-28 bg-slate-150 rounded" /></td>
-                    <td className="px-5 py-4"><div className="h-4 w-20 bg-slate-150 rounded" /></td>
-                    <td className="px-5 py-4"><div className="h-4 w-48 bg-slate-150 rounded" /></td>
-                    <td className="px-5 py-4"><div className="h-4 w-20 bg-slate-150 rounded" /></td>
-                    <td className="px-5 py-4"><div className="h-4 w-8 bg-slate-150 rounded" /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : reviews.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white">
-            <MessageSquare className="w-12 h-12 text-slate-200 mb-3" />
-            <p className="text-sm font-semibold text-slate-500">No review ratings received yet.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-100 text-left">
-              <thead className="bg-slate-50/75">
-                <tr>{COLS.map((h) => <th key={h} className="px-5 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">{h}</th>)}</tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {reviews.map((review) => (
-                  <tr 
-                    key={review.id} 
-                    onClick={() => setSelected(review)} 
-                    className="hover:bg-slate-50/80 cursor-pointer transition-colors"
+                  {/* Bottom Bar: Rating Filter + Clear */}
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm text-gray-600 font-medium">Rating:</label>
+                      <select
+                        value={ratingFilter}
+                        onChange={(e) => setRatingFilter(e.target.value)}
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white text-gray-700 appearance-none pl-3 pr-8 cursor-pointer"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                          backgroundPosition: "right 0.5rem center",
+                          backgroundRepeat: "no-repeat",
+                          backgroundSize: "1.25rem 1.25rem",
+                        }}
+                      >
+                        {RATING_OPTIONS.map((r) => (
+                          <option key={r.value} value={r.value}>{r.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {hasClear && (
+                      <button
+                        onClick={() => { setSearch(""); setRatingFilter(""); }}
+                        className="text-xs font-semibold text-purple-600 hover:text-purple-800 transition-colors ml-auto cursor-pointer"
+                      >
+                        Clear Filters
+                      </button>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Table Container */}
+              <div className="flex-1 overflow-auto min-h-0">
+                {isLoading ? (
+                  <div className="p-6 animate-pulse space-y-4">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <div key={i} className="h-12 bg-gray-100 rounded-lg w-full" />
+                    ))}
+                  </div>
+                ) : reviews.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+                    <MessageSquare className="w-12 h-12 text-gray-300 mb-3" />
+                    <p className="text-base font-semibold text-gray-600">No reviews found.</p>
+                  </div>
+                ) : (
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Product</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">User</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Rating</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Comment</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {reviews.map((review) => (
+                        <tr key={review.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 text-xs font-semibold text-gray-900">
+                            #{review.id}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-xs font-semibold text-gray-900 max-w-[180px] truncate" title={review.product_name ?? review.product}>
+                              {review.product_name ?? review.product ?? review.product_id ?? "—"}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-xs text-gray-600 max-w-[140px] truncate">
+                              {review.user_name ?? review.user_email ?? review.user ?? "—"}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <StarRating rating={review.rating ?? review.stars} />
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-xs text-gray-600 max-w-[240px] truncate" title={review.review_text ?? review.comment}>
+                              {review.review_text ?? review.comment ?? "—"}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-xs text-gray-600 whitespace-nowrap">
+                            {formatDate(review.created_at ?? review.date)}
+                          </td>
+                          <td className="px-6 py-4 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end space-x-2 text-purple-600">
+                              <button
+                                onClick={() => setSelected(review)}
+                                className="p-1 hover:bg-purple-50 rounded transition-colors cursor-pointer"
+                                title="View Review"
+                              >
+                                <Eye className="w-4 h-4 text-gray-400 hover:text-purple-600" />
+                              </button>
+                              <button
+                                onClick={(e) => handleDeleteInline(e, review)}
+                                className="p-1 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                                title="Delete Review"
+                              >
+                                <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-600" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {/* Pagination Bar */}
+              <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white flex-shrink-0">
+                <div className="text-sm text-gray-600">
+                  Showing {reviews.length > 0 ? (page - 1) * PAGE_SIZE + 1 : 0} to {Math.min(page * PAGE_SIZE, count)} of {count} reviews
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg font-medium text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors cursor-pointer"
                   >
-                    {/* ID */}
-                    <td className="px-5 py-4 text-xs font-bold text-slate-500 font-mono">
-                      #{review.id}
-                    </td>
+                    Previous
+                  </button>
+                  {Array.from({ length: Math.min(5, totalPages) }).map((_, idx) => {
+                    const pNum = idx + 1;
+                    return (
+                      <button
+                        key={pNum}
+                        onClick={() => setPage(pNum)}
+                        className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors cursor-pointer ${
+                          page === pNum
+                            ? "bg-purple-600 text-white font-semibold"
+                            : "border border-gray-300 text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {pNum}
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages || totalPages === 0}
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg font-medium text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
 
-                    {/* Product Name */}
-                    <td className="px-5 py-4 text-xs font-bold text-slate-900 max-w-[200px] truncate" title={review.product_name ?? review.product}>
-                      {review.product_name ?? review.product ?? review.product_id ?? "—"}
-                    </td>
-
-                    {/* User */}
-                    <td className="px-5 py-4 text-xs font-semibold text-slate-650 max-w-[150px] truncate">
-                      {review.user_name ?? review.user_email ?? review.user ?? "—"}
-                    </td>
-
-                    {/* Rating stars */}
-                    <td className="px-5 py-4 whitespace-nowrap">
-                      <StarRating rating={review.rating ?? review.stars} />
-                    </td>
-
-                    {/* Comment text */}
-                    <td className="px-5 py-4 text-xs text-slate-550 max-w-[250px] truncate" title={review.review_text ?? review.comment}>
-                      {review.review_text ?? review.comment ?? "—"}
-                    </td>
-
-                    {/* Date */}
-                    <td className="px-5 py-4 text-xs text-slate-500 whitespace-nowrap">
-                      {formatDate(review.created_at ?? review.date)}
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-5 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => setSelected(review)}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => handleDeleteInline(e, review)}
-                          className="p-1.5 text-slate-400 hover:text-red-650 hover:bg-red-50 rounded-lg transition-all"
-                          title="Delete Review"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Pagination */}
-      {!isLoading && totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-1 py-2">
-          <p className="text-xs font-bold text-slate-550">
-            Page <span className="text-slate-900 font-black">{page}</span> of <span className="text-slate-900 font-black">{totalPages}</span> &mdash; {count.toLocaleString()} reviews
-          </p>
-          <div className="flex gap-2">
-            <button 
-              onClick={() => setPage((p) => Math.max(1, p - 1))} 
-              disabled={page === 1} 
-              className="inline-flex items-center gap-1 px-4 py-2 border border-slate-200 bg-white rounded-xl text-xs font-bold text-slate-700 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-all cursor-pointer"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" /> Previous
-            </button>
-            <button 
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))} 
-              disabled={page === totalPages} 
-              className="inline-flex items-center gap-1 px-4 py-2 border border-slate-200 bg-white rounded-xl text-xs font-bold text-slate-700 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-all cursor-pointer"
-            >
-              Next <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Detail Modal */}
       {selected && (
@@ -344,7 +366,7 @@ export default function AdminReviews() {
       {deleteTarget && (
         <ConfirmModal
           title="Delete Review"
-          message="Are you sure you want to delete this rating feedback? This action cannot be undone."
+          message="Are you sure you want to delete this review? This action cannot be undone."
           confirmLabel="Delete"
           loading={deleteLoading}
           onConfirm={confirmDelete}

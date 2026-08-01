@@ -2,22 +2,34 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import api from "../../../lib/api/axios";
-import { adminUpdateSpecimenStatus } from "../../../lib/api/admin";
-import { 
-  Search, 
-  X, 
-  ChevronLeft, 
-  ChevronRight,
-  BookOpen,
-  Filter,
+import { adminApproveSpecimen, adminRejectSpecimen, adminDeleteSpecimenRequest } from "../../../lib/api/admin";
+import ConfirmModal from "../components/ConfirmModal";
+import {
+  Search,
+  X,
   Eye,
-  ChevronDown,
-  Layers
+  Package,
+  CheckCircle,
+  XCircle,
+  RefreshCw,
+  AlertCircle,
+  Trash2,
+  BookOpen,
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
-const SPECIMEN_STATUSES = ["Pending", "Approved", "Rejected", "Dispatched"];
+
+const DELIVERY_STATUSES = [
+  { value: "", label: "All Statuses" },
+  { value: "In Transit", label: "In Transit" },
+  { value: "Delivered", label: "Delivered" },
+  { value: "RTO", label: "RTO" },
+  { value: "Dispatched", label: "Dispatched" },
+  { value: "Not dispatched", label: "Not Dispatched" },
+  { value: "HandDelivered", label: "Hand Delivered" },
+];
 
 function useDebounce(value, delay) {
   const [debounced, setDebounced] = useState(value);
@@ -28,113 +40,173 @@ function useDebounce(value, delay) {
   return debounced;
 }
 
-function StatusBadge({ status }) {
-  const map = {
-    pending: "bg-yellow-50 text-yellow-755 border-yellow-100",
-    approved: "bg-emerald-50 text-emerald-755 border-emerald-100",
-    rejected: "bg-rose-50 text-rose-755 border-rose-100",
-    shipped: "bg-blue-50 text-blue-755 border-blue-100",
-    dispatched: "bg-blue-50 text-blue-755 border-blue-100",
-    completed: "bg-emerald-50 text-emerald-755 border-emerald-100",
-  };
-  const cls = map[status?.toLowerCase()] || "bg-slate-50 text-slate-700 border-slate-200";
+function getStatusRaw(status) {
+  if (!status) return "";
+  if (typeof status === "object" && status !== null) return status.value || "";
+  return String(status);
+}
+
+function DeliveryStatusBadge({ status }) {
+  const raw = getStatusRaw(status);
+  const s = raw.toLowerCase();
+  let colors = "bg-slate-100 text-slate-700";
+  if (s === "delivered" || s === "handdelivered") colors = "bg-emerald-100 text-emerald-800";
+  else if (s === "dispatched" || s === "in transit") colors = "bg-blue-100 text-blue-800";
+  else if (s === "rto") colors = "bg-rose-100 text-rose-800";
+  else if (s === "not dispatched") colors = "bg-amber-100 text-amber-800";
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border capitalize ${cls}`}>
-      {status || "—"}
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize ${colors}`}>
+      {raw || "—"}
     </span>
   );
 }
 
-function RequestModal({ request, onClose, onStatusUpdated }) {
+function RequestModal({ request, onClose, onAction }) {
   if (!request) return null;
 
-  const [selectedStatus, setSelectedStatus] = useState(request.status ?? request.request_status ?? "");
-  const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [statusError, setStatusError] = useState("");
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
 
-  async function handleStatusUpdate() {
-    if (!selectedStatus) return;
-    setUpdatingStatus(true);
-    setStatusError("");
+  const statusRaw = getStatusRaw(request["DeliveryStatus"]).toLowerCase();
+  const isDispatched = statusRaw === "dispatched";
+  const isRTO = statusRaw === "rto";
+  const isPending = !isDispatched && !isRTO;
+
+  async function handleApprove() {
+    setApproving(true);
     try {
-      await adminUpdateSpecimenStatus(request.id, selectedStatus);
-      onStatusUpdated(request.id, selectedStatus);
+      await adminApproveSpecimen(request.id);
+      toast.success("Specimen request approved — marked as Dispatched.");
+      onAction(request.id, "Dispatched");
     } catch (err) {
-      setStatusError(err?.response?.data?.detail || "Failed to update status.");
+      toast.error(err?.response?.data?.detail || "Failed to approve request.");
     } finally {
-      setUpdatingStatus(false);
+      setApproving(false);
     }
   }
 
-  function renderValue(val) {
-    if (val === null || val === undefined) return "—";
+  async function handleReject() {
+    setRejecting(true);
+    try {
+      await adminRejectSpecimen(request.id);
+      toast.success("Specimen request rejected — marked as RTO.");
+      onAction(request.id, "RTO");
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Failed to reject request.");
+    } finally {
+      setRejecting(false);
+    }
+  }
+
+  const fields = [
+    { label: "Teacher Name", key: "Teacheer Name" },
+    { label: "School Name", key: "School Name" },
+    { label: "Request Date", key: "RequestDate" },
+    { label: "Dispatch Method", key: "DispatchMethod" },
+    { label: "Dispatch Date", key: "DispatchDate" },
+    { label: "AWB Number", key: "AWB_Number" },
+    { label: "Courier Partner", key: "Courier_Partner" },
+    { label: "Tracking Link", key: "TrackingLink" },
+    { label: "Books Requested", key: "BooksRequested" },
+    { label: "Follow-Up Stage", key: "FollowUpStage" },
+    { label: "Delivery Confirmed", key: "DeliveryConfirmed" },
+    { label: "Converted", key: "Converted" },
+    { label: "Conversion Status", key: "ConversionStatus" },
+    { label: "Feedback / Notes", key: "Feedback/Notes" },
+    { label: "Full Address", key: "Full_Address" },
+  ];
+
+  function renderVal(val) {
+    if (val === null || val === undefined || val === "") return "—";
     if (typeof val === "boolean") return val ? "Yes" : "No";
-    if (typeof val === "object") return JSON.stringify(val, null, 2);
+    if (Array.isArray(val)) return val.map(v => typeof v === "object" ? (v.value || v.name || JSON.stringify(v)) : v).join(", ") || "—";
+    if (typeof val === "object") return val.value || val.name || JSON.stringify(val);
     return String(val);
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-slate-950/60 backdrop-blur-md transition-all duration-300">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-100 sticky top-0 bg-white z-10">
+        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-white sticky top-0 z-10 text-left">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 font-sans">Specimen Request Details</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Showing school/institution dispatch parameters for ID: #{request.id}</p>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold text-slate-900">Specimen Request</h2>
+              <DeliveryStatusBadge status={request["DeliveryStatus"]} />
+            </div>
+            <p className="text-xs text-slate-400 font-mono mt-1">ID: {request.id}</p>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-650 hover:bg-slate-50 rounded-full transition-all">
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full transition-all cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Modal Content */}
-        <div className="p-6 overflow-y-auto flex-1 bg-slate-5/30 space-y-6 text-left">
-          
-          {/* Status Box */}
-          <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4">
-            <p className="text-[10px] font-bold text-blue-700 uppercase tracking-wider mb-2.5">Update Dispatch Status</p>
-            <div className="flex items-center gap-3">
-              <div className="relative min-w-[150px]">
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white appearance-none cursor-pointer text-slate-800"
-                >
-                  <option value="">— Select Status —</option>
-                  {SPECIMEN_STATUSES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-              </div>
-              <button
-                onClick={handleStatusUpdate}
-                disabled={!selectedStatus || updatingStatus}
-                className="px-4 py-2 text-xs font-bold text-white bg-blue-605 hover:bg-blue-700 active:bg-blue-800 rounded-xl disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
-              >
-                {updatingStatus ? "Updating..." : "Update Status"}
-              </button>
-            </div>
-            {statusError && <p className="text-red-750 text-xs mt-2.5 font-bold">{statusError}</p>}
-          </div>
+        {/* Modal Body */}
+        <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50 space-y-4 text-left">
 
-          {/* Key-Value Details */}
-          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
-            {Object.entries(request).map(([key, value]) => {
-              const isLongText = key === "message" || key === "notes" || key === "address";
+          {/* ── Approve / Reject Action Panel ── */}
+          {isPending && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+              <div className="flex items-start gap-3 mb-4">
+                <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-bold text-amber-800">Action Required</p>
+                  <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                    Review this specimen request and either approve (dispatch) or reject it.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleApprove}
+                  disabled={approving || rejecting}
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl disabled:opacity-50 transition-all cursor-pointer shadow-sm"
+                >
+                  {approving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                  {approving ? "Approving..." : "Approve & Dispatch"}
+                </button>
+                <button
+                  onClick={handleReject}
+                  disabled={approving || rejecting}
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 rounded-xl disabled:opacity-50 transition-all cursor-pointer shadow-sm"
+                >
+                  {rejecting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                  {rejecting ? "Rejecting..." : "Reject Request"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isDispatched && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3">
+              <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-emerald-800">Approved & Dispatched</p>
+                <p className="text-xs text-emerald-700 mt-0.5">This request has been approved and the specimen has been dispatched.</p>
+              </div>
+            </div>
+          )}
+
+          {isRTO && (
+            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-center gap-3">
+              <XCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-rose-800">Rejected (RTO)</p>
+                <p className="text-xs text-rose-700 mt-0.5">This request was rejected and marked as returned.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Details Grid */}
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {fields.map(({ label, key }) => {
+              const val = request[key];
+              const isLong = key === "BooksRequested" || key === "Feedback/Notes" || key === "Full_Address";
               return (
-                <div key={key} className={isLongText ? "sm:col-span-2 bg-slate-50/50 p-4 rounded-xl border border-slate-100" : ""}>
-                  <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{key.replace(/_/g, " ")}</dt>
-                  <dd className="text-xs font-semibold text-slate-800 break-words leading-relaxed">
-                    {typeof value === "object" && value !== null ? (
-                      <pre className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-[11px] font-mono text-slate-700 overflow-x-auto">
-                        {JSON.stringify(value, null, 2)}
-                      </pre>
-                    ) : (
-                      renderValue(value)
-                    )}
-                  </dd>
+                <div key={key} className={`bg-white border border-slate-100 rounded-xl p-4 ${isLong ? "sm:col-span-2" : ""}`}>
+                  <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</dt>
+                  <dd className="text-xs font-semibold text-slate-800 break-words leading-relaxed">{renderVal(val)}</dd>
                 </div>
               );
             })}
@@ -145,19 +217,22 @@ function RequestModal({ request, onClose, onStatusUpdated }) {
   );
 }
 
-const COLS = ["ID", "Name", "Email", "Institution", "Book Title", "Status", "Requested At", "Actions"];
-
 export default function AdminSpecimenRequests() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [selected, setSelected] = useState(null);
+  const [actionLoading, setActionLoading] = useState({});
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const debouncedSearch = useDebounce(search, 400);
-  useEffect(() => { setPage(1); }, [debouncedSearch]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, statusFilter]);
 
   const params = { page, size: PAGE_SIZE };
   if (debouncedSearch) params.search = debouncedSearch;
+  if (statusFilter) params["DeliveryStatus"] = statusFilter;
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-specimen-requests", params],
@@ -169,220 +244,314 @@ export default function AdminSpecimenRequests() {
 
   const requests = data?.results ?? data?.items ?? [];
   const count = data?.count ?? data?.total ?? 0;
-  const totalPages = Math.ceil(count / PAGE_SIZE);
+  const totalPages = Math.ceil(count / PAGE_SIZE) || 1;
 
   function formatDate(dateStr) {
     if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   }
 
-  function handleStatusUpdated(reqId, newStatus) {
-    queryClient.invalidateQueries({ queryKey: ["admin-specimen-requests"] });
-    setSelected((prev) => prev ? { ...prev, status: newStatus } : null);
+  function getTeacherName(req) {
+    const arr = req["Teacheer Name"];
+    if (Array.isArray(arr) && arr.length > 0) {
+      return arr.map(t => t.value || `#${t.id}`).filter(Boolean).join(", ") || "—";
+    }
+    const linked = req["TeacherID"];
+    if (Array.isArray(linked) && linked.length > 0) {
+      return linked.map(t => t.value || `#${t.id}`).join(", ");
+    }
+    return "—";
   }
 
-  async function handleInlineStatusChange(e, req, newStatus) {
+  function getSchoolName(req) {
+    const arr = req["School Name"];
+    if (Array.isArray(arr) && arr.length > 0) {
+      const name = arr.map(s => s.value).filter(v => v && isNaN(Number(v))).join(", ");
+      if (name) return name;
+      return arr.map(s => s.value || "—").join(", ");
+    }
+    return "—";
+  }
+
+  async function handleInlineAction(e, req, action) {
     e.stopPropagation();
-    if (!newStatus) return;
+    const key = `${req.id}-${action}`;
+    setActionLoading(prev => ({ ...prev, [key]: true }));
     try {
-      await adminUpdateSpecimenStatus(req.id, newStatus);
+      if (action === "approve") {
+        await adminApproveSpecimen(req.id);
+        toast.success(`Specimen #${req.id} approved & dispatched.`);
+      } else {
+        await adminRejectSpecimen(req.id);
+        toast.error(`Specimen #${req.id} rejected (RTO).`);
+      }
       queryClient.invalidateQueries({ queryKey: ["admin-specimen-requests"] });
     } catch (err) {
-      alert(err?.response?.data?.detail || "Failed to update status.");
+      toast.error(err?.response?.data?.detail || `Failed to ${action} request.`);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [key]: false }));
     }
   }
 
+  function handleModalAction(reqId, newStatus) {
+    queryClient.invalidateQueries({ queryKey: ["admin-specimen-requests"] });
+    setSelected(prev => prev ? { ...prev, DeliveryStatus: newStatus } : null);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      await adminDeleteSpecimenRequest(deleteTarget.id);
+      toast.success(`Specimen request #${deleteTarget.id} deleted.`);
+      setDeleteTarget(null);
+      setSelected(null);
+      queryClient.invalidateQueries({ queryKey: ["admin-specimen-requests"] });
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Failed to delete request.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
+
+  const hasClear = search || statusFilter;
+
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6 text-left">
-      
-      {/* Header Info Area */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Specimen Requests</h1>
-            <span className="bg-red-50 text-red-800 text-xs font-black px-2.5 py-0.5 rounded-full border border-red-100">
-              {count.toLocaleString()} Requests
-            </span>
-          </div>
-          <p className="text-sm text-slate-550 mt-1">Review school and teacher textbook sample copy requests, update approvals and shipping status.</p>
-        </div>
-      </div>
+    <div className="lg:p-8 text-left">
+      <h2 className="text-2xl font-semibold text-gray-900 mb-8 mt-[20px] sm:mt-0">Specimen Requests</h2>
 
-      {/* Filter toolbar */}
-      <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-[0_4px_20px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row gap-4 items-center justify-between">
-        
-        {/* Search */}
-        <div className="relative w-full sm:max-w-md">
-          <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="Search specimen requests by teacher, school, email..." 
-            value={search} 
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 bg-slate-50/50 hover:bg-slate-55 focus:bg-white rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-slate-900" 
-          />
-          {search && (
-            <button 
-              onClick={() => setSearch("")} 
-              className="absolute right-3 top-2.5 p-0.5 text-slate-400 hover:text-slate-650 hover:bg-slate-200 rounded-full"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          )}
-        </div>
+      <div className="rounded-lg">
+        <div className="h-[calc(100vh-120px)] flex flex-col">
+          <div className="max-w-7xl mx-auto w-full h-full flex flex-col">
+            <div className="bg-white rounded-lg shadow-lg border border-gray-200 flex flex-col flex-1 min-h-[600px]">
 
-        {search && (
-          <button 
-            onClick={() => setSearch("")} 
-            className="text-xs font-bold text-red-500 hover:text-red-750 hover:bg-red-50 px-3 py-2 rounded-xl transition-all cursor-pointer"
-          >
-            Clear Filters
-          </button>
-        )}
+              {/* Header & Filter Controls Bar */}
+              <div className="p-4 md:p-6 border-b border-gray-200 flex-shrink-0 bg-white">
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
+                      <input
+                        type="text"
+                        placeholder="Search specimen requests..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="pl-8 md:pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none w-full sm:w-80"
+                      />
+                    </div>
+                    <div className="text-sm text-gray-600">Total: {count} requests</div>
+                  </div>
 
-      </div>
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                    {/* Delivery Status filter */}
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm text-gray-600 font-medium">Delivery Status:</label>
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white text-gray-700 appearance-none pl-3 pr-8 cursor-pointer"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                          backgroundPosition: "right 0.5rem center",
+                          backgroundRepeat: "no-repeat",
+                          backgroundSize: "1.25rem 1.25rem",
+                        }}
+                      >
+                        {DELIVERY_STATUSES.map((s) => (
+                          <option key={s.value} value={s.value}>{s.label}</option>
+                        ))}
+                      </select>
+                    </div>
 
-      {/* Grid List Table */}
-      <div className="bg-white border border-slate-100 rounded-2xl shadow-[0_4px_25px_rgb(0,0,0,0.015)] overflow-hidden">
-        {isLoading ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-100 text-left">
-              <thead className="bg-slate-50/75">
-                <tr>{COLS.map((h) => <th key={h} className="px-5 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">{h}</th>)}</tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 animate-pulse bg-white">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i}>
-                    <td className="px-5 py-4"><div className="h-4 w-8 bg-slate-150 rounded" /></td>
-                    <td className="px-5 py-4"><div className="h-4 w-28 bg-slate-150 rounded" /></td>
-                    <td className="px-5 py-4"><div className="h-4 w-32 bg-slate-150 rounded" /></td>
-                    <td className="px-5 py-4"><div className="h-4 w-36 bg-slate-150 rounded" /></td>
-                    <td className="px-5 py-4"><div className="h-4 w-40 bg-slate-150 rounded" /></td>
-                    <td className="px-5 py-4"><div className="h-5 w-16 bg-slate-150 rounded-full" /></td>
-                    <td className="px-5 py-4"><div className="h-4 w-20 bg-slate-150 rounded" /></td>
-                    <td className="px-5 py-4"><div className="h-4 w-16 bg-slate-150 rounded" /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : requests.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white">
-            <Layers className="w-12 h-12 text-slate-200 mb-3" />
-            <p className="text-sm font-semibold text-slate-500">No specimen textbook requests found.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-100 text-left">
-              <thead className="bg-slate-50/75">
-                <tr>{COLS.map((h) => <th key={h} className="px-5 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">{h}</th>)}</tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {requests.map((req) => (
-                  <tr 
-                    key={req.id} 
-                    onClick={() => setSelected(req)} 
-                    className="hover:bg-slate-50/80 cursor-pointer transition-colors active:bg-slate-150/40"
+                    {hasClear && (
+                      <button
+                        onClick={() => { setSearch(""); setStatusFilter(""); }}
+                        className="text-xs font-semibold text-purple-600 hover:text-purple-800 transition-colors ml-auto cursor-pointer"
+                      >
+                        Clear Filters
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="flex-1 overflow-auto min-h-0">
+                {isLoading ? (
+                  <div className="p-6 animate-pulse space-y-4">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <div key={i} className="h-12 bg-gray-100 rounded-lg w-full" />
+                    ))}
+                  </div>
+                ) : requests.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+                    <Package className="w-12 h-12 text-gray-300 mb-3" />
+                    <p className="text-base font-semibold text-gray-600">No specimen requests found.</p>
+                  </div>
+                ) : (
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Teacher</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">School</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Request Date</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Delivery Status</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Converted</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {requests.map((req) => {
+                        const statusRaw = getStatusRaw(req["DeliveryStatus"]).toLowerCase();
+                        const isPending = statusRaw !== "dispatched" && statusRaw !== "rto";
+                        const approvingKey = `${req.id}-approve`;
+                        const rejectingKey = `${req.id}-reject`;
+
+                        return (
+                          <tr key={req.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-4 text-xs font-semibold text-gray-900">#{req.id}</td>
+                            <td className="px-6 py-4">
+                              <div className="text-xs font-semibold text-gray-900">{getTeacherName(req)}</div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-xs text-gray-600 max-w-[160px] truncate" title={getSchoolName(req)}>
+                                {getSchoolName(req)}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-xs text-gray-600 whitespace-nowrap">
+                              {formatDate(req["RequestDate"])}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <DeliveryStatusBadge status={req["DeliveryStatus"]} />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {(() => {
+                                const cv = req["Converted"];
+                                const cvStr = typeof cv === "object" && cv !== null ? cv.value : cv;
+                                return cvStr ? (
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{cvStr}</span>
+                                ) : "—";
+                              })()}
+                            </td>
+                            <td className="px-6 py-4 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {/* Approve button — only when pending */}
+                                {isPending && (
+                                  <button
+                                    onClick={(e) => handleInlineAction(e, req, "approve")}
+                                    disabled={actionLoading[approvingKey] || actionLoading[rejectingKey]}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 disabled:opacity-50 transition-all cursor-pointer"
+                                    title="Approve & Dispatch"
+                                  >
+                                    {actionLoading[approvingKey]
+                                      ? <RefreshCw className="w-3 h-3 animate-spin" />
+                                      : <CheckCircle className="w-3 h-3" />}
+                                    Approve
+                                  </button>
+                                )}
+                                {/* Reject button — only when pending */}
+                                {isPending && (
+                                  <button
+                                    onClick={(e) => handleInlineAction(e, req, "reject")}
+                                    disabled={actionLoading[approvingKey] || actionLoading[rejectingKey]}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 disabled:opacity-50 transition-all cursor-pointer"
+                                    title="Reject Request"
+                                  >
+                                    {actionLoading[rejectingKey]
+                                      ? <RefreshCw className="w-3 h-3 animate-spin" />
+                                      : <XCircle className="w-3 h-3" />}
+                                    Reject
+                                  </button>
+                                )}
+                                {/* View details */}
+                                <button
+                                  onClick={() => setSelected(req)}
+                                  className="p-1 hover:bg-purple-50 rounded transition-colors cursor-pointer"
+                                  title="View Details"
+                                >
+                                  <Eye className="w-4 h-4 text-gray-400 hover:text-purple-600" />
+                                </button>
+                                {/* Delete */}
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setDeleteTarget(req); }}
+                                  className="p-1 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                                  title="Delete Request"
+                                >
+                                  <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-600" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {/* Pagination */}
+              <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white flex-shrink-0">
+                <div className="text-sm text-gray-600">
+                  Showing {requests.length > 0 ? (page - 1) * PAGE_SIZE + 1 : 0} to {Math.min(page * PAGE_SIZE, count)} of {count} requests
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg font-medium text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors cursor-pointer"
                   >
-                    {/* ID */}
-                    <td className="px-5 py-4 text-xs font-bold text-slate-500 font-mono">
-                      #{req.id}
-                    </td>
+                    Previous
+                  </button>
+                  {Array.from({ length: Math.min(5, totalPages) }).map((_, idx) => {
+                    const pNum = idx + 1;
+                    return (
+                      <button
+                        key={pNum}
+                        onClick={() => setPage(pNum)}
+                        className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors cursor-pointer ${
+                          page === pNum ? "bg-purple-600 text-white font-semibold" : "border border-gray-300 text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {pNum}
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages || totalPages === 0}
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg font-medium text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
 
-                    {/* Name */}
-                    <td className="px-5 py-4 text-xs font-bold text-slate-900 whitespace-nowrap">
-                      {req.name ?? req.full_name ?? "—"}
-                    </td>
-
-                    {/* Email */}
-                    <td className="px-5 py-4 text-xs text-slate-650 max-w-[150px] truncate">
-                      {req.email ?? "—"}
-                    </td>
-
-                    {/* Institution */}
-                    <td className="px-5 py-4 text-xs text-slate-550 max-w-[150px] truncate" title={req.institution ?? req.school}>
-                      {req.institution ?? req.school ?? "—"}
-                    </td>
-
-                    {/* Book Title */}
-                    <td className="px-5 py-4 text-xs font-semibold text-slate-700 max-w-[160px] truncate" title={req.book_name ?? req.product_name}>
-                      {req.book_name ?? req.product_name ?? "—"}
-                    </td>
-
-                    {/* Status */}
-                    <td className="px-5 py-4 whitespace-nowrap">
-                      <StatusBadge status={req.status ?? req.request_status} />
-                    </td>
-
-                    {/* Date */}
-                    <td className="px-5 py-4 text-xs text-slate-500 whitespace-nowrap">
-                      {formatDate(req.created_at ?? req.requested_at)}
-                    </td>
-
-                    {/* Inline Status Dropdown */}
-                    <td className="px-5 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-2">
-                        <div className="relative">
-                          <select
-                            defaultValue=""
-                            onChange={(e) => handleInlineStatusChange(e, req, e.target.value)}
-                            className="border border-slate-200 rounded-xl px-2.5 py-1 text-[10px] font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-750 cursor-pointer appearance-none pr-6"
-                          >
-                            <option value="" disabled>Update</option>
-                            {SPECIMEN_STATUSES.map((s) => (
-                              <option key={s} value={s}>{s}</option>
-                            ))}
-                          </select>
-                          <ChevronDown className="absolute right-2 top-1.5 w-3 h-3 text-slate-400 pointer-events-none" />
-                        </div>
-                        <button
-                          onClick={() => setSelected(req)}
-                          className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
-                          title="View Request Detail"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Pagination */}
-      {!isLoading && totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-1 py-2">
-          <p className="text-xs font-bold text-slate-550">
-            Page <span className="text-slate-900 font-black">{page}</span> of <span className="text-slate-900 font-black">{totalPages}</span> &mdash; {count.toLocaleString()} specimen requests
-          </p>
-          <div className="flex gap-2">
-            <button 
-              onClick={() => setPage((p) => Math.max(1, p - 1))} 
-              disabled={page === 1} 
-              className="inline-flex items-center gap-1 px-4 py-2 border border-slate-200 bg-white rounded-xl text-xs font-bold text-slate-700 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-all cursor-pointer"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" /> Previous
-            </button>
-            <button 
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))} 
-              disabled={page === totalPages} 
-              className="inline-flex items-center gap-1 px-4 py-2 border border-slate-200 bg-white rounded-xl text-xs font-bold text-slate-700 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-all cursor-pointer"
-            >
-              Next <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Detail Modal */}
       {selected && (
         <RequestModal
           request={selected}
           onClose={() => setSelected(null)}
-          onStatusUpdated={handleStatusUpdated}
+          onAction={handleModalAction}
+        />
+      )}
+
+      {/* Delete Confirmation */}
+      {deleteTarget && (
+        <ConfirmModal
+          title="Delete Specimen Request"
+          message={`Are you sure you want to delete specimen request #${deleteTarget.id}? This action cannot be undone.`}
+          confirmLabel="Delete"
+          loading={deleteLoading}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </div>

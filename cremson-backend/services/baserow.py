@@ -49,10 +49,17 @@ class BaserowClient:
             url += f"&order_by={order_by}"
 
         if filters:
+            # Fields that use single_select/multiple_select — use 'contains'
+            select_fields = {"Status", "Interest Level", "DecisionPower", "Board", "Series", "DeliveryStatus", "FollowUpStage", "DispatchMethod"}
+            # Fields that are link-row (linked table) — use 'link_row_contains'
+            link_row_fields = {"BookCategory", "TeacherID", "SchoolID"}
             for field_name, value in filters.items():
-                # Baserow rejects the 'equal' operator for single_select and multiple_select fields.
-                # We use 'contains' for select fields to match their string values.
-                op = "contains" if field_name in ["Status", "Interest Level", "DecisionPower", "Board", "Series", "DeliveryStatus", "FollowUpStage", "DispatchMethod"] else "equal"
+                if field_name in link_row_fields:
+                    op = "link_row_contains"
+                elif field_name in select_fields:
+                    op = "contains"
+                else:
+                    op = "equal"
                 url += f"&filter__{quote(str(field_name))}__{op}={quote(str(value))}"
 
         if contains_filters:

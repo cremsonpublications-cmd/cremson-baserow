@@ -10,6 +10,7 @@ from routers import (
     reviews,
     coupons,
     specimen_requests,
+    specimen_books,
     shipping_settings,
 )
 from routers import auth as auth_router
@@ -89,6 +90,7 @@ app.include_router(
     tags=["Shipping Settings"],
 )
 app.include_router(crm_router.router, prefix="/api/crm", tags=["CRM"])
+app.include_router(specimen_books.router, prefix="/api/specimen-books", tags=["Specimen Books"])
 
 
 @app.get("/", tags=["Health"])

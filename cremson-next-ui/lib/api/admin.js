@@ -31,6 +31,8 @@ export const adminDeleteReview = (id) => api.delete(`/api/reviews/${id}`).then(r
 // Specimen Requests
 export const adminGetSpecimenRequests = (params) => api.get("/api/specimen-requests/", { params }).then(r => r.data);
 export const adminUpdateSpecimenStatus = (id, status) => api.patch(`/api/specimen-requests/${id}`, { status }).then(r => r.data);
+export const adminApproveSpecimen = (id) => api.patch(`/api/specimen-requests/${id}/approve`).then(r => r.data);
+export const adminRejectSpecimen = (id) => api.patch(`/api/specimen-requests/${id}/reject`).then(r => r.data);
 
 // Shipping Settings
 export const adminGetShippingSettings = (params) => api.get("/api/shipping-settings/", { params }).then(r => r.data);

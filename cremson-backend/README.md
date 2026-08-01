@@ -67,9 +67,8 @@ sequenceDiagram
     alt Payment Successful
         Backend->>Razorpay: 9a. Verify Payment Signature
         Backend->>Baserow: 10a. Save Order Details & Clear Cart
-        Backend->>Meta: 11a. Send "order_confirmation_v5" (Itemized book list)
-        Backend->>Meta: 12a. Send "payment_received_v4" (Payment receipt)
-        Backend-->>Frontend: 13a. Return Success JSON
+        Backend->>Meta: 11a. Send "order_confirmation_v6" (Combined payment receipt & itemized order confirmation)
+        Backend-->>Frontend: 12a. Return Success JSON
     else Payment Failed
         Backend->>Baserow: 10b. Update Order status to "FAILED"
         Backend->>Meta: 11b. Send "payment_failed_v6" (Payment failed notification)
@@ -82,9 +81,8 @@ sequenceDiagram
 - If successful, it initiates the order state transition and registers the purchase in Baserow.
 
 ### 2. WhatsApp Notification System (`services/whatsapp.py`)
-If checkout succeeds, **two separate notifications** are dispatched to the customer:
-1. **Order Confirmation (`order_confirmation_v5`)**: Includes an itemized list of books purchased, quantities, unit prices, and the total order amount.
-2. **Payment Success (`payment_received_v4`)**: Includes the customer name, payment amount, order ID, and payment transaction ID.
+If checkout succeeds, **a single combined notification** is dispatched to the customer:
+1. **Order & Payment Confirmation (`order_confirmation_v6`)**: Combines payment success message (with Transaction ID), itemized list of books purchased, quantities, unit prices, and total order amount into a single message.
 
 If checkout fails (failed/cancelled payment), **only one notification** is dispatched:
 1. **Payment Failed (`payment_failed_v6`)**: Notifies the customer of the failed transaction.
@@ -93,31 +91,22 @@ If checkout fails (failed/cancelled payment), **only one notification** is dispa
 
 ## 📋 Meta Template Wording Definitions
 
-### 1. Order Confirmation (`order_confirmation_v5`)
+### 1. Order & Payment Confirmation (`order_confirmation_v6`)
 ```text
 Hello {{1}},
 
-Great news! Your order *{{2}}* has been successfully placed.
+Great news! Your payment for Order *{{2}}* was successful and your order has been placed.
+Transaction ID: {{3}}
 
 📦 *Items Purchased:*
-{{3}}
+{{4}}
 
-💰 *Total Amount:* *{{4}}*
+💰 *Total Amount:* *{{5}}*
 
-Thank you for shopping with Cremson Publications!
+We are now processing your order. Thank you for shopping with Cremson Publications!
 ```
 
-### 2. Payment Success (`payment_received_v4`)
-```text
-Hello {{1}},
-
-Your payment of {{2}} for Order {{3}} was successful. 
-Transaction ID: {{4}}
-
-We are now processing your order. Thank you!
-```
-
-### 3. Payment Failed (`payment_failed_v6`)
+### 2. Payment Failed (`payment_failed_v6`)
 ```text
 Hello {{1}},
 

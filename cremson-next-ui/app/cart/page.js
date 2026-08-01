@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useApp } from "../../context/AppContext";
 import { getEffectiveUnitPrice, getItemTotalPrice } from "../../lib/utils/pricing";
 import { useCoupons } from "../../lib/api/hooks";
+import { ChevronDown, ChevronUp, Minus, Plus } from "lucide-react";
 
 function CartSkeleton() {
   return (

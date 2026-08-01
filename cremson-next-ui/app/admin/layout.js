@@ -19,6 +19,7 @@ import {
   Home,
   Database,
   Users,
+  BookOpen,
 } from "lucide-react";
 
 const navLinks = [
@@ -30,6 +31,7 @@ const navLinks = [
   { href: "/admin/orders",           label: "Orders",            Icon: ShoppingCart    },
   { href: "/admin/users",            label: "Users",             Icon: Users           },
   { href: "/admin/specimen-requests",label: "Specimen Requests", Icon: FileText        },
+  { href: "/admin/specimen-books",   label: "Specimen Books",    Icon: BookOpen        },
   { href: "/admin/reviews",          label: "Reviews",           Icon: MessageSquare   },
   { href: "/admin/settings",          label: "Settings",          Icon: Settings        },
 ];
