@@ -253,3 +253,165 @@ async def ready_for_pickup(order_id: str, background_tasks: BackgroundTasks):
         "pickup_requested_at": now_iso,
         "shipway_response": pickup_result,
     }
+
+
+# ── Admin action: Initiate Return & Instant Refund ─────────────────────────────
+
+
+class ReturnOrderRequest(BaseModel):
+    return_reason: str
+    return_notes: Optional[str] = None
+    refund_amount: Optional[float] = None
+
+
+@router.post(
+    "/{order_id}/return",
+    summary="Admin: Initiate order return, schedule reverse pickup & process instant Razorpay refund",
+)
+async def return_order(order_id: str, body: ReturnOrderRequest):
+    """
+    Called when admin clicks 'Initiate Return' in Admin Dashboard.
+    1. Finds order by order_id
+    2. Extracts Razorpay payment_id from order details
+    3. Issues immediate refund via Razorpay API
+    4. Schedules reverse shipment pickup via Shipway API (from customer address to warehouse)
+    5. Updates order status → RETURN_INITIATED in Baserow
+    """
+    from services.razorpay import issue_refund
+    from services.shipway import create_reverse_shipment
+
+    # ── 1. Find order ─────────────────────────────────────────────────────────
+    rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
+    results = rows.get("results", [])
+    if not results:
+        raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
+
+    order = results[0]
+    row_id: int = order["id"]
+
+    # Parse delivery & user_info JSON
+    delivery_raw = order.get("delivery") or "{}"
+    try:
+        delivery_data = json.loads(delivery_raw) if isinstance(delivery_raw, str) else (delivery_raw or {})
+    except Exception:
+        delivery_data = {}
+
+    user_info_raw = order.get("user_info") or "{}"
+    try:
+        user_info = json.loads(user_info_raw) if isinstance(user_info_raw, str) else (user_info_raw or {})
+    except Exception:
+        user_info = {}
+
+    order_summary_raw = order.get("order_summary") or "{}"
+    try:
+        order_summary = json.loads(order_summary_raw) if isinstance(order_summary_raw, str) else (order_summary_raw or {})
+    except Exception:
+        order_summary = {}
+
+    # Extract payment ID
+    payment_id = (
+        order.get("razorpay_payment_id")
+        or delivery_data.get("transactionId")
+        or delivery_data.get("payment_id")
+        or user_info.get("payment_id")
+        or ""
+    )
+
+    # Determine refund amount
+    total_amount = float(
+        order_summary.get("grandTotal")
+        or order.get("total_amount")
+        or delivery_data.get("amount")
+        or 0.0
+    )
+    refund_amt = body.refund_amount if (body.refund_amount and body.refund_amount > 0) else total_amount
+
+    # ── 2. Issue Razorpay Refund ──────────────────────────────────────────────
+    refund_result = {"success": False, "error": "No payment ID found for this order"}
+    if payment_id:
+        refund_result = await issue_refund(
+            payment_id=payment_id,
+            amount_rupees=refund_amt,
+            reason=body.return_reason,
+            notes={
+                "order_id": order_id,
+                "reason": body.return_reason,
+                "notes": body.return_notes or "",
+            },
+        )
+    else:
+        logger.warning(f"[Orders Return] Order {order_id} has no payment_id stored; skipping Razorpay API call.")
+
+    # ── 3. Schedule Reverse Shipment (Shipway) ─────────────────────────────────
+    user_address = user_info.get("address") or {}
+    if not isinstance(user_address, dict):
+        user_address = {}
+
+    cust_name = delivery_data.get("name") or user_info.get("name", "Customer")
+    cust_email = delivery_data.get("email") or user_info.get("email", "")
+    cust_phone = delivery_data.get("phone") or user_info.get("phone", "")
+
+    addr = delivery_data.get("address") or user_address.get("street") or ""
+    addr2 = delivery_data.get("address2") or user_address.get("apartment") or ""
+    city = delivery_data.get("city") or user_address.get("city") or ""
+    state = delivery_data.get("state") or user_address.get("state") or ""
+    pincode = delivery_data.get("pincode") or user_address.get("pincode") or ""
+
+    weight = order.get("weight") or 0.5
+    weight_grams = int(weight * 1000)
+
+    reverse_order_payload = {
+        "order_id": order_id,
+        "total_amount": total_amount,
+        "customer_name": cust_name,
+        "customer_email": cust_email,
+        "customer_phone": cust_phone,
+        "address": addr,
+        "address2": addr2,
+        "city": city,
+        "state": state,
+        "pincode": pincode,
+        "weight_grams": weight_grams,
+    }
+
+    reverse_result = await create_reverse_shipment(
+        reverse_order_payload, reason=body.return_reason
+    )
+
+    # ── 4. Update Baserow Database ────────────────────────────────────────────
+    now_iso = datetime.now().isoformat()
+    delivery_data["status"] = "RETURN_INITIATED"
+    delivery_data["return_initiated_at"] = now_iso
+    delivery_data["return_reason"] = body.return_reason
+    delivery_data["return_notes"] = body.return_notes or ""
+    delivery_data["refund_id"] = refund_result.get("refund_id", "")
+    delivery_data["refund_amount"] = refund_amt
+    delivery_data["refund_status"] = refund_result.get("status", "FAILED" if not refund_result.get("success") else "PROCESSED")
+    delivery_data["reverse_awb"] = reverse_result.get("reverse_awb", "")
+    delivery_data["reverse_tracking_url"] = reverse_result.get("tracking_url", "")
+
+    update_payload = {
+        "order_status": "RETURN_INITIATED",
+        "delivery": json.dumps(delivery_data),
+    }
+
+    try:
+        await client.update_row(TABLE_IDS["orders"], row_id, update_payload)
+    except Exception as exc:
+        logger.error(f"[Orders Return] Error updating Baserow row {row_id}: {exc}")
+
+    logger.info(
+        f"[Orders Return] Order {order_id} → RETURN_INITIATED. "
+        f"Refund ID: {refund_result.get('refund_id')}, Reverse AWB: {reverse_result.get('reverse_awb')}"
+    )
+
+    return {
+        "success": True,
+        "order_id": order_id,
+        "status": "RETURN_INITIATED",
+        "returned_at": now_iso,
+        "refund": refund_result,
+        "reverse_shipment": reverse_result,
+        "return_reason": body.return_reason,
+        "return_notes": body.return_notes,
+    }

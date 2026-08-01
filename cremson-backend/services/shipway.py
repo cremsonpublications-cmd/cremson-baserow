@@ -405,6 +405,108 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
         return {"success": False, "error": str(exc)}
 
 
+# ── Create Reverse Shipment ───────────────────────────────────────────────────
+
+
+async def create_reverse_shipment(order: Dict[str, Any], reason: str = "") -> Dict[str, Any]:
+    """
+    Schedule a reverse shipment pickup from customer's address back to Cremson warehouse.
+
+    Expected keys in `order`:
+        order_id, total_amount, items, customer_name, customer_email, customer_phone,
+        address, address2, city, state, pincode, weight_grams
+
+    Returns:
+        {
+            success: bool,
+            reverse_shipment_id: str,
+            reverse_awb: str,
+            courier_name: str,
+            tracking_url: str,
+            error: str (on failure)
+        }
+    """
+    username, license_key, base_url, warehouse_id, _ = _cfg()
+    url = f"{base_url}/api/v2reverseorders"
+
+    headers = {
+        "Authorization": _auth_header(username, license_key),
+        "Content-Type": "application/json",
+    }
+
+    ret_order_id = f"RET_{order['order_id']}"
+    weight_grams = str(order.get("weight_grams") or 500)
+
+    payload: Dict[str, Any] = {
+        "order_id": ret_order_id,
+        "reference_order_id": order["order_id"],
+        "order_date": datetime.now().strftime("%Y-%m-%d"),
+        "payment_type": "P",
+        "order_type": "R",  # Reverse
+        "shipping_firstname": order.get("customer_name", ""),
+        "shipping_email": order.get("customer_email", ""),
+        "shipping_phone": order.get("customer_phone", ""),
+        "shipping_address": order.get("address", ""),
+        "shipping_address_2": order.get("address2", ""),
+        "shipping_city": order.get("city", ""),
+        "shipping_state": order.get("state", ""),
+        "shipping_zipcode": str(order.get("pincode", "")),
+        "shipping_country": "India",
+        "order_weight": weight_grams,
+        "length": "20",
+        "breadth": "15",
+        "height": "5",
+        "collectable_amount": "0",
+        "comment": f"Return for order {order['order_id']}: {reason}",
+    }
+
+    if warehouse_id:
+        payload["warehouse_id"] = warehouse_id
+        payload["return_warehouse_id"] = warehouse_id
+
+    logger.info(f"[Shipway] → create_reverse_shipment: order={ret_order_id} reason={reason}")
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(url, headers=headers, json=payload)
+            # If v2reverseorders isn't enabled, fallback to v2orders with order_type='R'
+            if resp.status_code == 404:
+                url_alt = f"{base_url}/api/v2orders"
+                resp = await client.post(url_alt, headers=headers, json=payload)
+
+            raw = resp.text
+            logger.info(f"[Shipway] ← create_reverse_shipment HTTP {resp.status_code}: {raw[:400]}")
+
+            try:
+                data = resp.json()
+            except Exception:
+                return {"success": False, "error": f"Non-JSON response: {raw[:300]}"}
+
+            if not data.get("success") and resp.status_code != 200:
+                err = data.get("message") or data.get("error") or "Reverse shipment failed"
+                return {"success": False, "error": err}
+
+            awb_resp = data.get("awb_response") or {}
+            if not isinstance(awb_resp, dict):
+                awb_resp = {}
+
+            awb = awb_resp.get("AWB") or awb_resp.get("awb") or data.get("awb") or ""
+            carrier = str(awb_resp.get("courier_name") or awb_resp.get("carrier_id") or "Shipway")
+            tracking_url = f"https://app-v1.shipway.com/tracking/forward/{awb}/" if awb else ""
+            shipment_id = str(data.get("shipment_id") or awb_resp.get("shipment_id") or awb or ret_order_id)
+
+            return {
+                "success": True,
+                "reverse_shipment_id": shipment_id,
+                "reverse_awb": awb,
+                "courier_name": carrier,
+                "tracking_url": tracking_url,
+            }
+    except Exception as exc:
+        logger.error(f"[Shipway] create_reverse_shipment exception: {exc}")
+        return {"success": False, "error": str(exc)}
+
+
 # ── Request Pickup ────────────────────────────────────────────────────────────
 
 

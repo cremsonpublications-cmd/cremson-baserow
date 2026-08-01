@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "../../../lib/api/axios";
-import { adminUpdateOrderStatus, adminMarkReadyForPickup } from "../../../lib/api/admin";
+import { adminUpdateOrderStatus, adminMarkReadyForPickup, adminReturnOrder } from "../../../lib/api/admin";
 import { 
   Search, 
   X, 
@@ -30,7 +30,8 @@ import {
   ChevronDown,
   Eye,
   Edit3,
-  Trash2
+  Trash2,
+  RotateCcw
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
@@ -100,7 +101,169 @@ function safeParseJSON(val) {
   return val;
 }
 
-function OrderModal({ order, onClose, onStatusUpdated }) {
+function ReturnModal({ order, onClose, onReturnSuccess }) {
+  if (!order) return null;
+  const orderSummary = safeParseJSON(order.order_summary) || {};
+  const totalAmount = Number(orderSummary.grandTotal || order.total_amount || 0);
+
+  const [reason, setReason] = useState("Damaged / Defective Item");
+  const [notes, setNotes] = useState("");
+  const [refundAmount, setRefundAmount] = useState(totalAmount || "");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const REASON_OPTIONS = [
+    "Damaged / Defective Item",
+    "Wrong Item Sent",
+    "Printing / Binding Defects",
+    "Customer Cancellation / Change of Mind",
+    "Delayed Delivery",
+    "Other Reason"
+  ];
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const orderId = order.order_id || order.id;
+      const res = await adminReturnOrder(orderId, {
+        return_reason: reason,
+        return_notes: notes,
+        refund_amount: parseFloat(refundAmount) || totalAmount,
+      });
+
+      if (res.success) {
+        toast.success(`Return & Instant Refund Processed for #${orderId}!`, {
+          description: `Refund ID: ${res.refund?.refund_id || "N/A"} | Reverse AWB: ${res.reverse_shipment?.reverse_awb || "N/A"}`
+        });
+        onReturnSuccess(orderId, res);
+        onClose();
+      } else {
+        setError(res.error || "Failed to process return.");
+      }
+    } catch (err) {
+      setError(err?.response?.data?.detail || err.message || "Failed to initiate return.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden text-left">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-900 text-white">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-rose-500/20 rounded-xl border border-rose-500/30 text-rose-400">
+              <RotateCcw className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Initiate Return & Refund</h3>
+              <p className="text-xs text-slate-400">Order #{order.order_id || order.id}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white rounded-full transition-all">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          
+          {/* Reason Selection */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Return Purpose / Reason *</label>
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="w-full text-xs font-semibold px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:bg-white outline-none"
+              required
+            >
+              {REASON_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Admin Notes */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Admin Return Notes / Remarks</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. Customer provided photo of torn cover page..."
+              rows={3}
+              className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:bg-white outline-none"
+            />
+          </div>
+
+          {/* Refund Amount */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Refund Amount (₹ INR) *</label>
+            <input
+              type="number"
+              step="0.01"
+              value={refundAmount}
+              onChange={(e) => setRefundAmount(e.target.value)}
+              className="w-full text-xs font-bold px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:bg-white outline-none"
+              required
+            />
+            <p className="text-[10px] text-slate-400">Defaulted to total order amount (₹{totalAmount.toFixed(2)}).</p>
+          </div>
+
+          {/* Summary Box */}
+          <div className="bg-rose-50 border border-rose-100 rounded-xl p-3 text-xs text-rose-800 space-y-1">
+            <p className="font-bold flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 text-rose-600" /> Actions performed upon confirmation:
+            </p>
+            <ul className="list-disc list-inside text-[11px] text-rose-700 space-y-0.5 pl-1">
+              <li>Immediate Razorpay API refund (₹{Number(refundAmount || 0).toFixed(2)})</li>
+              <li>Schedule Shipway Reverse Pickup from customer address</li>
+              <li>Update Order status to <span className="font-mono font-bold">RETURN_INITIATED</span></li>
+            </ul>
+          </div>
+
+          {error && (
+            <p className="text-xs font-bold text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-200 text-center">{error}</p>
+          )}
+
+          {/* Buttons */}
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 rounded-xl shadow-md shadow-rose-600/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {submitting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Processing...
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="w-3.5 h-3.5" /> Confirm Return & Refund
+                </>
+              )}
+            </button>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+  );
+}
+
+function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal }) {
   if (!order) return null;
   const userInfo = safeParseJSON(order.user_info) || {};
   const items = safeParseJSON(order.items) || [];
@@ -399,6 +562,37 @@ function OrderModal({ order, onClose, onStatusUpdated }) {
                     {pickupError && <p className="text-red-650 text-[10px] font-bold mt-1 text-center">{pickupError}</p>}
                   </div>
                 )}
+
+                {/* Initiate Return & Refund Action / Details */}
+                {currentStatusLower === "return_initiated" || delivery.status === "RETURN_INITIATED" ? (
+                  <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 space-y-2 text-left">
+                    <p className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                      <RotateCcw className="w-4 h-4 text-rose-600" /> Return & Refund Initiated
+                    </p>
+                    <div className="text-[11px] text-rose-700 space-y-1 pt-1">
+                      {delivery.return_reason && <p><span className="font-bold">Reason:</span> {delivery.return_reason}</p>}
+                      {delivery.return_notes && <p><span className="font-bold">Notes:</span> {delivery.return_notes}</p>}
+                      {delivery.refund_id && <p><span className="font-bold">Razorpay Refund ID:</span> <span className="font-mono bg-rose-100 px-1.5 py-0.5 rounded text-rose-900">{delivery.refund_id}</span></p>}
+                      {delivery.reverse_awb && <p><span className="font-bold">Reverse Courier AWB:</span> <span className="font-mono bg-rose-100 px-1.5 py-0.5 rounded text-rose-900">{delivery.reverse_awb}</span></p>}
+                      {delivery.refund_amount && <p><span className="font-bold">Amount Refunded:</span> ₹{Number(delivery.refund_amount).toFixed(2)}</p>}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2 text-left">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-xs font-bold text-slate-800">Return & Instant Refund</p>
+                        <p className="text-[10px] text-slate-500">Need to return this order?</p>
+                      </div>
+                      <button
+                        onClick={() => onOpenReturnModal(order)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 rounded-xl transition-all cursor-pointer"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" /> Return Order
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
 
@@ -456,6 +650,7 @@ export default function AdminOrders() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selected, setSelected] = useState(null);
+  const [returnModalOrder, setReturnModalOrder] = useState(null);
 
   const debouncedSearch = useDebounce(search, 400);
 
@@ -677,6 +872,13 @@ export default function AdminOrders() {
                                 >
                                   <Download className="w-4 h-4 text-gray-400 hover:text-green-600" />
                                 </button>
+                                 <button 
+                                  onClick={() => setReturnModalOrder(order)}
+                                  className="p-1 hover:bg-rose-50 rounded transition-colors cursor-pointer text-rose-600"
+                                  title="Initiate Return & Instant Refund"
+                                >
+                                  <RotateCcw className="w-4 h-4 text-gray-400 hover:text-rose-600" />
+                                </button>
                                 <button 
                                   onClick={() => setSelected(order)}
                                   className="p-1 hover:bg-red-50 rounded transition-colors cursor-pointer"
@@ -744,6 +946,21 @@ export default function AdminOrders() {
           order={selected}
           onClose={() => setSelected(null)}
           onStatusUpdated={handleStatusUpdated}
+          onOpenReturnModal={(ord) => setReturnModalOrder(ord)}
+        />
+      )}
+
+      {/* Return & Refund Modal */}
+      {returnModalOrder && (
+        <ReturnModal
+          order={returnModalOrder}
+          onClose={() => setReturnModalOrder(null)}
+          onReturnSuccess={(orderId, res) => {
+            queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+            if (selected) {
+              setSelected((prev) => prev ? { ...prev, order_status: "RETURN_INITIATED" } : null);
+            }
+          }}
         />
       )}
     </div>
