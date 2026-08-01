@@ -577,12 +577,12 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal }) {
                       {delivery.refund_amount && <p><span className="font-bold">Amount Refunded:</span> ₹{Number(delivery.refund_amount).toFixed(2)}</p>}
                     </div>
                   </div>
-                ) : (
+                ) : ["delivered", "shipped"].includes(currentStatusLower) ? (
                   <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2 text-left">
                     <div className="flex justify-between items-center">
                       <div>
                         <p className="text-xs font-bold text-slate-800">Return & Instant Refund</p>
-                        <p className="text-[10px] text-slate-500">Need to return this order?</p>
+                        <p className="text-[10px] text-slate-500">Order delivered. Initiate reverse pickup & refund.</p>
                       </div>
                       <button
                         onClick={() => onOpenReturnModal(order)}
@@ -592,7 +592,7 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal }) {
                       </button>
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
 
 
@@ -872,13 +872,15 @@ export default function AdminOrders() {
                                 >
                                   <Download className="w-4 h-4 text-gray-400 hover:text-green-600" />
                                 </button>
-                                 <button 
-                                  onClick={() => setReturnModalOrder(order)}
-                                  className="p-1 hover:bg-rose-50 rounded transition-colors cursor-pointer text-rose-600"
-                                  title="Initiate Return & Instant Refund"
-                                >
-                                  <RotateCcw className="w-4 h-4 text-gray-400 hover:text-rose-600" />
-                                </button>
+                                 {["delivered", "shipped"].includes(deliveryStatusRaw) && (
+                                  <button 
+                                    onClick={() => setReturnModalOrder(order)}
+                                    className="p-1 hover:bg-rose-50 rounded transition-colors cursor-pointer text-rose-600"
+                                    title="Initiate Return & Instant Refund"
+                                  >
+                                    <RotateCcw className="w-4 h-4 text-gray-400 hover:text-rose-600" />
+                                  </button>
+                                )}
                                 <button 
                                   onClick={() => setSelected(order)}
                                   className="p-1 hover:bg-red-50 rounded transition-colors cursor-pointer"
