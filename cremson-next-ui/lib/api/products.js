@@ -13,6 +13,16 @@ export function mapProduct(p) {
   const hasDiscount = p.has_own_discount && discountPct > 0;
   const price = hasDiscount ? Math.round(mrp * (1 - discountPct / 100)) : mrp;
 
+  const rawCombo = p.combo_product_ids || p.combo_products;
+  let comboProductIds = [];
+  if (rawCombo) {
+    try {
+      comboProductIds = typeof rawCombo === "string" ? JSON.parse(rawCombo) : rawCombo;
+    } catch {
+      comboProductIds = String(rawCombo).split(",").map((s) => s.trim()).filter(Boolean);
+    }
+  }
+
   return {
     id: p.id,
     title: p.name || "",
@@ -41,6 +51,8 @@ export function mapProduct(p) {
     isActive: p.is_active,
     tags: parseArr(p.tags),
     bulkPricing: (() => { try { return JSON.parse(p.bulk_pricing || "[]"); } catch { return []; } })(),
+    isCombo: Boolean(p.is_combo || (Array.isArray(comboProductIds) && comboProductIds.length > 0)),
+    comboProductIds: Array.isArray(comboProductIds) ? comboProductIds.map(String) : [],
   };
 }
 

@@ -857,8 +857,13 @@ function Shop() {
                             <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m3 15 5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>
                           </div>
                         )}
-                        {/* Discount Badge */}
-                        <div className="absolute top-3 left-3 flex flex-col gap-2">
+                        {/* Discount & Combo Badges */}
+                        <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
+                          {book.isCombo && (
+                            <span className="bg-purple-600 text-white text-xs font-bold px-2.5 py-1 rounded shadow-md flex items-center gap-1">
+                              📦 Combo Pack
+                            </span>
+                          )}
                           {book.discount && (
                             <span className="bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded shadow-md">
                               {book.discount}

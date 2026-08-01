@@ -39,6 +39,8 @@ class ProductCreate(BaseModel):
     use_category_discount: Optional[bool] = False
     bulk_pricing: Optional[str] = None
     tags: Optional[str] = None
+    is_combo: Optional[bool] = False
+    combo_product_ids: Optional[str] = None
 
 
 class ProductUpdate(BaseModel):
@@ -71,6 +73,8 @@ class ProductUpdate(BaseModel):
     use_category_discount: Optional[bool] = None
     bulk_pricing: Optional[str] = None
     tags: Optional[str] = None
+    is_combo: Optional[bool] = None
+    combo_product_ids: Optional[str] = None
 
 
 def map_product_out(row: dict) -> dict:

@@ -4,7 +4,7 @@ export const runtime = "edge";
 
 import React, { useState, useEffect, use } from "react";
 import { useApp } from "../../../../context/AppContext";
-import { useProduct } from "../../../../lib/api/hooks";
+import { useProduct, useProducts } from "../../../../lib/api/hooks";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -42,6 +42,15 @@ export default function ProductDetailClient({ initialBook, bookId }) {
   const id = bookId;
 
   const { data: book, isLoading: loading } = useProduct(id, initialBook);
+  const { data: allCatalogProducts } = useProducts();
+
+  const comboIncludedProducts = React.useMemo(() => {
+    if (!book?.isCombo || !Array.isArray(book?.comboProductIds) || book.comboProductIds.length === 0) {
+      return [];
+    }
+    const ids = book.comboProductIds.map(String);
+    return (allCatalogProducts || []).filter((p) => ids.includes(String(p.id)));
+  }, [book, allCatalogProducts]);
 
   const [zoomStyle, setZoomStyle] = useState({ transformOrigin: "center center" });
   const [selectedBoughtIds, setSelectedBoughtIds] = useState([]);
@@ -320,6 +329,13 @@ export default function ProductDetailClient({ initialBook, bookId }) {
 
             {/* Right side: Book Metadata & Buy Panel */}
             <div className="text-left flex flex-col justify-start">
+              <div className="flex items-center gap-2 mb-2">
+                {book.isCombo && (
+                  <span className="px-3 py-1 bg-purple-600 text-white font-bold text-xs rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
+                    📦 Combo Pack
+                  </span>
+                )}
+              </div>
               <h1 className="font-integralCF text-2xl md:text-[36px] md:leading-[40px] mb-3 capitalize text-gray-900 font-bold">{book.title}</h1>
 
               <div className="mb-4">
@@ -331,6 +347,40 @@ export default function ProductDetailClient({ initialBook, bookId }) {
                   {book.category && <span>Category: {book.category}</span>}
                 </div>
               </div>
+
+              {/* Combo Included Books Card */}
+              {book.isCombo && comboIncludedProducts.length > 0 && (
+                <div className="mb-5 p-4 bg-purple-50/70 border border-purple-200 rounded-2xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
+                      📚 Combo Pack Includes ({comboIncludedProducts.length} Books)
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {comboIncludedProducts.map((item) => (
+                      <Link
+                        key={item.id}
+                        href={`/shop/product/${item.id}`}
+                        className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-purple-100 shadow-sm hover:border-purple-300 transition-all group"
+                      >
+                        {item.image ? (
+                          <img src={item.image} alt={item.title} className="w-10 h-12 object-contain shrink-0 rounded" />
+                        ) : (
+                          <div className="w-10 h-12 bg-purple-100 rounded shrink-0 flex items-center justify-center text-purple-500 font-bold text-xs">
+                            BOOK
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-gray-900 truncate group-hover:text-purple-600 transition-colors">
+                            {item.title}
+                          </p>
+                          <p className="text-[11px] text-gray-500 truncate">₹{item.price}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Star Rating Info */}
               <div className="flex items-center gap-2 mb-4">

@@ -294,6 +294,17 @@ function MultiSelectCustomSelect({ options, value = [], onChange, placeholder = 
 
 function ProductModal({ product, onClose, onSaved }) {
   const isEdit = !!product;
+
+  let initialComboProducts = [];
+  const rawCombo = product?.combo_product_ids || product?.combo_products;
+  if (rawCombo) {
+    try {
+      initialComboProducts = typeof rawCombo === "string" ? JSON.parse(rawCombo) : rawCombo;
+    } catch {
+      initialComboProducts = String(rawCombo).split(",").map((s) => s.trim()).filter(Boolean);
+    }
+  }
+
   const [form, setForm] = useState(
     isEdit
       ? {
@@ -332,6 +343,8 @@ function ProductModal({ product, onClose, onSaved }) {
         own_discount_type: product.own_discount_type || "percentage",
         own_discount_val: product.own_discount_val != null ? String(product.own_discount_val) : (product.own_discount_percentage ? String(product.own_discount_percentage) : ""),
         tags: product.tags || "",
+        is_combo: product.is_combo ?? (Array.isArray(initialComboProducts) && initialComboProducts.length > 0),
+        combo_products: Array.isArray(initialComboProducts) ? initialComboProducts.map(String) : [],
       }
       : {
         name: "",
@@ -360,14 +373,35 @@ function ProductModal({ product, onClose, onSaved }) {
         own_discount_type: "percentage",
         own_discount_val: "",
         tags: "",
+        is_combo: false,
+        combo_products: [],
       }
   );
 
+  const [comboFilter, setComboFilter] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploadingMain, setUploadingMain] = useState(false);
   const [uploadingSide, setUploadingSide] = useState(false);
   const [sessionUploadedImages, setSessionUploadedImages] = useState([]);
   const [error, setError] = useState("");
+
+  const { data: selectProductsData } = useQuery({
+    queryKey: ["admin-products-combo-select"],
+    queryFn: async () => {
+      const { data } = await api.get("/api/products/?size=300");
+      return data?.results ?? data?.items ?? data ?? [];
+    },
+  });
+
+  const availableSelectProducts = Array.isArray(selectProductsData)
+    ? selectProductsData.filter((p) => !isEdit || String(p.id) !== String(product.id))
+    : [];
+
+  const filteredComboProducts = availableSelectProducts.filter((p) => {
+    if (!comboFilter.trim()) return true;
+    const name = (p.name || p.title || "").toLowerCase();
+    return name.includes(comboFilter.toLowerCase());
+  });
 
   async function handleCloseWithCleanup() {
     if (sessionUploadedImages.length > 0) {
@@ -562,6 +596,8 @@ function ProductModal({ product, onClose, onSaved }) {
         side_images: form.side_images,
         class_: Array.isArray(form.class_) ? form.class_.join(", ") : form.class_,
         sub_categories: Array.isArray(form.sub_categories) ? form.sub_categories.join(", ") : form.sub_categories,
+        is_combo: form.is_combo,
+        combo_product_ids: form.is_combo && form.combo_products.length > 0 ? JSON.stringify(form.combo_products.map(String)) : "[]",
       };
 
       if (isEdit) {
@@ -602,6 +638,84 @@ function ProductModal({ product, onClose, onSaved }) {
               {error}
             </div>
           )}
+
+          {/* Combo / Bundle Settings Section */}
+          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200/80 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Layers className="w-5 h-5 text-purple-600" />
+                <span className="font-semibold text-gray-900 text-sm">Combo / Bundle Product</span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.is_combo}
+                  onChange={(e) => setForm((f) => ({ ...f, is_combo: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+              </label>
+            </div>
+            <p className="text-xs text-gray-600">
+              Enable if this item is a combo pack / bundle containing multiple individual books.
+            </p>
+
+            {form.is_combo && (
+              <div className="bg-white border border-purple-200 rounded-lg p-3 space-y-3 mt-2 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-bold text-purple-900 uppercase">
+                    Included Books ({form.combo_products.length} selected)
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search books..."
+                    value={comboFilter}
+                    onChange={(e) => setComboFilter(e.target.value)}
+                    className="text-xs px-3 py-1.5 border border-gray-300 rounded-lg outline-none focus:ring-1 focus:ring-purple-500 w-44"
+                  />
+                </div>
+
+                <div className="max-h-48 overflow-y-auto space-y-1 pr-1 divide-y divide-gray-100 border border-gray-200 rounded-lg p-2">
+                  {filteredComboProducts.length === 0 ? (
+                    <p className="text-xs text-gray-400 p-2 text-center">No products found</p>
+                  ) : (
+                    filteredComboProducts.map((p) => {
+                      const pId = String(p.id);
+                      const isSelected = form.combo_products.map(String).includes(pId);
+                      return (
+                        <label
+                          key={pId}
+                          className={`flex items-center justify-between p-2 rounded-md text-xs cursor-pointer transition-colors ${
+                            isSelected ? "bg-purple-50 text-purple-900 font-semibold" : "hover:bg-gray-50 text-gray-700"
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2 overflow-hidden">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setForm((f) => {
+                                  const current = f.combo_products.map(String);
+                                  const updated = checked
+                                    ? [...current, pId]
+                                    : current.filter((id) => id !== pId);
+                                  return { ...f, combo_products: updated };
+                                });
+                              }}
+                              className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                            />
+                            <span className="truncate">{p.name || p.title}</span>
+                          </div>
+                          <span className="text-[10px] text-gray-500 font-mono shrink-0 ml-2">₹{p.price || p.mrp}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Product Name & Category */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1480,6 +1594,12 @@ export default function AdminProducts() {
                                    {product.author && (
                                      <p className="text-sm text-gray-500">by {product.author}</p>
                                    )}
+                                   {Boolean(product.is_combo || (product.combo_product_ids && product.combo_product_ids !== "[]")) && (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200 mt-1">
+                                        <Layers className="w-3 h-3" />
+                                        Combo Pack
+                                      </span>
+                                    )}
                                    {product.isbn && (
                                      <p className="text-xs text-gray-400">ISBN: {product.isbn}</p>
                                    )}
