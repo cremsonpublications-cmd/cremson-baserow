@@ -62,7 +62,7 @@ export default function CartPage() {
   const availableCoupons = useMemo(() => {
     const apiCoupons = (couponsData?.results ?? couponsData?.items ?? []).map((c) => ({
       code: c.code,
-      description: c.description || (c.discount_type === "percentage" ? `${c.discount_value}% off` : `Flat ₹${c.discount_value} off`),
+      description: c.benefit || c.benefits || c.description || (c.discount_type === "percentage" ? `${c.discount_value}% off` : `Flat ₹${c.discount_value} off`),
       discountType: c.discount_type || "percentage",
       value: Number(c.discount_value ?? c.discount_percentage ?? 0),
       minOrder: (c.min_order_amount ?? c.minimum_order_amount) ? Number(c.min_order_amount ?? c.minimum_order_amount) : null,

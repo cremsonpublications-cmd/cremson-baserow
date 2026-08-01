@@ -38,6 +38,7 @@ const EMPTY_FORM = {
   free_delivery: false,
   delivery_discount_amount: "",
   is_active: true,
+  benefit: "",
 };
 
 function useDebounce(value, delay) {
@@ -248,6 +249,7 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
           free_delivery: coupon.free_delivery ?? false,
           delivery_discount_amount: coupon.delivery_discount_amount != null ? String(coupon.delivery_discount_amount) : "",
           is_active: coupon.is_active ?? coupon.active ?? true,
+          benefit: coupon.benefit ?? coupon.benefits ?? "",
         }
       : EMPTY_FORM
   );
@@ -284,6 +286,10 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
         free_delivery: form.free_delivery,
       };
 
+      if (form.benefit !== "") {
+        payload.benefit = form.benefit;
+        payload.benefits = form.benefit;
+      }
       if (form.discount_value !== "") {
         payload.discount_value = Number(form.discount_value);
         payload.discount_percentage = form.discount_type === "percentage" ? Number(form.discount_value) : null;
@@ -355,6 +361,24 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Only letters and numbers allowed. Spaces and special characters are automatically removed.
+                </p>
+              </div>
+
+              {/* Benefit Description (Custom Text written by admin) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Benefits / Benefit Note (Custom Text)
+                </label>
+                <input
+                  type="text"
+                  name="benefit"
+                  value={form.benefit}
+                  onChange={handleChange}
+                  placeholder="e.g., ₹40 off on order"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Custom text written by admin (e.g., &quot;₹40 off on order&quot;). If left empty, it will auto-generate.
                 </p>
               </div>
 
@@ -688,26 +712,36 @@ export default function AdminCoupons() {
                         <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                           <h4 className="text-xs font-semibold text-gray-700 uppercase">Benefits:</h4>
                           
-                          {discVal != null && Number(discVal) > 0 && (
+                          {(coupon.benefit || coupon.benefits) ? (
                             <div className="flex items-center space-x-2">
-                              <span className="text-sm font-medium text-gray-900">
-                                {isPct ? `${discVal}% off on order` : `₹${discVal} off on order`}
+                              <span className="text-sm font-bold text-purple-900 bg-purple-100/60 px-2 py-1 rounded border border-purple-200/60">
+                                {coupon.benefit || coupon.benefits}
                               </span>
                             </div>
-                          )}
+                          ) : (
+                            <>
+                              {discVal != null && Number(discVal) > 0 && (
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-sm font-medium text-gray-900">
+                                    {isPct ? `${discVal}% off on order` : `₹${discVal} off on order`}
+                                  </span>
+                                </div>
+                              )}
 
-                          {isFreeDelivery && (
-                            <div className="flex items-center space-x-2">
-                              <span className="text-green-600 text-lg">🚚</span>
-                              <span className="text-sm font-medium text-gray-900">Free Delivery</span>
-                            </div>
-                          )}
+                              {isFreeDelivery && (
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-green-600 text-lg">🚚</span>
+                                  <span className="text-sm font-medium text-gray-900">Free Delivery</span>
+                                </div>
+                              )}
 
-                          {!isFreeDelivery && delDisc != null && Number(delDisc) > 0 && (
-                            <div className="flex items-center space-x-2">
-                              <span className="text-green-600 text-lg">🚚</span>
-                              <span className="text-sm font-medium text-gray-900">₹{delDisc} Delivery Discount</span>
-                            </div>
+                              {!isFreeDelivery && delDisc != null && Number(delDisc) > 0 && (
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-green-600 text-lg">🚚</span>
+                                  <span className="text-sm font-medium text-gray-900">₹{delDisc} Delivery Discount</span>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
 
