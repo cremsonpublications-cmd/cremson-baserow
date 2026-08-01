@@ -577,7 +577,7 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal }) {
                       {delivery.refund_amount && <p><span className="font-bold">Amount Refunded:</span> ₹{Number(delivery.refund_amount).toFixed(2)}</p>}
                     </div>
                   </div>
-                ) : ["delivered", "shipped"].includes(currentStatusLower) ? (
+                ) : ["delivered", "out_for_delivery"].includes(currentStatusLower) ? (
                   <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2 text-left">
                     <div className="flex justify-between items-center">
                       <div>
@@ -872,7 +872,7 @@ export default function AdminOrders() {
                                 >
                                   <Download className="w-4 h-4 text-gray-400 hover:text-green-600" />
                                 </button>
-                                 {["delivered", "shipped"].includes(deliveryStatusRaw) && (
+                                 {["delivered", "out_for_delivery"].includes(deliveryStatusRaw) && (
                                   <button 
                                     onClick={() => setReturnModalOrder(order)}
                                     className="p-1 hover:bg-rose-50 rounded transition-colors cursor-pointer text-rose-600"
