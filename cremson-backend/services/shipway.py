@@ -58,6 +58,120 @@ async def authenticate() -> bool:
         return False
 
 
+# ── Rate Calculator & Cheapest Courier Allocation ─────────────────────────────
+
+
+async def get_cheapest_carrier(
+    delivery_pincode: str,
+    weight_grams: int,
+    pickup_pincode: Optional[str] = None,
+    payment_type: str = "P",
+) -> Optional[str]:
+    """
+    Fetch rate quotes from Shipway for available couriers and return the carrier_id
+    of the cheapest courier to maximize profit margins.
+
+    Returns carrier_id as string (e.g. "12"), or "0" if falling back to auto-assign.
+    """
+    username, license_key, base_url, warehouse_id, _ = _cfg()
+    if not username or not license_key or not delivery_pincode:
+        return None
+
+    headers = {
+        "Authorization": _auth_header(username, license_key),
+        "Content-Type": "application/json",
+    }
+
+    endpoints = [
+        f"{base_url}/api/v2/rates",
+        f"{base_url}/api/rates",
+        f"{base_url}/api/serviceability",
+    ]
+
+    payload = {
+        "delivery_pincode": str(delivery_pincode).strip(),
+        "weight": weight_grams,
+        "payment_type": payment_type,
+    }
+    if pickup_pincode:
+        payload["pickup_pincode"] = str(pickup_pincode).strip()
+    elif warehouse_id:
+        payload["warehouse_id"] = str(warehouse_id).strip()
+
+    for url in endpoints:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+                if resp.status_code != 200:
+                    resp = await client.get(url, headers=headers, params=payload)
+
+                if resp.status_code == 200:
+                    try:
+                        res_json = resp.json()
+                    except Exception:
+                        continue
+
+                    couriers = []
+                    if isinstance(res_json, list):
+                        couriers = res_json
+                    elif isinstance(res_json, dict):
+                        couriers = (
+                            res_json.get("data")
+                            or res_json.get("couriers")
+                            or res_json.get("rates")
+                            or res_json.get("services")
+                            or []
+                        )
+
+                    if isinstance(couriers, list) and len(couriers) > 0:
+                        valid_options = []
+                        for c in couriers:
+                            if not isinstance(c, dict):
+                                continue
+                            c_id = str(
+                                c.get("carrier_id")
+                                or c.get("id")
+                                or c.get("courier_id")
+                                or ""
+                            )
+                            price_val = (
+                                c.get("freight_charge")
+                                or c.get("freight_charges")
+                                or c.get("rate")
+                                or c.get("total_amount")
+                                or c.get("price")
+                                or c.get("charge")
+                            )
+                            if c_id and price_val is not None:
+                                try:
+                                    price = float(price_val)
+                                    name = str(
+                                        c.get("courier_name")
+                                        or c.get("name")
+                                        or c_id
+                                    )
+                                    valid_options.append(
+                                        {"id": c_id, "name": name, "price": price}
+                                    )
+                                except (ValueError, TypeError):
+                                    pass
+
+                        if valid_options:
+                            cheapest = min(valid_options, key=lambda x: x["price"])
+                            logger.info(
+                                f"[Shipway Rate Check] ✓ Cheapest courier found for pincode {delivery_pincode}: "
+                                f"{cheapest['name']} (ID: {cheapest['id']}) @ ₹{cheapest['price']:.2f}"
+                            )
+                            return cheapest["id"]
+        except Exception as exc:
+            logger.debug(f"[Shipway Rate Check] Endpoint {url} check error: {exc}")
+
+    logger.info(
+        f"[Shipway Rate Check] Defaulting carrier_id to Shipway auto-assign (0)"
+    )
+    return "0"
+
+
 # ── Create Shipment ───────────────────────────────────────────────────────────
 
 
@@ -191,7 +305,8 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
     if total_height <= 0:
         total_height = 5.0
 
-    weight_grams = str(int(total_weight_kg * 1000))
+    weight_grams_int = int(total_weight_kg * 1000)
+    weight_grams = str(weight_grams_int)
 
     payload: Dict[str, Any] = {
         "order_id": order["order_id"],
@@ -220,9 +335,21 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
         payload["warehouse_id"] = warehouse_id
         payload["return_warehouse_id"] = warehouse_id
 
-    # Carrier (0 or blank = auto-assign by Shipway)
-    if carrier_id is not None:
-        payload["carrier_id"] = str(carrier_id)
+    # Carrier selection: If carrier_id is 0 or blank, dynamically find the cheapest courier
+    effective_carrier_id = carrier_id
+    if effective_carrier_id is None or str(effective_carrier_id).strip() in ("", "0"):
+        cust_pincode = str(order.get("pincode", "")).strip()
+        if cust_pincode:
+            cheapest_id = await get_cheapest_carrier(
+                delivery_pincode=cust_pincode,
+                weight_grams=weight_grams_int,
+                payment_type="P",
+            )
+            if cheapest_id and cheapest_id != "0":
+                effective_carrier_id = cheapest_id
+
+    if effective_carrier_id is not None and str(effective_carrier_id) != "":
+        payload["carrier_id"] = str(effective_carrier_id)
 
     logger.info(f"[Shipway] → create_shipment: order={order['order_id']}")
     logger.debug(f"[Shipway] Payload: {json.dumps(payload, default=str)}")
