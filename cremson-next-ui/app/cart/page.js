@@ -60,24 +60,36 @@ export default function CartPage() {
   // Fetch coupons from backend API
   const { data: couponsData } = useCoupons();
   const availableCoupons = useMemo(() => {
-    const apiCoupons = (couponsData?.results ?? couponsData?.items ?? []).map((c) => ({
-      code: c.code,
-      description: c.benefit || c.benefits || c.description || (c.discount_type === "percentage" ? `${c.discount_value}% off` : `Flat ₹${c.discount_value} off`),
-      discountType: c.discount_type || "percentage",
-      value: Number(c.discount_value ?? c.discount_percentage ?? 0),
-      minOrder: (c.min_order_amount ?? c.minimum_order_amount) ? Number(c.min_order_amount ?? c.minimum_order_amount) : null,
-      maxDiscount: c.max_discount_amount ? Number(c.max_discount_amount) : null,
-      showInUi: c.show_in_ui ?? true,
-      freeDelivery: c.free_delivery ?? false,
-      deliveryDiscount: c.delivery_discount_amount ? Number(c.delivery_discount_amount) : 0,
-      isActive: c.is_active ?? c.active ?? true,
-    })).filter((c) => c.isActive);
+    const apiCoupons = (couponsData?.results ?? couponsData?.items ?? []).map((c) => {
+      const rawApp = c.applicable_products || c.product_ids;
+      let applicableProducts = [];
+      if (rawApp) {
+        try {
+          applicableProducts = typeof rawApp === "string" ? JSON.parse(rawApp) : rawApp;
+        } catch (e) {
+          applicableProducts = String(rawApp).split(",").map((s) => s.trim()).filter(Boolean);
+        }
+      }
+      return {
+        code: c.code,
+        description: c.benefit || c.benefits || c.description || (c.discount_type === "percentage" ? `${c.discount_value}% off` : `Flat ₹${c.discount_value} off`),
+        discountType: c.discount_type || "percentage",
+        value: Number(c.discount_value ?? c.discount_percentage ?? 0),
+        minOrder: (c.min_order_amount ?? c.minimum_order_amount) ? Number(c.min_order_amount ?? c.minimum_order_amount) : null,
+        maxDiscount: c.max_discount_amount ? Number(c.max_discount_amount) : null,
+        showInUi: c.show_in_ui ?? true,
+        freeDelivery: c.free_delivery ?? false,
+        deliveryDiscount: c.delivery_discount_amount ? Number(c.delivery_discount_amount) : 0,
+        isActive: c.is_active ?? c.active ?? true,
+        applicableProducts: Array.isArray(applicableProducts) ? applicableProducts.map(String) : [],
+      };
+    }).filter((c) => c.isActive);
 
     if (apiCoupons.length > 0) return apiCoupons;
 
     return [
-      { code: "CREMSON10", description: "10% off on all books", discountType: "percentage", value: 10, minOrder: 0, showInUi: true },
-      { code: "WELCOME50", description: "Flat ₹50 off on orders above ₹400", discountType: "fixed", value: 50, minOrder: 400, showInUi: true },
+      { code: "CREMSON10", description: "10% off on all books", discountType: "percentage", value: 10, minOrder: 0, showInUi: true, applicableProducts: [] },
+      { code: "WELCOME50", description: "Flat ₹50 off on orders above ₹400", discountType: "fixed", value: 50, minOrder: 400, showInUi: true, applicableProducts: [] },
     ];
   }, [couponsData]);
 
@@ -105,25 +117,46 @@ export default function CartPage() {
 
   const promoDiscount = useMemo(() => {
     if (!appliedPromo) return 0;
+
+    let baseAmount = subtotal;
+    if (appliedPromo.applicableProducts && appliedPromo.applicableProducts.length > 0) {
+      const eligibleItems = cart.filter((item) =>
+        appliedPromo.applicableProducts.includes(String(item.product.id))
+      );
+      baseAmount = eligibleItems.reduce((sum, item) => sum + getItemTotalPrice(item.product, item.quantity), 0);
+      if (baseAmount === 0) return 0;
+    }
+
     let disc = 0;
     if (appliedPromo.discountType === "percentage") {
-      disc = (subtotal * appliedPromo.value) / 100;
+      disc = (baseAmount * appliedPromo.value) / 100;
     } else if (appliedPromo.discountType === "fixed") {
       if (appliedPromo.minOrder && subtotal < appliedPromo.minOrder) return 0;
-      disc = appliedPromo.value;
+      disc = Math.min(appliedPromo.value, baseAmount);
     }
 
     if (appliedPromo.maxDiscount && disc > appliedPromo.maxDiscount) {
       disc = appliedPromo.maxDiscount;
     }
     return Math.round(disc);
-  }, [appliedPromo, subtotal]);
+  }, [appliedPromo, subtotal, cart]);
 
   React.useEffect(() => {
-    if (appliedPromo && appliedPromo.minOrder && subtotal < appliedPromo.minOrder) {
-      setAppliedPromo(null);
+    if (appliedPromo) {
+      if (appliedPromo.minOrder && subtotal < appliedPromo.minOrder) {
+        setAppliedPromo(null);
+        return;
+      }
+      if (appliedPromo.applicableProducts && appliedPromo.applicableProducts.length > 0) {
+        const hasEligible = cart.some((item) =>
+          appliedPromo.applicableProducts.includes(String(item.product.id))
+        );
+        if (!hasEligible) {
+          setAppliedPromo(null);
+        }
+      }
     }
-  }, [subtotal, appliedPromo]);
+  }, [subtotal, cart, appliedPromo]);
 
   const finalTotal = useMemo(() => {
     return Math.max(0, subtotal + deliveryCharges - promoDiscount);
@@ -136,6 +169,15 @@ export default function CartPage() {
     if (coupon.minOrder && subtotal < coupon.minOrder) {
       setPromoError(`This coupon requires a minimum order of ₹${coupon.minOrder}`);
       return;
+    }
+    if (coupon.applicableProducts && coupon.applicableProducts.length > 0) {
+      const hasEligible = cart.some((item) =>
+        coupon.applicableProducts.includes(String(item.product.id))
+      );
+      if (!hasEligible) {
+        setPromoError("This coupon code is only valid for specific products.");
+        return;
+      }
     }
     setPromoError("");
     setAppliedPromo(coupon);
@@ -380,7 +422,11 @@ export default function CartPage() {
                   {showCoupons && (
                     <div className="mt-3 space-y-2 text-left">
                       {availableCoupons.filter((c) => c.showInUi !== false).map((coupon) => {
-                        const isDisabled = coupon.minOrder && subtotal < coupon.minOrder;
+                        const hasProductRestriction = coupon.applicableProducts && coupon.applicableProducts.length > 0;
+                        const hasEligibleInCart = !hasProductRestriction || cart.some((item) => coupon.applicableProducts.includes(String(item.product.id)));
+                        const isMinOrderMet = !coupon.minOrder || subtotal >= coupon.minOrder;
+                        const isDisabled = !isMinOrderMet || !hasEligibleInCart;
+
                         return (
                           <div
                             key={coupon.code}
@@ -388,10 +434,15 @@ export default function CartPage() {
                             onClick={() => !isDisabled && handleCouponSelect(coupon.code)}
                           >
                             <div className="flex items-center justify-between font-bold">
-                              <span className={isDisabled ? "text-gray-400" : "text-orange-600 font-mono"}>{coupon.code}</span>
+                              <span className={isDisabled ? "text-gray-400 font-mono" : "text-orange-600 font-mono"}>{coupon.code}</span>
                               {!isDisabled && <span className="text-[10px] text-orange-500 font-medium">Click to apply</span>}
                             </div>
-                            <p className="text-gray-600">{coupon.description}</p>
+                            <p className={isDisabled ? "text-gray-400" : "text-gray-600"}>{coupon.description}</p>
+                            {hasProductRestriction && (
+                              <p className={`text-[10px] font-medium ${!hasEligibleInCart ? "text-amber-600 font-semibold" : "text-amber-700"}`}>
+                                📦 Valid for specific book(s) only{!hasEligibleInCart ? " (add assigned book to cart)" : ""}
+                              </p>
+                            )}
                             {coupon.minOrder && (
                               <p className="text-[10px] text-gray-500 italic">* Requires order minimum of ₹{coupon.minOrder}</p>
                             )}

@@ -24,6 +24,8 @@ class CouponCreate(BaseModel):
     delivery_discount_amount: Optional[float] = None
     benefit: Optional[str] = None
     benefits: Optional[str] = None
+    applicable_products: Optional[str] = None
+    product_ids: Optional[str] = None
 
 
 class CouponUpdate(BaseModel):
@@ -42,6 +44,8 @@ class CouponUpdate(BaseModel):
     delivery_discount_amount: Optional[float] = None
     benefit: Optional[str] = None
     benefits: Optional[str] = None
+    applicable_products: Optional[str] = None
+    product_ids: Optional[str] = None
 
 
 @router.get("/", summary="List coupons")

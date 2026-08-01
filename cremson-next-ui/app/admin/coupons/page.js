@@ -22,7 +22,8 @@ import {
   Calendar,
   DollarSign,
   Ticket,
-  Pen
+  Pen,
+  BookOpen
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
@@ -39,6 +40,8 @@ const EMPTY_FORM = {
   delivery_discount_amount: "",
   is_active: true,
   benefit: "",
+  apply_to: "all",
+  selected_products: [],
 };
 
 function useDebounce(value, delay) {
@@ -236,6 +239,21 @@ function DatePickerField({ value, onChange }) {
 
 function CouponFormModal({ coupon, onClose, onSaved }) {
   const isEdit = !!coupon;
+
+  let initialProducts = [];
+  let initialApplyTo = "all";
+  const rawApp = coupon?.applicable_products || coupon?.product_ids;
+  if (rawApp) {
+    try {
+      initialProducts = typeof rawApp === "string" ? JSON.parse(rawApp) : rawApp;
+    } catch (e) {
+      initialProducts = String(rawApp).split(",").map((s) => s.trim()).filter(Boolean);
+    }
+    if (Array.isArray(initialProducts) && initialProducts.length > 0) {
+      initialApplyTo = "specific";
+    }
+  }
+
   const [form, setForm] = useState(
     isEdit
       ? {
@@ -250,11 +268,29 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
           delivery_discount_amount: coupon.delivery_discount_amount != null ? String(coupon.delivery_discount_amount) : "",
           is_active: coupon.is_active ?? coupon.active ?? true,
           benefit: coupon.benefit ?? coupon.benefits ?? "",
+          apply_to: initialApplyTo,
+          selected_products: Array.isArray(initialProducts) ? initialProducts.map(String) : [],
         }
       : EMPTY_FORM
   );
+  const [productFilter, setProductFilter] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const { data: productsData } = useQuery({
+    queryKey: ["admin-products-for-coupons"],
+    queryFn: async () => {
+      const { data } = await api.get("/api/products/?size=300");
+      return data?.results ?? data?.items ?? data ?? [];
+    },
+  });
+
+  const allProducts = Array.isArray(productsData) ? productsData : [];
+  const filteredProducts = allProducts.filter((p) => {
+    if (!productFilter.trim()) return true;
+    const title = (p.title || p.name || "").toLowerCase();
+    return title.includes(productFilter.toLowerCase());
+  });
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
@@ -289,6 +325,14 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
       if (form.benefit !== "") {
         payload.benefit = form.benefit;
         payload.benefits = form.benefit;
+      }
+      if (form.apply_to === "specific" && form.selected_products.length > 0) {
+        const jsonStr = JSON.stringify(form.selected_products.map(String));
+        payload.applicable_products = jsonStr;
+        payload.product_ids = jsonStr;
+      } else {
+        payload.applicable_products = "";
+        payload.product_ids = "";
       }
       if (form.discount_value !== "") {
         payload.discount_value = Number(form.discount_value);
@@ -518,6 +562,98 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
                 </div>
               </div>
             </div>
+
+            {/* Applicable Products Section */}
+            <div className="border-t border-gray-200 pt-5 space-y-3">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-purple-600" />
+                Product Assignment
+              </h3>
+              <p className="text-xs text-gray-500">
+                Choose whether this coupon code applies to all store items or specific selected books only.
+              </p>
+
+              <div className="flex items-center gap-6 py-2">
+                <label className="flex items-center space-x-2.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="apply_to"
+                    value="all"
+                    checked={form.apply_to === "all"}
+                    onChange={() => setForm((f) => ({ ...f, apply_to: "all", selected_products: [] }))}
+                    className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                  />
+                  <span className="text-sm text-gray-800 font-medium">All Store Products</span>
+                </label>
+                <label className="flex items-center space-x-2.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="apply_to"
+                    value="specific"
+                    checked={form.apply_to === "specific"}
+                    onChange={() => setForm((f) => ({ ...f, apply_to: "specific" }))}
+                    className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                  />
+                  <span className="text-sm text-gray-800 font-medium">Selected Products Only</span>
+                </label>
+              </div>
+
+              {form.apply_to === "specific" && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-bold text-slate-700 uppercase">
+                      Select Books ({form.selected_products.length} selected)
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="Search books..."
+                      value={productFilter}
+                      onChange={(e) => setProductFilter(e.target.value)}
+                      className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-purple-500 bg-white w-48"
+                    />
+                  </div>
+
+                  <div className="max-h-52 overflow-y-auto space-y-1 pr-1 divide-y divide-slate-100 border border-slate-200 rounded-lg bg-white p-2">
+                    {filteredProducts.length === 0 ? (
+                      <p className="text-xs text-gray-400 p-2 text-center">No products found</p>
+                    ) : (
+                      filteredProducts.map((p) => {
+                        const pId = String(p.id);
+                        const isSelected = form.selected_products.map(String).includes(pId);
+                        return (
+                          <label
+                            key={pId}
+                            className={`flex items-center justify-between p-2 rounded-md text-xs cursor-pointer transition-colors ${
+                              isSelected ? "bg-purple-50 text-purple-900 font-semibold" : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            <div className="flex items-center space-x-2.5 overflow-hidden">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setForm((f) => {
+                                    const current = f.selected_products.map(String);
+                                    const updated = checked
+                                      ? [...current, pId]
+                                      : current.filter((id) => id !== pId);
+                                    return { ...f, selected_products: updated };
+                                  });
+                                }}
+                                className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                              />
+                              <span className="truncate">{p.title || p.name}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-mono shrink-0 ml-2">₹{p.price}</span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Sticky Actions Footer */}
@@ -744,6 +880,27 @@ export default function AdminCoupons() {
                             </>
                           )}
                         </div>
+
+                        {(() => {
+                          const rawApp = coupon.applicable_products || coupon.product_ids;
+                          let prodArr = [];
+                          if (rawApp) {
+                            try {
+                              prodArr = typeof rawApp === "string" ? JSON.parse(rawApp) : rawApp;
+                            } catch (e) {
+                              prodArr = String(rawApp).split(",").map(s => s.trim()).filter(Boolean);
+                            }
+                          }
+                          if (Array.isArray(prodArr) && prodArr.length > 0) {
+                            return (
+                              <div className="flex items-center space-x-1.5 text-xs text-amber-800 bg-amber-50 px-2.5 py-1.5 rounded-md border border-amber-200/70 font-medium">
+                                <BookOpen className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span>Valid for {prodArr.length} selected book(s)</span>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
 
                         {minOrder != null && Number(minOrder) > 0 && (
                           <div className="space-y-1">
