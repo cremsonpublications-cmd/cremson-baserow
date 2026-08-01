@@ -220,16 +220,11 @@ async def send_pickup_requested(
     tracking_url: str,
 ):
     """
-    Triggered when admin clicks 'Packed & Ready for Pickup'.
-    Template: pickup_requested_v2
-    Body vars: {{1}}=name  {{2}}=order_id  {{3}}=tracking_url
+    DEPRECATED: Notification disabled per requirements.
+    (pickup_requested_v2 template has been removed).
     """
-    await _send_template(
-        phone,
-        "pickup_requested_v2",
-        [_txt(customer_name), _txt(order_id), _txt(tracking_url)],
-        log_tag=f"pickup_requested order={order_id}",
-    )
+    logger.info(f"[WhatsApp] send_pickup_requested skipped for order {order_id} (template removed).")
+    return None
 
 
 async def send_picked_up(

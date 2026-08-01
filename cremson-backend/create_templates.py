@@ -87,28 +87,6 @@ templates = [
         ]
     },
     {
-        "name": "pickup_requested_v2",
-        "category": "UTILITY",
-        "language": "en",
-        "components": [
-            {
-                "type": "BODY",
-                "text": (
-                    "Hello {{1}},\n\n"
-                    "Great news! Your order {{2}} is packed and ready for pickup. 📦\n\n"
-                    "Once the courier partner picks it up, we will notify you with the tracking details.\n"
-                    "🔗 Track status: {{3}}\n\n"
-                    "Thank you!"
-                ),
-                "example": {
-                    "body_text": [
-                        ["Arjunan Cahippa", "BOOK2304", "https://cremsonpublications.shipway.com/track"]
-                    ]
-                }
-            }
-        ]
-    },
-    {
         "name": "picked_up_v1",
         "category": "UTILITY",
         "language": "en",
