@@ -42,7 +42,6 @@ export default function Header() {
     { name: "Home", href: "/" },
     { name: "Shop", href: "/shop" },
     { name: "Specimen", href: "/specimen" },
-    { name: "News & Blogs", href: "/news" },
     { name: "About Us", href: "/about-us" },
     { name: "Contact Us", href: "/contact-us" }
   ];

@@ -39,5 +39,4 @@ export const useCategories = makeListHook("categories");
 export const useReviews = makeListHook("reviews");
 export const useSpecimenRequests = makeListHook("specimen_requests");
 export const useShippingSettings = makeListHook("shipping_settings");
-export const useBlogs = makeListHook("blogs");
 
