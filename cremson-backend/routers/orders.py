@@ -243,22 +243,8 @@ async def ready_for_pickup(order_id: str, background_tasks: BackgroundTasks):
     })
     logger.info(f"[Orders] Order {order_id} → PICKUP_REQUESTED")
 
-    # ── 5. WhatsApp (background) ──────────────────────────────────────────────
-    try:
-        user_info_raw = order.get("user_info", "{}")
-        user_info = (
-            json.loads(user_info_raw)
-            if isinstance(user_info_raw, str)
-            else (user_info_raw or {})
-        )
-        phone = user_info.get("phone") or user_info.get("whatsapp_phone") or ""
-        name = user_info.get("name", "Customer")
-        if phone:
-            background_tasks.add_task(
-                _notify_pickup_requested, phone, name, order_id, tracking_url
-            )
-    except Exception as exc:
-        logger.error(f"[Orders] Could not schedule WhatsApp notification: {exc}")
+    # ── 5. Notification (WhatsApp bypassed per request for pickup_requested) ─────
+    logger.info(f"[Orders] Order {order_id} pickup requested in Shipway & Baserow (WhatsApp notification bypassed).")
 
     return {
         "success": True,
