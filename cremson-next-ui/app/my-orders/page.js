@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   Search,
   ShoppingBag,
-  FileText,
   MapPin,
   BookOpen,
   ArrowRight,
@@ -72,7 +71,13 @@ export default function MyOrdersPage() {
   // Flatten orders to items list for a Flipkart-style view
   const orderItemsList = useMemo(() => {
     const items = [];
-    filteredOrders.forEach((order) => {
+    // Sort orders newest-first before flattening
+    const sortedOrders = [...filteredOrders].sort((a, b) => {
+      const dateA = a.rawDate ? new Date(a.rawDate).getTime() : 0;
+      const dateB = b.rawDate ? new Date(b.rawDate).getTime() : 0;
+      return dateB - dateA; // descending: newest first
+    });
+    sortedOrders.forEach((order) => {
       (order.items || []).forEach((item) => {
         items.push({
           ...item,
@@ -83,12 +88,12 @@ export default function MyOrdersPage() {
           shippingAddress: order.shippingAddress,
           payment_id: order.payment_id,
           totalOrderAmount: order.total,
+          trackingUrl: order.trackingUrl || "",
           parentOrder: order,
         });
       });
     });
-    // Sort items by orderDate desc (since orderId has timestamp, we can sort by orderId desc as a proxy if date is simple string)
-    return items.reverse();
+    return items;
   }, [filteredOrders]);
 
   if (!user) {
@@ -301,10 +306,23 @@ export default function MyOrdersPage() {
                     <p className="text-[11px] text-gray-500 mt-1 ml-4 leading-relaxed">
                       {statusDesc}
                     </p>
-                    <button className="text-blue-600 hover:text-blue-800 text-[11px] font-bold mt-2 ml-4 flex items-center gap-0.5 cursor-pointer">
-                      <Eye className="w-3.5 h-3.5" />
-                      Track Order & Details
-                    </button>
+                    {item.trackingUrl ? (
+                      <a
+                        href={item.trackingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-blue-600 hover:text-blue-800 text-[11px] font-bold mt-2 ml-4 flex items-center gap-0.5 cursor-pointer"
+                      >
+                        <Truck className="w-3.5 h-3.5" />
+                        Track Shipment
+                      </a>
+                    ) : (
+                      <button className="text-blue-600 hover:text-blue-800 text-[11px] font-bold mt-2 ml-4 flex items-center gap-0.5 cursor-pointer">
+                        <Eye className="w-3.5 h-3.5" />
+                        View Details
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -315,7 +333,7 @@ export default function MyOrdersPage() {
 
       {/* Order Details Drawer Modal */}
       {selectedOrder && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex justify-end">
           {/* Overlay click to close */}
           <div className="absolute inset-0" onClick={() => setSelectedOrder(null)} />
 
@@ -467,21 +485,25 @@ export default function MyOrdersPage() {
 
             {/* Footer */}
             <div className="p-4 bg-white border-t border-gray-200">
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => window.print()}
-                  className="inline-flex items-center justify-center gap-1.5 border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-2 rounded text-xs transition-all cursor-pointer"
+              {/* Track Order — full width, only when AWB exists */}
+              {selectedOrder.trackingUrl && (
+                <a
+                  href={selectedOrder.trackingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded text-xs transition-all cursor-pointer mb-3"
                 >
-                  <FileText className="w-4 h-4" />
-                  Print Invoice
-                </button>
-                <button
-                  onClick={() => setSelectedOrder(null)}
-                  className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded text-xs transition-all cursor-pointer"
-                >
-                  Close Details
-                </button>
-              </div>
+                  <Truck className="w-4 h-4" />
+                  Track Order
+                </a>
+              )}
+              {/* Bottom: Close */}
+              <button
+                onClick={() => setSelectedOrder(null)}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded text-xs transition-all cursor-pointer"
+              >
+                Close Details
+              </button>
             </div>
 
           </div>

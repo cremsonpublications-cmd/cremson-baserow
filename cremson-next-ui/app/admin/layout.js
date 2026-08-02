@@ -39,7 +39,9 @@ const navLinks = [
   { href: "/admin/listBlog", label: "Blog List", Icon: FileText },
   { href: "/admin/comments", label: "Blog Comments", Icon: MessageSquare },
   { href: "/admin/study-materials", label: "Study Materials", Icon: BookOpen },
+  { href: "/admin/study-material-posts", label: "Study Material Pages", Icon: FileText },
   { href: "/admin/teaching-resources", label: "Teaching Resources", Icon: BookOpen },
+  { href: "/admin/teaching-resource-posts", label: "Teaching Resource Pages", Icon: FileText },
   { href: "/admin/settings", label: "Settings", Icon: Settings },
 ];
 

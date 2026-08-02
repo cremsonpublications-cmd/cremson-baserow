@@ -95,6 +95,7 @@ export default function Header() {
     { name: "Home", href: "/" },
     { name: "Shop", href: "/shop" },
     { name: "Specimen", href: "/specimen" },
+    { name: "Blogs", href: "/blogs" },
     { name: "About Us", href: "/about-us" },
     { name: "Contact Us", href: "/contact-us" }
   ];
@@ -123,8 +124,8 @@ export default function Header() {
 
   return (
     <>
-      <nav className="sticky top-0 bg-white z-[90] shadow-sm border-b border-gray-200" style={{ position: "sticky", top: "0px", zIndex: 100 }}>
-        <div className="flex relative max-w-7xl mx-auto items-center justify-between py-5 md:py-6 px-4 xl:px-0">
+      <nav className="sticky top-0 bg-white shadow-sm border-b border-gray-200" style={{ position: "sticky", top: "0px", zIndex: 999 }}>
+        <div className="flex relative max-w-9xl mx-auto items-center justify-between py-5 md:py-6 px-4 md:px-6 xl:px-4">
           
           {/* Logo & Mobile Menu Hamburger */}
           <div className="flex items-center flex-shrink-0">
@@ -145,7 +146,7 @@ export default function Header() {
           </div>
 
           {/* Desktop Nav Links & Search */}
-          <div className="hidden md:flex items-center flex-1 gap-4 lg:gap-8">
+          <div className="hidden md:flex items-center flex-1 gap-2 lg:gap-8">
             <nav aria-label="Main" className="relative z-10 flex max-w-max flex-1 items-center justify-center flex-shrink-0">
               <div style={{ position: "relative" }}>
                 <ul className="group flex flex-1 list-none items-center justify-center space-x-1">
@@ -440,7 +441,7 @@ export default function Header() {
           </div>
 
           {/* User Operations */}
-          <div className="flex items-center flex-shrink-0 gap-3">
+          <div className="flex items-center flex-shrink-0 gap-3 ml-4">
             {/* Mobile Search Button (shows on small screens only) */}
             <button
               onClick={() => router.push("/shop")}

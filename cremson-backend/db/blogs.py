@@ -134,8 +134,87 @@ def init_blogs_db():
     """)
     conn.commit()
 
-    # No seeding. Table will start empty so user can add manually.
-    pass
+    # Create study_material_posts table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS study_material_posts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            slug TEXT UNIQUE NOT NULL,
+            title TEXT NOT NULL,
+            category TEXT NOT NULL,
+            image TEXT NOT NULL,
+            author TEXT NOT NULL,
+            date TEXT NOT NULL,
+            description TEXT NOT NULL,
+            content TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Published',
+            pdf_url TEXT,
+            pdf_name TEXT
+        )
+    """)
+    conn.commit()
+
+    # Create study_material_categories table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS study_material_categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL
+        )
+    """)
+    conn.commit()
+
+    # Seed study_material_categories if empty
+    cursor.execute("SELECT COUNT(*) FROM study_material_categories")
+    if cursor.fetchone()[0] == 0:
+        cursor.executemany("INSERT INTO study_material_categories (name) VALUES (?)", [
+            ("CBSE",),
+            ("ICSE",),
+            ("State Board",),
+            ("Nursery",),
+            ("Primary Classes",),
+            ("Secondary Classes",)
+        ])
+        conn.commit()
+
+    # Create teaching_resource_posts table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS teaching_resource_posts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            slug TEXT UNIQUE NOT NULL,
+            title TEXT NOT NULL,
+            category TEXT NOT NULL,
+            image TEXT NOT NULL,
+            author TEXT NOT NULL,
+            date TEXT NOT NULL,
+            description TEXT NOT NULL,
+            content TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Published',
+            pdf_url TEXT,
+            pdf_name TEXT
+        )
+    """)
+    conn.commit()
+
+    # Create teaching_resource_categories table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS teaching_resource_categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL
+        )
+    """)
+    conn.commit()
+
+    # Seed teaching_resource_categories if empty
+    cursor.execute("SELECT COUNT(*) FROM teaching_resource_categories")
+    if cursor.fetchone()[0] == 0:
+        cursor.executemany("INSERT INTO teaching_resource_categories (name) VALUES (?)", [
+            ("Lesson Plans",),
+            ("Worksheets",),
+            ("Teacher Manuals",),
+            ("Answer Keys",),
+            ("Question Banks",),
+            ("Syllabus",)
+        ])
+        conn.commit()
 
     conn.close()
 

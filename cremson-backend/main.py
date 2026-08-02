@@ -25,6 +25,8 @@ from routers import crm as crm_router
 from routers import blogs as blogs_router
 from routers import study_materials as study_materials_router
 from routers import teaching_resources as teaching_resources_router
+from routers import study_material_posts as study_material_posts_router
+from routers import teaching_resource_posts as teaching_resource_posts_router
 
 app = FastAPI(
     title="Cremson Backend API",
@@ -97,6 +99,8 @@ app.include_router(specimen_books.router, prefix="/api/specimen-books", tags=["S
 app.include_router(blogs_router.router, prefix="/api/blogs", tags=["Blogs"])
 app.include_router(study_materials_router.router, prefix="/api/study-materials", tags=["Study Materials"])
 app.include_router(teaching_resources_router.router, prefix="/api/teaching-resources", tags=["Teaching Resources"])
+app.include_router(study_material_posts_router.router, prefix="/api/study-material-posts", tags=["Study Material Posts"])
+app.include_router(teaching_resource_posts_router.router, prefix="/api/teaching-resource-posts", tags=["Teaching Resource Posts"])
 
 
 @app.get("/", tags=["Health"])
