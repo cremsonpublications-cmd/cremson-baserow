@@ -12,6 +12,26 @@ export default function Header() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profileRef = useRef(null);
 
+  // Hierarchical study materials states
+  const [studyMaterials, setStudyMaterials] = useState([]);
+  const [activeL1, setActiveL1] = useState(null);
+  const [activeL2, setActiveL2] = useState(null);
+
+  // Hierarchical teaching resources states
+  const [teachingResources, setTeachingResources] = useState([]);
+  const [activeTRL1, setActiveTRL1] = useState(null);
+  const [activeTRL2, setActiveTRL2] = useState(null);
+
+  // Reset active L2 when L1 changes
+  useEffect(() => {
+    setActiveL2(null);
+  }, [activeL1]);
+
+  // Reset active TRL2 when TRL1 changes
+  useEffect(() => {
+    setActiveTRL2(null);
+  }, [activeTRL1]);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (profileRef.current && !profileRef.current.contains(e.target)) {
@@ -19,6 +39,39 @@ export default function Header() {
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
+
+    // Fetch from backend
+    const loadMaterials = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/study-materials/");
+        if (res.ok) {
+          const data = await res.json();
+          if (data) {
+            setStudyMaterials(data);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch study materials:", err);
+      }
+    };
+
+    const loadTeachingResources = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/teaching-resources/");
+        if (res.ok) {
+          const data = await res.json();
+          if (data) {
+            setTeachingResources(data);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch teaching resources:", err);
+      }
+    };
+
+    loadMaterials();
+    loadTeachingResources();
+
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
@@ -58,6 +111,16 @@ export default function Header() {
     }
   };
 
+  // Derive columns for the mega menu
+  const rootItems = studyMaterials.filter((item) => !item.parent_id);
+  const l2Items = activeL1 ? studyMaterials.filter((item) => item.parent_id === activeL1.id) : [];
+  const l3Items = activeL2 ? studyMaterials.filter((item) => item.parent_id === activeL2.id) : [];
+
+  // Derive columns for teaching resources mega menu
+  const trRootItems = teachingResources.filter((item) => !item.parent_id);
+  const trL2Items = activeTRL1 ? teachingResources.filter((item) => item.parent_id === activeTRL1.id) : [];
+  const trL3Items = activeTRL2 ? teachingResources.filter((item) => item.parent_id === activeTRL2.id) : [];
+
   return (
     <>
       <nav className="sticky top-0 bg-white z-[90] shadow-sm border-b border-gray-200" style={{ position: "sticky", top: "0px", zIndex: 100 }}>
@@ -86,26 +149,256 @@ export default function Header() {
             <nav aria-label="Main" className="relative z-10 flex max-w-max flex-1 items-center justify-center flex-shrink-0">
               <div style={{ position: "relative" }}>
                 <ul className="group flex flex-1 list-none items-center justify-center space-x-1">
-                  {navLinks.map((link) => {
+                  {navLinks.map((link, idx) => {
                     const isActive = pathname === link.href;
                     return (
-                      <li key={link.name}>
-                        <Link
-                          href={link.href}
-                          onClick={() => {
-                            if (link.href === "/shop") {
-                              setSearchQuery("");
-                            }
-                          }}
-                          className={`group inline-flex h-9 w-max items-center justify-center rounded-md bg-background py-2 text-sm focus:outline-none disabled:pointer-events-none disabled:opacity-50 font-[500] px-3 transition-colors duration-300 ${
-                            isActive
-                              ? "text-red-500 hover:text-red-500"
-                              : "text-black hover:text-gray-600"
-                          }`}
-                        >
-                          {link.name}
-                        </Link>
-                      </li>
+                      <React.Fragment key={link.name}>
+                        <li key={link.name}>
+                          <Link
+                            href={link.href}
+                            onClick={() => {
+                              if (link.href === "/shop") {
+                                setSearchQuery("");
+                              }
+                            }}
+                            className={`group inline-flex h-9 w-max items-center justify-center rounded-md bg-background py-2 text-sm focus:outline-none disabled:pointer-events-none disabled:opacity-50 font-[500] px-3 transition-colors duration-300 ${
+                              isActive
+                                ? "text-red-500 hover:text-red-500"
+                                : "text-black hover:text-gray-600"
+                            }`}
+                          >
+                            {link.name}
+                          </Link>
+                        </li>
+
+                        {idx === 0 && (
+                          <>
+                            <li 
+                              className="relative group/mega" 
+                              key="free-study-material-item"
+                              onMouseLeave={() => {
+                                setActiveL1(null);
+                                setActiveL2(null);
+                              }}
+                            >
+                              <button className="group inline-flex h-9 w-max items-center justify-center rounded-md bg-background py-2 text-sm focus:outline-none disabled:pointer-events-none disabled:opacity-50 font-[500] px-3 text-black hover:text-gray-600 transition-colors duration-300 gap-1.5 cursor-pointer">
+                                <span>Free Study Material</span>
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover/mega:rotate-180 duration-200 text-gray-500">
+                                  <path d="m6 9 6 6 6-6" />
+                                </svg>
+                              </button>
+
+                              {/* Mega Dropdown */}
+                              {rootItems.length > 0 && (
+                                <div 
+                                  className="absolute left-[-80px] mt-4 bg-white border border-gray-200 rounded-b-lg shadow-2xl opacity-0 invisible group-hover/mega:opacity-100 group-hover/mega:visible transition-all duration-300 z-50 flex overflow-hidden border-t-[3.5px] border-t-red-500"
+                                  style={{ width: l3Items.length > 0 ? "530px" : l2Items.length > 0 ? "370px" : "170px" }}
+                                >
+                                  {/* Column 1 - Root Categories */}
+                                  <div className="w-[170px] bg-white border-r border-gray-150 flex-shrink-0 flex flex-col divide-y divide-gray-100">
+                                    {rootItems.map((node) => {
+                                      const hasChildren = studyMaterials.some((item) => item.parent_id === node.id);
+                                      const isActive = activeL1?.id === node.id;
+                                      return (
+                                        <div
+                                          key={node.id}
+                                          onMouseEnter={() => setActiveL1(node)}
+                                          onClick={() => {
+                                            if (node.url) {
+                                              router.push(node.url);
+                                            }
+                                          }}
+                                          className={`py-3.5 px-4 flex items-center justify-between cursor-pointer transition-colors ${
+                                            isActive
+                                              ? "bg-red-50/70 text-red-600"
+                                              : "hover:bg-gray-50/50 text-gray-700"
+                                          }`}
+                                        >
+                                          <span className="border-b-[2px] border-red-500 pb-0.5 tracking-wide uppercase font-extrabold text-[12px]">
+                                            {node.label}
+                                          </span>
+                                          {hasChildren && (
+                                            <span className="text-[12px] font-bold text-black/60 select-none">»</span>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {/* Column 2 - Level 2 Categories/Links */}
+                                  {l2Items.length > 0 && (
+                                    <div className="w-[200px] bg-white border-r border-gray-150 flex-shrink-0 flex flex-col divide-y divide-gray-100 overflow-y-auto max-h-[460px]">
+                                      {l2Items.map((node) => {
+                                        const hasChildren = studyMaterials.some((item) => item.parent_id === node.id);
+                                        const isActive = activeL2?.id === node.id;
+                                        return (
+                                          <div
+                                            key={node.id}
+                                            onMouseEnter={() => {
+                                              if (hasChildren) {
+                                                setActiveL2(node);
+                                              }
+                                            }}
+                                            onClick={() => {
+                                              if (node.url) {
+                                                router.push(node.url);
+                                              }
+                                            }}
+                                            className={`py-3.5 px-4 flex items-center justify-between cursor-pointer transition-colors ${
+                                              isActive && hasChildren
+                                                ? "bg-red-50/70 text-red-600 font-semibold"
+                                                : "hover:bg-gray-50/50 text-gray-700"
+                                            }`}
+                                          >
+                                            <span className="text-[12px] font-bold text-gray-700">
+                                              {node.label}
+                                            </span>
+                                            {hasChildren ? (
+                                              <span className="text-[12px] font-bold text-black/60 select-none">»</span>
+                                            ) : (
+                                              node.url && <span className="text-[12px] text-black/45 font-bold font-mono select-none">&gt;</span>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+
+                                  {/* Column 3 - Level 3 Links */}
+                                  {l3Items.length > 0 && (
+                                    <div className="flex-1 bg-white flex flex-col divide-y divide-gray-100 overflow-y-auto max-h-[460px]">
+                                      {l3Items.map((node) => (
+                                        <Link
+                                          key={node.id}
+                                          href={node.url || "#"}
+                                          className="py-3 px-5 flex items-center justify-between text-[12.5px] font-semibold text-gray-800 hover:bg-gray-50 hover:text-red-500 transition-colors cursor-pointer"
+                                        >
+                                          <span>{node.label}</span>
+                                          {node.url && (
+                                            <span className="text-[12.5px] text-black/50 font-bold font-mono select-none">&gt;</span>
+                                          )}
+                                        </Link>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </li>
+
+                            <li 
+                              className="relative group/mega" 
+                              key="teaching-resources-item"
+                              onMouseLeave={() => {
+                                setActiveTRL1(null);
+                                setActiveTRL2(null);
+                              }}
+                            >
+                              <button className="group inline-flex h-9 w-max items-center justify-center rounded-md bg-background py-2 text-sm focus:outline-none disabled:pointer-events-none disabled:opacity-50 font-[500] px-3 text-black hover:text-gray-600 transition-colors duration-300 gap-1.5 cursor-pointer">
+                                <span>Teaching Resources</span>
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover/mega:rotate-180 duration-200 text-gray-500">
+                                  <path d="m6 9 6 6 6-6" />
+                                </svg>
+                              </button>
+
+                              {/* Mega Dropdown */}
+                              {trRootItems.length > 0 && (
+                                <div 
+                                  className="absolute left-0 mt-4 bg-white border border-gray-200 rounded-b-lg shadow-2xl opacity-0 invisible group-hover/mega:opacity-100 group-hover/mega:visible transition-all duration-300 z-50 flex overflow-hidden border-t-[3.5px] border-t-red-500"
+                                  style={{ width: trL3Items.length > 0 ? "530px" : trL2Items.length > 0 ? "370px" : "170px" }}
+                                >
+                                  {/* Column 1 - Root Categories */}
+                                  <div className="w-[170px] bg-white border-r border-gray-150 flex-shrink-0 flex flex-col divide-y divide-gray-100">
+                                    {trRootItems.map((node) => {
+                                      const hasChildren = teachingResources.some((item) => item.parent_id === node.id);
+                                      const isActive = activeTRL1?.id === node.id;
+                                      return (
+                                        <div
+                                          key={node.id}
+                                          onMouseEnter={() => setActiveTRL1(node)}
+                                          onClick={() => {
+                                            if (node.url) {
+                                              router.push(node.url);
+                                            }
+                                          }}
+                                          className={`py-3.5 px-4 flex items-center justify-between cursor-pointer transition-colors ${
+                                            isActive
+                                              ? "bg-red-50/70 text-red-600"
+                                              : "hover:bg-gray-50/50 text-gray-700"
+                                          }`}
+                                        >
+                                          <span className="border-b-[2px] border-red-500 pb-0.5 tracking-wide uppercase font-extrabold text-[12px]">
+                                            {node.label}
+                                          </span>
+                                          {hasChildren && (
+                                            <span className="text-[12px] font-bold text-black/60 select-none">»</span>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {/* Column 2 - Level 2 Categories/Links */}
+                                  {trL2Items.length > 0 && (
+                                    <div className="w-[200px] bg-white border-r border-gray-150 flex-shrink-0 flex flex-col divide-y divide-gray-100 overflow-y-auto max-h-[460px]">
+                                      {trL2Items.map((node) => {
+                                        const hasChildren = teachingResources.some((item) => item.parent_id === node.id);
+                                        const isActive = activeTRL2?.id === node.id;
+                                        return (
+                                          <div
+                                            key={node.id}
+                                            onMouseEnter={() => {
+                                              if (hasChildren) {
+                                                setActiveTRL2(node);
+                                              }
+                                            }}
+                                            onClick={() => {
+                                              if (node.url) {
+                                                router.push(node.url);
+                                              }
+                                            }}
+                                            className={`py-3.5 px-4 flex items-center justify-between cursor-pointer transition-colors ${
+                                              isActive && hasChildren
+                                                ? "bg-red-50/70 text-red-600 font-semibold"
+                                                : "hover:bg-gray-50/50 text-gray-700"
+                                            }`}
+                                          >
+                                            <span className="text-[12px] font-bold text-gray-700">
+                                              {node.label}
+                                            </span>
+                                            {hasChildren ? (
+                                              <span className="text-[12px] font-bold text-black/60 select-none">»</span>
+                                            ) : (
+                                              node.url && <span className="text-[12px] text-black/45 font-bold font-mono select-none">&gt;</span>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+
+                                  {/* Column 3 - Level 3 Links */}
+                                  {trL3Items.length > 0 && (
+                                    <div className="flex-1 bg-white flex flex-col divide-y divide-gray-100 overflow-y-auto max-h-[460px]">
+                                      {trL3Items.map((node) => (
+                                        <Link
+                                          key={node.id}
+                                          href={node.url || "#"}
+                                          className="py-3 px-5 flex items-center justify-between text-[12.5px] font-semibold text-gray-800 hover:bg-gray-50 hover:text-red-500 transition-colors cursor-pointer"
+                                        >
+                                          <span>{node.label}</span>
+                                          {node.url && (
+                                            <span className="text-[12.5px] text-black/50 font-bold font-mono select-none">&gt;</span>
+                                          )}
+                                        </Link>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </li>
+                          </>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </ul>

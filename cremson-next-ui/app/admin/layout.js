@@ -38,6 +38,8 @@ const navLinks = [
   { href: "/admin/addBlog", label: "Add Blog", Icon: Newspaper },
   { href: "/admin/listBlog", label: "Blog List", Icon: FileText },
   { href: "/admin/comments", label: "Blog Comments", Icon: MessageSquare },
+  { href: "/admin/study-materials", label: "Study Materials", Icon: BookOpen },
+  { href: "/admin/teaching-resources", label: "Teaching Resources", Icon: BookOpen },
   { href: "/admin/settings", label: "Settings", Icon: Settings },
 ];
 

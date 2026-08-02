@@ -23,6 +23,8 @@ from routers import webhooks as webhooks_router
 from routers import whatsapp as whatsapp_router
 from routers import crm as crm_router
 from routers import blogs as blogs_router
+from routers import study_materials as study_materials_router
+from routers import teaching_resources as teaching_resources_router
 
 app = FastAPI(
     title="Cremson Backend API",
@@ -93,6 +95,8 @@ app.include_router(
 app.include_router(crm_router.router, prefix="/api/crm", tags=["CRM"])
 app.include_router(specimen_books.router, prefix="/api/specimen-books", tags=["Specimen Books"])
 app.include_router(blogs_router.router, prefix="/api/blogs", tags=["Blogs"])
+app.include_router(study_materials_router.router, prefix="/api/study-materials", tags=["Study Materials"])
+app.include_router(teaching_resources_router.router, prefix="/api/teaching-resources", tags=["Teaching Resources"])
 
 
 @app.get("/", tags=["Health"])

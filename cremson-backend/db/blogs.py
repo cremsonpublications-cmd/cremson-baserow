@@ -103,6 +103,40 @@ def init_blogs_db():
         cursor.executemany("INSERT INTO blog_categories (name) VALUES (?)", default_categories)
         conn.commit()
 
+    # Check if we need to migrate/recreate the study_materials table
+    cursor.execute("PRAGMA table_info(study_materials)")
+    columns = [row[1] for row in cursor.fetchall()]
+    if len(columns) > 0 and "parent_id" not in columns:
+        cursor.execute("DROP TABLE study_materials")
+        conn.commit()
+
+    # Create study_materials table with hierarchical/parent-child support
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS study_materials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            parent_id INTEGER DEFAULT NULL,
+            label TEXT NOT NULL,
+            url TEXT DEFAULT NULL,
+            FOREIGN KEY(parent_id) REFERENCES study_materials(id) ON DELETE CASCADE
+        )
+    """)
+    conn.commit()
+
+    # Create teaching_resources table with hierarchical/parent-child support
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS teaching_resources (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            parent_id INTEGER DEFAULT NULL,
+            label TEXT NOT NULL,
+            url TEXT DEFAULT NULL,
+            FOREIGN KEY(parent_id) REFERENCES teaching_resources(id) ON DELETE CASCADE
+        )
+    """)
+    conn.commit()
+
+    # No seeding. Table will start empty so user can add manually.
+    pass
+
     conn.close()
 
 # Initialize DB on load
