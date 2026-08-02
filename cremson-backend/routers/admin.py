@@ -57,19 +57,20 @@ async def verify_admin(token: str):
 
 class DeleteImageRequest(BaseModel):
     url: str
+    resource_type: str = "image"
 
 
 @router.post("/cloudinary/delete")
 async def delete_cloudinary_image(body: DeleteImageRequest):
-    """Endpoint to trigger Cloudinary image removal if configured."""
+    """Endpoint to trigger Cloudinary image or raw file removal if configured."""
     cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "dkxxa3xt0").strip()
     api_key = os.getenv("CLOUDINARY_API_KEY", "").strip()
     api_secret = os.getenv("CLOUDINARY_API_SECRET", "").strip()
 
-    if not api_key or not api_secret:
+    if not api_key or not api_secret or not body.url:
         return {
             "status": "warning",
-            "message": "Cloudinary API Key/Secret not set in backend .env. Skipped remote deletion.",
+            "message": "Cloudinary credentials not set or URL empty.",
             "url": body.url,
         }
 
@@ -78,24 +79,32 @@ async def delete_cloudinary_image(body: DeleteImageRequest):
         import time
         import httpx
 
-        # Extract cloud_name and public_id from Cloudinary URL
-        # e.g., https://res.cloudinary.com/dkxxa3xt0/image/upload/v1785408052/review-images/fwnqzcbivfsk8k3h4dhk.png
+        # Determine resource type dynamically
+        resource_type = body.resource_type or "image"
+        if "raw/upload" in body.url or body.url.lower().endswith(".pdf"):
+            resource_type = "raw"
+
         if "res.cloudinary.com/" in body.url:
             cloud_name = body.url.split("res.cloudinary.com/")[1].split("/")[0]
 
         url_parts = body.url.split("/upload/")
         if len(url_parts) < 2:
+            url_parts = body.url.split("/raw/upload/")
+            
+        if len(url_parts) < 2:
             return {"status": "error", "message": "Invalid Cloudinary URL"}
 
         after_upload = url_parts[1]
-        # Remove version string (e.g. v1785408052/) if present
         parts = after_upload.split("/")
         if parts[0].startswith("v") and parts[0][1:].isdigit():
             path_with_ext = "/".join(parts[1:])
         else:
             path_with_ext = after_upload
 
-        public_id = path_with_ext.rsplit(".", 1)[0]
+        if resource_type == "raw":
+            public_id = path_with_ext
+        else:
+            public_id = path_with_ext.rsplit(".", 1)[0]
 
         timestamp = int(time.time())
         string_to_sign = f"public_id={public_id}&timestamp={timestamp}{api_secret}"
@@ -107,14 +116,18 @@ async def delete_cloudinary_image(body: DeleteImageRequest):
             "timestamp": timestamp,
             "signature": signature,
         }
+        if resource_type == "raw":
+            payload["resource_type"] = "raw"
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"https://api.cloudinary.com/v1_1/{cloud_name}/image/destroy",
+                f"https://api.cloudinary.com/v1_1/{cloud_name}/{resource_type}/destroy",
                 data=payload,
             )
             res_data = response.json()
         return {"status": "success", "cloudinary_response": res_data}
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return {"status": "error", "message": str(e)}
 

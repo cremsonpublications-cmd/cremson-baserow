@@ -34,6 +34,10 @@ const navLinks = [
   { href: "/admin/specimen-requests", label: "Specimen Requests", Icon: FileText },
   { href: "/admin/specimen-books", label: "Specimen Books", Icon: BookOpen },
   { href: "/admin/reviews", label: "Reviews", Icon: MessageSquare },
+  { href: "/admin/blogs", label: "Blogs Dashboard", Icon: LayoutDashboard },
+  { href: "/admin/addBlog", label: "Add Blog", Icon: Newspaper },
+  { href: "/admin/listBlog", label: "Blog List", Icon: FileText },
+  { href: "/admin/comments", label: "Blog Comments", Icon: MessageSquare },
   { href: "/admin/settings", label: "Settings", Icon: Settings },
 ];
 
