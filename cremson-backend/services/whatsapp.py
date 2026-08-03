@@ -447,3 +447,32 @@ async def send_bulk_order_approved(
     )
     await _send_text_message(phone, msg, log_tag=f"bulk_order_approved name={name}")
 
+
+async def send_bulk_order_payment_received(phone: str, name: str, school: str, amount: float, order_link: str):
+    """Sent to teacher when bulk order payment is fully received."""
+    msg = (
+        f"Payment Confirmed! ✅\n\n"
+        f"Hello {name},\n"
+        f"We have received the full payment of *₹{amount:,.2f}* for your bulk order for *{school}*.\n\n"
+        f"📦 *Status:* Ready for Shipment\n"
+        f"Our warehouse team is preparing your books for dispatch. You will receive tracking details via WhatsApp as soon as your shipment is dispatched!\n\n"
+        f"👉 View order status:\n{order_link}\n\n"
+        f"Thank you,\nCremson Publications Team"
+    )
+    await _send_text_message(phone, msg, log_tag=f"bulk_order_payment_received name={name}")
+
+
+async def send_bulk_order_shipped(phone: str, name: str, school: str, awb: str, tracking_link: str, order_link: str):
+    """Sent to teacher when bulk order shipment is dispatched via Shipway."""
+    msg = (
+        f"Order Dispatched! 🚚📦\n\n"
+        f"Hello {name},\n"
+        f"Your bulk order for *{school}* has been shipped!\n\n"
+        f"• *AWB Tracking No:* {awb}\n"
+        f"• *Carrier:* Shipway Courier\n\n"
+        f"🔗 *Track Shipment Live:*\n{tracking_link}\n\n"
+        f"📌 *Order Details:*\n{order_link}\n\n"
+        f"Thank you for choosing Cremson Publications!"
+    )
+    await _send_text_message(phone, msg, log_tag=f"bulk_order_shipped name={name}")
+

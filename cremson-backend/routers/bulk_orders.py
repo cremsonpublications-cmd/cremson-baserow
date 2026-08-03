@@ -20,6 +20,8 @@ from services.whatsapp import (
     send_bulk_order_received,
     send_bulk_order_admin_notify,
     send_bulk_order_approved,
+    send_bulk_order_payment_received,
+    send_bulk_order_shipped,
 )
 from services.shipway import create_shipment
 from config import TABLE_IDS, WHATSAPP_MAIN_PHONE
@@ -392,7 +394,7 @@ async def create_student_payment(token: str, student_token: str):
 
 
 @router.post("/{token}/verify-payment", summary="Verify Razorpay payment (teacher or student)")
-async def verify_bulk_payment(token: str, body: dict):
+async def verify_bulk_payment(token: str, body: dict, bg: BackgroundTasks):
     import hmac, hashlib
 
     razorpay_order_id = body.get("razorpay_order_id", "")
@@ -412,6 +414,8 @@ async def verify_bulk_payment(token: str, body: dict):
     norm = await get_bulk_order(token)
     row_id = norm["id"]
 
+    order_link = f"{SITE_URL}/bulk-order/{norm['token']}"
+
     if student_token:
         students = norm.get("student_payments", [])
         for s in students:
@@ -428,12 +432,33 @@ async def verify_bulk_payment(token: str, body: dict):
         norm["paid_count"] = paid_count
         norm["status"] = new_status
         await _save_bulk_data(row_id, norm)
+
+        if new_status == "fully_paid":
+            bg.add_task(
+                send_bulk_order_payment_received,
+                phone=norm["phone"],
+                name=norm["contact_name"],
+                school=norm["school_name"],
+                amount=norm["final_amount"],
+                order_link=order_link,
+            )
+
         return {"success": True, "status": new_status, "paid_count": paid_count, "split_count": split_count}
     else:
         norm["razorpay_payment_id"] = razorpay_payment_id
         norm["status"] = "fully_paid"
         norm["paid_count"] = 1
         await _save_bulk_data(row_id, norm)
+
+        bg.add_task(
+            send_bulk_order_payment_received,
+            phone=norm["phone"],
+            name=norm["contact_name"],
+            school=norm["school_name"],
+            amount=norm["final_amount"],
+            order_link=order_link,
+        )
+
         return {"success": True, "status": "fully_paid"}
 
 
@@ -476,5 +501,18 @@ async def ship_bulk_order(row_id: int, bg: BackgroundTasks):
     norm["status"] = "shipped"
     norm["shipway_awb"] = str(awb)
     await _save_bulk_data(row_id, norm)
+
+    tracking_link = f"https://shipway.in/track/{awb}"
+    order_link = f"{SITE_URL}/bulk-order/{norm['token']}"
+
+    bg.add_task(
+        send_bulk_order_shipped,
+        phone=norm["phone"],
+        name=norm["contact_name"],
+        school=norm["school_name"],
+        awb=str(awb),
+        tracking_link=tracking_link,
+        order_link=order_link,
+    )
 
     return {"success": True, "awb": awb, "status": "shipped"}
