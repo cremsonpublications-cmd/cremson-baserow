@@ -91,6 +91,11 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+class ChangePasswordRequest(BaseModel):
+    otp: str
+    new_password: str
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def make_otp() -> str:
     return "".join(random.choices(string.digits, k=6))
@@ -472,3 +477,38 @@ async def reset_password(body: ResetPasswordRequest):
     await client.update_row(TABLE_IDS["auth_users"], user["id"], {"password_hash": new_hash})
 
     return {"message": "Password reset successfully. You can now sign in."}
+
+
+@router.post("/send-change-password-otp")
+async def send_change_password_otp(user: dict = Depends(current_user)):
+    """Send a 6-digit Email OTP to a logged-in user/teacher to authorize changing their password."""
+    otp = make_otp()
+    await save_otp(user["email"], otp, otp_expires_at())
+
+    try:
+        await send_verification_email(user["email"], user["name"], otp)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to send verification email. Try again later.")
+
+    return {"message": "Verification OTP sent to your email."}
+
+
+@router.post("/change-password")
+async def change_password(body: ChangePasswordRequest, user: dict = Depends(current_user)):
+    """Verify Email OTP and change password for logged-in user/teacher."""
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
+
+    record = await get_valid_otp(user["email"], body.otp)
+    if not record:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification OTP code")
+
+    await consume_otp(record["id"])
+
+    loop = asyncio.get_event_loop()
+    new_hash = await loop.run_in_executor(None, partial(pwd_ctx.hash, body.new_password))
+
+    client = BaserowClient()
+    await client.update_row(TABLE_IDS["auth_users"], user["id"], {"password_hash": new_hash})
+
+    return {"message": "Password updated successfully."}
