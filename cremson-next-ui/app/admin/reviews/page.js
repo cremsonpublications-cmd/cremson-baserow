@@ -245,7 +245,8 @@ export default function AdminReviews() {
                     <p className="text-base font-semibold text-gray-600">No reviews found.</p>
                   </div>
                 ) : (
-                  <table className="w-full text-left border-collapse">
+                  <>
+                  <table className="hidden md:table w-full text-left border-collapse">
                     <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                       <tr>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
@@ -306,6 +307,36 @@ export default function AdminReviews() {
                       ))}
                     </tbody>
                   </table>
+
+                  {/* Mobile Card View */}
+                  <div className="md:hidden divide-y divide-gray-100">
+                    {reviews.map((review) => (
+                      <div key={review.id} className="p-4 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1 min-w-0 pr-3">
+                            <p className="text-xs font-bold text-gray-900 truncate">{review.product_name ?? review.product ?? review.product_id ?? "—"}</p>
+                            <p className="text-xs text-gray-500">{review.user_name ?? review.user_email ?? review.user ?? "—"}</p>
+                          </div>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <button onClick={() => setSelected(review)} className="p-1.5 hover:bg-purple-50 rounded transition-colors cursor-pointer">
+                              <Eye className="w-4 h-4 text-gray-400 hover:text-purple-600" />
+                            </button>
+                            <button onClick={(e) => handleDeleteInline(e, review)} className="p-1.5 hover:bg-red-50 rounded transition-colors cursor-pointer">
+                              <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-600" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <StarRating rating={review.rating ?? review.stars} />
+                          <span className="text-xs text-gray-400">{formatDate(review.created_at ?? review.date)}</span>
+                        </div>
+                        {(review.review_text ?? review.comment) && (
+                          <p className="text-xs text-gray-600 mt-2 line-clamp-2">{review.review_text ?? review.comment}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  </>
                 )}
               </div>
 

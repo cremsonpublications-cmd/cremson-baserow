@@ -391,7 +391,8 @@ export default function AdminSpecimenRequests() {
                     <p className="text-base font-semibold text-gray-600">No specimen requests found.</p>
                   </div>
                 ) : (
-                  <table className="w-full text-left border-collapse">
+                  <>
+                  <table className="hidden md:table w-full text-left border-collapse">
                     <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                       <tr>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
@@ -489,6 +490,62 @@ export default function AdminSpecimenRequests() {
                       })}
                     </tbody>
                   </table>
+
+                  {/* Mobile Card View */}
+                  <div className="md:hidden divide-y divide-gray-100">
+                    {requests.map((req) => {
+                      const statusRaw = getStatusRaw(req["DeliveryStatus"]).toLowerCase();
+                      const isPending = statusRaw !== "dispatched" && statusRaw !== "rto";
+                      const approvingKey = `${req.id}-approve`;
+                      const rejectingKey = `${req.id}-reject`;
+                      return (
+                        <div key={req.id} className="p-4 hover:bg-gray-50 transition-colors">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1 min-w-0 pr-2">
+                              <p className="text-xs font-bold text-gray-900">#{req.id} · {getTeacherName(req)}</p>
+                              <p className="text-xs text-gray-500 truncate">{getSchoolName(req)}</p>
+                              <p className="text-xs text-gray-400 mt-0.5">{formatDate(req["RequestDate"])}</p>
+                            </div>
+                            <DeliveryStatusBadge status={req["DeliveryStatus"]} />
+                          </div>
+                          {(() => {
+                            const cv = req["Converted"];
+                            const cvStr = typeof cv === "object" && cv !== null ? cv.value : cv;
+                            return cvStr ? <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 mb-2">{cvStr}</span> : null;
+                          })()}
+                          <div className="flex items-center gap-2 flex-wrap mt-1">
+                            {isPending && (
+                              <button
+                                onClick={(e) => handleInlineAction(e, req, "approve")}
+                                disabled={actionLoading[approvingKey] || actionLoading[rejectingKey]}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 disabled:opacity-50 transition-all cursor-pointer"
+                              >
+                                {actionLoading[approvingKey] ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                                Approve
+                              </button>
+                            )}
+                            {isPending && (
+                              <button
+                                onClick={(e) => handleInlineAction(e, req, "reject")}
+                                disabled={actionLoading[approvingKey] || actionLoading[rejectingKey]}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 disabled:opacity-50 transition-all cursor-pointer"
+                              >
+                                {actionLoading[rejectingKey] ? <RefreshCw className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
+                                Reject
+                              </button>
+                            )}
+                            <button onClick={() => setSelected(req)} className="p-1.5 hover:bg-purple-50 rounded transition-colors cursor-pointer" title="View Details">
+                              <Eye className="w-4 h-4 text-gray-400 hover:text-purple-600" />
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(req); }} className="p-1.5 hover:bg-red-50 rounded transition-colors cursor-pointer" title="Delete">
+                              <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-600" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  </>
                 )}
               </div>
 

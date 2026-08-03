@@ -533,7 +533,7 @@ export default function AdminCategories() {
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
@@ -607,6 +607,38 @@ export default function AdminCategories() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {!isLoading && categories.map((cat) => {
+                const isSystem = cat.name === SYSTEM_CATEGORY;
+                return (
+                  <div key={cat.id} className="p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
+                        <FolderOpen className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                        <p className="text-xs font-bold text-gray-900 truncate">{cat.name || cat.Name || cat.main_category_name || "—"}</p>
+                      </div>
+                      <OfferBadge cat={cat} />
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      {isSystem ? (
+                        <span className="text-xs text-gray-500 italic">System Setting</span>
+                      ) : (
+                        <>
+                          <button onClick={(e) => openEdit(e, cat)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Edit category">
+                            <Pen className="w-4 h-4" />
+                          </button>
+                          <button onClick={(e) => handleDelete(e, cat)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer" title="Delete category">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Sub Categories Section */}
@@ -646,7 +678,7 @@ export default function AdminCategories() {
               </div>
 
           {/* Sub Categories Table */}
-              <div className="overflow-x-auto">
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
@@ -693,6 +725,30 @@ export default function AdminCategories() {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile Card View - Sub Categories */}
+              <div className="md:hidden divide-y divide-gray-100">
+                {filteredSubCategories.length === 0 ? (
+                  <p className="px-6 py-16 text-center text-gray-400 text-sm">No sub categories found.</p>
+                ) : (
+                  filteredSubCategories.map((sub, idx) => (
+                    <div key={sub.id || idx} className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <FolderOpen className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                        <p className="text-xs font-bold text-gray-900 truncate">{sub.name}</p>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button onClick={() => openEditSubCategory(sub)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Edit sub category">
+                          <Pen className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDeleteSubCategory(sub)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer" title="Delete sub category">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

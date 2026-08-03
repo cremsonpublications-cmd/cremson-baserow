@@ -784,7 +784,8 @@ export default function AdminOrders() {
                     <p className="text-base font-semibold text-gray-600">No orders found.</p>
                   </div>
                 ) : (
-                  <table className="w-full text-left border-collapse">
+                  <>
+                  <table className="hidden md:table w-full text-left border-collapse">
                     <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                       <tr>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">ORDER ID</th>
@@ -895,6 +896,67 @@ export default function AdminOrders() {
                       })}
                     </tbody>
                   </table>
+
+                  {/* Mobile Card View */}
+                  <div className="md:hidden divide-y divide-gray-100">
+                    {orders.map((order) => {
+                      const uInfo = safeParseJSON(order.user_info) || {};
+                      const priceInfo = safeParseJSON(order.order_summary) || {};
+                      const amount = priceInfo.grandTotal || order.total_amount || 0;
+                      const dateFormatted = (order.order_date || order.created_at || "").slice(0, 10);
+                      const deliveryStatusRaw = (order.order_status ?? order.status ?? "shipped").toLowerCase();
+                      const paymentStatus = order.payment_status || "Paid";
+                      let delivColorClass = "bg-blue-100 text-blue-800";
+                      if (deliveryStatusRaw === "pending") delivColorClass = "bg-amber-100 text-amber-800";
+                      else if (deliveryStatusRaw === "confirmed") delivColorClass = "bg-purple-100 text-purple-800";
+                      else if (deliveryStatusRaw === "ready_to_pack" || deliveryStatusRaw === "ready to pack") delivColorClass = "bg-indigo-100 text-indigo-800";
+                      else if (deliveryStatusRaw === "pickup_requested" || deliveryStatusRaw === "pickup requested") delivColorClass = "bg-orange-100 text-orange-800";
+                      else if (deliveryStatusRaw === "delivered") delivColorClass = "bg-emerald-100 text-emerald-800";
+                      else if (deliveryStatusRaw === "cancelled" || deliveryStatusRaw === "refunded") delivColorClass = "bg-rose-100 text-rose-800";
+                      const deliveryStatusDisplay = deliveryStatusRaw.replace(/_/g, " ");
+                      return (
+                        <div key={order.id} className="p-4 hover:bg-gray-50 transition-colors">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <p className="text-xs font-bold text-gray-900">#{order.order_id || `BOOK${order.id}`}</p>
+                              <p className="text-xs font-semibold text-gray-700 mt-0.5">{uInfo.name || "—"}</p>
+                              <p className="text-xs text-gray-400">{uInfo.email || uInfo.phone || ""}</p>
+                            </div>
+                            <p className="text-sm font-bold text-gray-900">₹{Math.round(amount)}</p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 mb-3">
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${delivColorClass}`}>{deliveryStatusDisplay}</span>
+                            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">{paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}</span>
+                            <span className="text-xs text-gray-400">{dateFormatted}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <button onClick={() => setSelected(order)} className="p-1.5 hover:bg-purple-50 rounded transition-colors cursor-pointer" title="View Order">
+                              <Eye className="w-4 h-4 text-gray-400 hover:text-purple-600" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                const deliv = safeParseJSON(order.delivery) || {};
+                                if (deliv.label_url) { window.open(deliv.label_url, "_blank"); }
+                                else { toast.error(`Shipping label not available for Order #${order.order_id || order.id}`); }
+                              }}
+                              className="p-1.5 hover:bg-purple-50 rounded transition-colors cursor-pointer" title="Download Shipping Label"
+                            >
+                              <Download className="w-4 h-4 text-gray-400 hover:text-green-600" />
+                            </button>
+                            {["delivered", "out_for_delivery"].includes(deliveryStatusRaw) && (
+                              <button onClick={() => setReturnModalOrder(order)} className="p-1.5 hover:bg-rose-50 rounded transition-colors cursor-pointer" title="Initiate Return">
+                                <RotateCcw className="w-4 h-4 text-gray-400 hover:text-rose-600" />
+                              </button>
+                            )}
+                            <button onClick={() => setSelected(order)} className="p-1.5 hover:bg-red-50 rounded transition-colors cursor-pointer" title="Cancel/Delete">
+                              <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-600" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  </>
                 )}
               </div>
 

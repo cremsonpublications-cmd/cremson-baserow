@@ -222,7 +222,8 @@ export default function AdminShippingSettings() {
             <p className="text-sm font-semibold text-slate-500">No active shipping parameters mapped.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-100 text-left">
               <thead className="bg-slate-50/75">
                 <tr>{COLS.map((h) => <th key={h} className="px-5 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">{h}</th>)}</tr>
@@ -292,6 +293,42 @@ export default function AdminShippingSettings() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {settings.map((s) => {
+              const isActive = s.shipping_enabled ?? s.Active ?? s.is_active ?? s.active;
+              return (
+                <div key={s.id} className="p-4 hover:bg-slate-50/80 transition-colors">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 min-w-0 pr-2">
+                      <p className="text-xs font-bold text-slate-900">{s.Name ?? s.name ?? s.zone_name ?? `Rule #${s.id}`}</p>
+                      {(s.Notes ?? s.description) && <p className="text-xs text-slate-500 mt-0.5 truncate">{s.Notes ?? s.description}</p>}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${isActive ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-red-50 text-red-700 border-red-100"}`}>
+                        {isActive ? "Enabled" : "Disabled"}
+                      </span>
+                      <button onClick={() => setEditSetting(s)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit">
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <p className="text-slate-400 mb-0.5">Shipping Charge</p>
+                      <p className="font-bold text-slate-900">{s.shipping_charge != null ? `₹${Number(s.shipping_charge).toFixed(2)}` : "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 mb-0.5">Free Threshold</p>
+                      <p className="font-bold text-slate-900">{s.free_delivery_threshold != null ? `₹${Number(s.free_delivery_threshold).toFixed(2)}` : "No Free Shipping"}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          </>
         )}
       </div>
 

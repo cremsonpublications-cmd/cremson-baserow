@@ -2330,7 +2330,7 @@ function AdminProductsContent() {
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
@@ -2545,6 +2545,74 @@ function AdminProductsContent() {
                       })}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {!isLoading && products.map((product, index) => {
+                let subCats = [];
+                try {
+                  const raw = product.sub_categories;
+                  if (Array.isArray(raw)) subCats = raw;
+                  else if (typeof raw === "string" && raw) subCats = JSON.parse(raw);
+                } catch { }
+                const stockIn = (product.stock_status || "in_stock") === "in_stock";
+                const offerPct = product.offer_percentage;
+                const comboIds = parseComboIds(product);
+                const isComboProductRow = Boolean(product.is_combo || comboIds.length > 0 || product.author === "Cremson Bundle");
+                const comboBookCount = comboIds.length;
+                const sno = (page - 1) * PAGE_SIZE + index + 1;
+                return (
+                  <div
+                    key={product.id}
+                    onClick={() => router.push(`/admin/products/${product.id}`)}
+                    className="p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-start gap-3 mb-2">
+                      {product.main_image ? (
+                        <img src={product.main_image} alt={product.name} className="w-12 h-12 object-cover rounded-lg border flex-shrink-0" />
+                      ) : (
+                        <div className="w-12 h-12 bg-gray-100 rounded-lg border flex items-center justify-center text-gray-400 flex-shrink-0">
+                          <BookOpen className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-gray-900 truncate">{product.name || "—"}</p>
+                        {product.author && <p className="text-xs text-gray-500">by {product.author}</p>}
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          {isComboProductRow && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                              <Layers className="w-3 h-3" />Combo Pack
+                            </span>
+                          )}
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${stockIn ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                            {stockIn ? "In Stock" : "Out of Stock"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-xs font-bold text-gray-900">₹{Number(product.price || 0).toFixed(0)}</p>
+                        {offerPct && <p className="text-[10px] text-red-600 font-medium">{offerPct}% OFF</p>}
+                        <p className="text-[10px] text-gray-400 mt-0.5">#{sno}</p>
+                      </div>
+                    </div>
+                    {(product.category_name || product.category) && (
+                      <p className="text-xs text-gray-500 mb-2">{product.category_name || product.category}</p>
+                    )}
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button onClick={(e) => openEdit(e, product)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Edit product">
+                        <Pen className="w-4 h-4" />
+                      </button>
+                      <button onClick={(e) => handleDuplicate(e, product)} disabled={duplicatingId === product.id} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50" title="Clone product">
+                        {duplicatingId === product.id ? <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                      <button onClick={(e) => handleDelete(e, product)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer" title="Delete product">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

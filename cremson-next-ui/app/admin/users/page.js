@@ -149,7 +149,8 @@ export default function AdminUsers() {
             <p className="text-sm font-semibold text-slate-500">No user accounts found.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-100 text-left">
               <thead className="bg-slate-50/75">
                 <tr>{COLS.map((h) => <th key={h} className="px-5 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">{h}</th>)}</tr>
@@ -196,6 +197,28 @@ export default function AdminUsers() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {users.map((user) => (
+              <div key={user.id} className="p-4 hover:bg-slate-50/80 transition-colors">
+                <div className="flex items-start justify-between mb-1">
+                  <div className="flex-1 min-w-0 pr-2">
+                    <p className="text-xs font-bold text-slate-900 truncate">{user.email || "—"}</p>
+                    <p className="text-xs text-slate-600">{user.display_name ?? user.full_name ?? "—"}</p>
+                    {user.username && <p className="text-xs text-slate-400">{user.username}</p>}
+                  </div>
+                  <RoleBadge role={user.role} />
+                </div>
+                <div className="flex flex-wrap gap-3 text-xs text-slate-400 mt-1">
+                  <span>#{user.id}</span>
+                  <span>Joined: {formatDate(user.confirmed_at)}</span>
+                  {(user.last_sign_in_at ?? user.last_login) && <span>Last: {formatDate(user.last_sign_in_at ?? user.last_login)}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+          </>
         )}
       </div>
 
