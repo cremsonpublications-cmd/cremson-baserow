@@ -5,6 +5,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import CartDrawer from "../components/CartDrawer";
 import WishlistDrawer from "../components/WishlistDrawer";
+import MobileMenuDrawer from "../components/MobileMenuDrawer";
 import QueryProvider from "../lib/providers/QueryProvider";
 
 export const metadata = {
@@ -89,6 +90,7 @@ export default function RootLayout({ children }) {
             <Footer />
             <CartDrawer />
             <WishlistDrawer />
+            <MobileMenuDrawer />
             <Toaster
               position="bottom-right"
               richColors
