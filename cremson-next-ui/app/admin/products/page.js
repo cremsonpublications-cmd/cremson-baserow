@@ -2201,8 +2201,8 @@ function AdminProductsContent() {
   }
 
   return (
-    <div className="lg:p-8">
-      <h2 className="text-2xl font-semibold text-gray-900 mb-6 mt-[20px] sm:mt-0">Products Management</h2>
+    <div className="p-4 sm:p-6 lg:p-8">
+      <h2 className="text-2xl font-semibold text-gray-900 mb-6 mt-0">Products Management</h2>
 
       <div className="bg-gray-50 min-h-screen">
         <div className="max-w-7xl mx-auto">

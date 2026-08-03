@@ -235,9 +235,9 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="lg:p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* ── Page Title ── */}
-      <h2 className="text-2xl font-semibold text-gray-900 mt-5 lg:mt-0 mb-8">Dashboard</h2>
+      <h2 className="text-2xl font-semibold text-gray-900 mt-0 mb-8">Dashboard</h2>
 
       {/* ── Stat Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

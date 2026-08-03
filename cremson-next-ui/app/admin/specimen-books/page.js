@@ -60,8 +60,8 @@ export default function AdminSpecimenBooks() {
   const isLoading = loadingProducts || loadingSpecimen;
 
   return (
-    <div className="lg:p-8 text-left">
-      <h2 className="text-2xl font-semibold text-gray-900 mb-2 mt-[20px] sm:mt-0">Specimen Books Management</h2>
+    <div className="p-4 sm:p-6 lg:p-8 text-left">
+      <h2 className="text-2xl font-semibold text-gray-900 mb-2 mt-0">Specimen Books Management</h2>
       <p className="text-sm text-gray-500 mb-8">Select which books are available for specimen requests. Only enabled books will appear on the user-facing specimen request page.</p>
 
       <div className="rounded-lg">

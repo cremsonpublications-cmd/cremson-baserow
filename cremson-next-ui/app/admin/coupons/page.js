@@ -755,8 +755,8 @@ export default function AdminCoupons() {
   }
 
   return (
-    <div className="lg:p-8 text-left">
-      <h2 className="text-2xl font-semibold text-gray-900 mb-8 mt-[20px] sm:mt-0">Coupons</h2>
+    <div className="p-4 sm:p-6 lg:p-8 text-left">
+      <h2 className="text-2xl font-semibold text-gray-900 mb-8 mt-0">Coupons</h2>
       
       <div className="rounded-lg">
         <div className="h-[calc(100vh-120px)] flex flex-col">

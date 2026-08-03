@@ -319,8 +319,8 @@ export default function AdminSpecimenRequests() {
   const hasClear = search || statusFilter;
 
   return (
-    <div className="lg:p-8 text-left">
-      <h2 className="text-2xl font-semibold text-gray-900 mb-8 mt-[20px] sm:mt-0">Specimen Requests</h2>
+    <div className="p-4 sm:p-6 lg:p-8 text-left">
+      <h2 className="text-2xl font-semibold text-gray-900 mb-8 mt-0">Specimen Requests</h2>
 
       <div className="rounded-lg">
         <div className="h-[calc(100vh-120px)] flex flex-col">

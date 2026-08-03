@@ -753,9 +753,9 @@ export default function AdminCRMHub() {
   }
 
   return (
-    <div className="lg:p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Page Title */}
-      <h2 className="text-2xl font-semibold text-gray-900 mb-8 mt-[20px] sm:mt-0">CRM Database</h2>
+      <h2 className="text-2xl font-semibold text-gray-900 mb-8 mt-0">CRM Database</h2>
 
       <div className="bg-gray-50 min-h-screen">
         <div className="max-w-7xl mx-auto">

@@ -97,7 +97,7 @@ export default function AdminSettings() {
   }
 
   return (
-    <div className="lg:p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Sticky Header and Tabs */}
       <div className="sticky top-0 z-20 bg-gray-50 pt-4 pb-2 -mt-4 border-b border-gray-200 mb-6">
         <h2 className="text-2xl font-semibold text-gray-900 mb-4 px-1">Settings</h2>

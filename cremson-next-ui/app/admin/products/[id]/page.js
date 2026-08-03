@@ -149,7 +149,7 @@ export default function ProductDetail() {
 
   if (loading) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         <div className="animate-pulse">
           <div className="h-6 bg-gray-200 rounded w-32 mb-6" />
           <div className="h-8 bg-gray-200 rounded w-64 mb-8" />
@@ -168,7 +168,7 @@ export default function ProductDetail() {
 
   if (error) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         <Link href="/admin/products" className="flex items-center gap-2 text-sm text-blue-600 hover:underline mb-6">
           ← Back to Products
         </Link>
