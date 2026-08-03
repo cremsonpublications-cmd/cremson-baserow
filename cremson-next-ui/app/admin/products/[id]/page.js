@@ -5,8 +5,7 @@ export const runtime = "edge";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-
-const API = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8000";
+import { getApiBaseUrl } from "../../../../lib/api/axios";
 
 function BooleanBadge({ value }) {
   return (
@@ -95,6 +94,7 @@ function toLabel(key) {
 }
 
 export default function ProductDetail() {
+  const API = getApiBaseUrl();
   const { id } = useParams();
   const [product, setProduct] = useState(null);
   const [comboBooks, setComboBooks] = useState([]);

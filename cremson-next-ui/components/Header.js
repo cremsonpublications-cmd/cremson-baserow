@@ -6,6 +6,7 @@ import { useApp } from "../context/AppContext";
 import CPLogo from "./CPLogo";
 import Link from "next/link";
 import { Menu, Search, X } from "lucide-react";
+import { getApiBaseUrl } from "../lib/api/axios";
 
 export default function Header() {
   const pathname = usePathname();
@@ -46,7 +47,7 @@ export default function Header() {
     // Fetch from backend
     const loadMaterials = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/study-materials/");
+        const res = await fetch(`${getApiBaseUrl()}/api/study-materials/`);
         if (res.ok) {
           const data = await res.json();
           if (data) {
@@ -60,7 +61,7 @@ export default function Header() {
 
     const loadTeachingResources = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/teaching-resources/");
+        const res = await fetch(`${getApiBaseUrl()}/api/teaching-resources/`);
         if (res.ok) {
           const data = await res.json();
           if (data) {

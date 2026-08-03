@@ -12,11 +12,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ChevronDown } from "lucide-react";
-
-const API =
-  process.env.NEXT_PUBLIC_API_URL !== undefined
-    ? process.env.NEXT_PUBLIC_API_URL
-    : "http://localhost:8000";
+import { getApiBaseUrl } from "../../lib/api/axios";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -83,6 +79,7 @@ function Skeleton({ className = "" }) {
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
+  const API = getApiBaseUrl();
   const [counts, setCounts] = useState({});
   const [countsLoading, setCountsLoading] = useState(true);
   const [allOrders, setAllOrders] = useState([]);

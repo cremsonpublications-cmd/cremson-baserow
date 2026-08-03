@@ -9,6 +9,7 @@
  */
 
 import { useQuery, UseQueryOptions } from "@tanstack/react-query";
+import { getApiBaseUrl } from "./axios";
 import type {
   BaserowPage,
   User,
@@ -22,20 +23,11 @@ import type {
 } from "./types";
 
 // ---------------------------------------------------------------------------
-// Base config
-// ---------------------------------------------------------------------------
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL !== undefined
-    ? process.env.NEXT_PUBLIC_API_URL
-    : "http://localhost:8000";
-
-// ---------------------------------------------------------------------------
 // Generic fetcher
 // ---------------------------------------------------------------------------
 
 async function fetchAPI<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`);
+  const res = await fetch(`${getApiBaseUrl()}${path}`);
   if (!res.ok) {
     throw new Error(`API error ${res.status}: ${res.statusText}`);
   }

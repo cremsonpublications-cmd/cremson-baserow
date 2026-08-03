@@ -1,8 +1,18 @@
 import axios from "axios";
 import { toast } from "sonner";
 
+export const getApiBaseUrl = () => {
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    if (hostname === "cremson-baserow-dev.pages.dev" || hostname.endsWith("cremsonpublications.com")) {
+      return "https://api.cremsonpublications.com";
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8000";
+};
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8000",
+  baseURL: getApiBaseUrl(),
   headers: { "Content-Type": "application/json" },
   timeout: 10000,
 });

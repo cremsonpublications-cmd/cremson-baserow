@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useApp } from "../context/AppContext";
 import CPLogo from "./CPLogo";
 import { X, ChevronDown, Search, User, LogOut, Package, MapPin, BookOpen, GraduationCap, Home, ShoppingBag, BookMarked, Newspaper, PhoneCall } from "lucide-react";
+import { getApiBaseUrl } from "../lib/api/axios";
 
 export default function MobileMenuDrawer() {
   const router = useRouter();
@@ -30,12 +31,12 @@ export default function MobileMenuDrawer() {
   useEffect(() => {
     if (!isMobileMenuOpen) return;
 
-    fetch("http://localhost:8000/api/study-materials/")
+    fetch(`${getApiBaseUrl()}/api/study-materials/`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setStudyMaterials(data || []))
       .catch(console.error);
 
-    fetch("http://localhost:8000/api/teaching-resources/")
+    fetch(`${getApiBaseUrl()}/api/teaching-resources/`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setTeachingResources(data || []))
       .catch(console.error);
