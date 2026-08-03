@@ -404,41 +404,41 @@ async def _auto_ship_bulk_order(row_id: int):
         item_count = sum(i.get("qty", 1) for i in items)
 
         shipment_data = {
-            "first_name": norm.get("contact_name", "").split()[0],
-            "last_name": " ".join(norm.get("contact_name", "").split()[1:]) or "-",
-            "email": "",
-            "phone": norm.get("phone", ""),
-            "address": norm.get("address", ""),
-            "city": norm.get("city", ""),
-            "state": norm.get("state", ""),
+            "customer_name": norm.get("contact_name", "Teacher"),
+            "customer_phone": norm.get("phone", ""),
+            "customer_email": "info@cremsonpublications.com",
+            "address": norm.get("address", "School Address"),
+            "city": norm.get("city", "Chennai"),
+            "state": norm.get("state", "Tamil Nadu"),
             "pincode": norm.get("pincode", ""),
             "order_id": f"BULK-{row_id}",
-            "item_name": f"{norm.get('school_name', 'Bulk')} - {item_count} items",
+            "items_description": f"{norm.get('school_name', 'Bulk')} - {item_count} items",
             "item_count": item_count,
-            "cod": 0,
-            "total": float(norm.get("final_amount", 0)),
-            "weight": item_count * 0.3,
+            "total_amount": float(norm.get("final_amount", 0)),
+            "items": items,
         }
 
         result = await create_shipment(shipment_data)
-        awb = result.get("awb") or result.get("data", {}).get("awb", "")
+        if result.get("success") and result.get("awb"):
+            awb = str(result.get("awb"))
 
-        norm["status"] = "shipped"
-        norm["shipway_awb"] = str(awb)
-        await _save_bulk_data(row_id, norm)
+            norm["status"] = "shipped"
+            norm["shipway_awb"] = awb
+            await _save_bulk_data(row_id, norm)
 
-        tracking_link = f"https://shipway.in/track/{awb}"
-        order_link = f"{SITE_URL}/bulk-order/{norm['token']}"
+            order_link = f"{SITE_URL}/bulk-order/{norm['token']}"
 
-        await send_bulk_order_shipped(
-            phone=norm["phone"],
-            name=norm["contact_name"],
-            school=norm["school_name"],
-            awb=str(awb),
-            tracking_link=tracking_link,
-            order_link=order_link,
-        )
-        logger.info(f"[BulkOrder] Auto-shipped order row {row_id} with AWB {awb}")
+            await send_bulk_order_shipped(
+                phone=norm["phone"],
+                name=norm["contact_name"],
+                school=norm["school_name"],
+                awb=awb,
+                tracking_link=f"https://shipway.in/track/{awb}",
+                order_link=order_link,
+            )
+            logger.info(f"[BulkOrder] Auto-shipped order row {row_id} with AWB {awb}")
+        else:
+            logger.error(f"[BulkOrder] Auto-ship Shipway creation failed for row {row_id}: {result.get('error')}")
     except Exception as e:
         logger.error(f"[BulkOrder] Auto-ship error for row {row_id}: {e}")
 
@@ -520,38 +520,40 @@ async def ship_bulk_order(row_id: int, bg: BackgroundTasks):
     if not row:
         raise HTTPException(status_code=404, detail="Bulk order not found")
     norm = _normalize_bulk_row(row)
-    if norm.get("status") != "fully_paid":
+    if norm.get("status") not in ["fully_paid", "approved"]:
         raise HTTPException(status_code=400, detail="Order is not fully paid yet")
 
     items = norm.get("items", [])
     item_count = sum(i.get("qty", 1) for i in items)
 
     shipment_data = {
-        "first_name": norm.get("contact_name", "").split()[0],
-        "last_name": " ".join(norm.get("contact_name", "").split()[1:]) or "-",
-        "email": "",
-        "phone": norm.get("phone", ""),
-        "address": norm.get("address", ""),
-        "city": norm.get("city", ""),
-        "state": norm.get("state", ""),
+        "customer_name": norm.get("contact_name", "Teacher"),
+        "customer_phone": norm.get("phone", ""),
+        "customer_email": "info@cremsonpublications.com",
+        "address": norm.get("address", "School Address"),
+        "city": norm.get("city", "Chennai"),
+        "state": norm.get("state", "Tamil Nadu"),
         "pincode": norm.get("pincode", ""),
         "order_id": f"BULK-{row_id}",
-        "item_name": f"{norm.get('school_name', 'Bulk')} - {item_count} items",
+        "items_description": f"{norm.get('school_name', 'Bulk')} - {item_count} items",
         "item_count": item_count,
-        "cod": 0,
-        "total": float(norm.get("final_amount", 0)),
-        "weight": item_count * 0.3,
+        "total_amount": float(norm.get("final_amount", 0)),
+        "items": items,
     }
 
     try:
         result = await create_shipment(shipment_data)
-        awb = result.get("awb") or result.get("data", {}).get("awb", "")
+        if not result.get("success") or not result.get("awb"):
+            raise HTTPException(status_code=400, detail=result.get("error", "Shipway AWB generation failed"))
+        awb = str(result.get("awb"))
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"[BulkOrder] Shipway error: {e}")
         raise HTTPException(status_code=502, detail=f"Shipway error: {str(e)}")
 
     norm["status"] = "shipped"
-    norm["shipway_awb"] = str(awb)
+    norm["shipway_awb"] = awb
     await _save_bulk_data(row_id, norm)
 
     tracking_link = f"https://shipway.in/track/{awb}"
@@ -562,7 +564,7 @@ async def ship_bulk_order(row_id: int, bg: BackgroundTasks):
         phone=norm["phone"],
         name=norm["contact_name"],
         school=norm["school_name"],
-        awb=str(awb),
+        awb=awb,
         tracking_link=tracking_link,
         order_link=order_link,
     )
