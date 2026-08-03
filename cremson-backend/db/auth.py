@@ -92,13 +92,6 @@ async def get_user_by_phone(phone: str) -> Optional[dict]:
                     u_row = await get_user_by_id(int(uid))
                     if u_row:
                         return u_row
-                return {
-                    "id": r.get("id"),
-                    "name": f"{r.get('first_name', '')} {r.get('last_name', '')}".strip(),
-                    "phone": db_p,
-                    "is_approved": 1,
-                    "is_active": 1,
-                }
     except Exception as e:
         print("Error searching T_ADDRS by phone:", e)
 
@@ -118,23 +111,6 @@ async def get_user_by_phone(phone: str) -> Optional[dict]:
                 }
     except Exception as e:
         print("Error searching Teacher table by phone:", e)
-
-    # 4. Search in orders table (762)
-    try:
-        o_table_id = TABLE_IDS.get("orders", 762)
-        res_o = await _client.get_rows(o_table_id, search=last_10)
-        for r in res_o.get("results", []):
-            u_info = str(r.get("user_info", "")) + str(r.get("delivery", ""))
-            if last_10 in u_info:
-                return {
-                    "id": r.get("id"),
-                    "name": "Existing Order Customer",
-                    "phone": phone,
-                    "is_approved": 1,
-                    "is_active": 1,
-                }
-    except Exception as e:
-        print("Error searching Orders table by phone:", e)
 
     return None
 
