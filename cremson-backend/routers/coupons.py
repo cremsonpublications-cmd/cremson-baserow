@@ -71,12 +71,20 @@ async def get_coupon(row_id: int):
 
 @router.post("/", summary="Create coupon")
 async def create_coupon(body: CouponCreate):
-    return await client.create_row(TABLE_IDS["coupons"], body.model_dump(exclude_none=True))
+    data = body.model_dump(exclude_none=True)
+    for field in ["discount_value", "discount_percentage", "min_order_amount", "max_discount_amount", "delivery_discount_amount"]:
+        if field in data and data[field] is not None:
+            data[field] = int(round(data[field]))
+    return await client.create_row(TABLE_IDS["coupons"], data)
 
 
 @router.patch("/{row_id}", summary="Update coupon")
 async def update_coupon(row_id: int, body: CouponUpdate):
-    return await client.update_row(TABLE_IDS["coupons"], row_id, body.model_dump(exclude_none=True))
+    data = body.model_dump(exclude_none=True)
+    for field in ["discount_value", "discount_percentage", "min_order_amount", "max_discount_amount", "delivery_discount_amount"]:
+        if field in data and data[field] is not None:
+            data[field] = int(round(data[field]))
+    return await client.update_row(TABLE_IDS["coupons"], row_id, data)
 
 
 @router.delete("/{row_id}", summary="Delete coupon")

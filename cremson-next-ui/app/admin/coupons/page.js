@@ -346,12 +346,13 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
         payload.product_ids = "";
       }
       if (form.discount_value !== "") {
-        payload.discount_value = Number(form.discount_value);
-        payload.discount_percentage = form.discount_type === "percentage" ? Number(form.discount_value) : null;
+        const valNum = Math.round(Number(form.discount_value));
+        payload.discount_value = valNum;
+        payload.discount_percentage = form.discount_type === "percentage" ? valNum : null;
       }
-      if (form.min_order_amount !== "") payload.min_order_amount = Number(form.min_order_amount);
-      if (form.max_discount_amount !== "") payload.max_discount_amount = Number(form.max_discount_amount);
-      if (form.delivery_discount_amount !== "") payload.delivery_discount_amount = Number(form.delivery_discount_amount);
+      if (form.min_order_amount !== "") payload.min_order_amount = Math.round(Number(form.min_order_amount));
+      if (form.max_discount_amount !== "") payload.max_discount_amount = Math.round(Number(form.max_discount_amount));
+      if (form.delivery_discount_amount !== "") payload.delivery_discount_amount = Math.round(Number(form.delivery_discount_amount));
       if (form.expiry_date) {
         payload.expiry_date = form.expiry_date;
         payload.valid_until = form.expiry_date;
