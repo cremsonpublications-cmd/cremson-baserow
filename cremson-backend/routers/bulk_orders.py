@@ -294,6 +294,9 @@ async def approve_bulk_order(row_id: int, body: BulkOrderApprove, bg: Background
         send_bulk_order_approved,
         phone=norm["phone"],
         name=norm["contact_name"],
+        subtotal=subtotal,
+        discount_type=body.discount_type,
+        discount_value=body.discount_value,
         final_amount=final_amount,
         order_link=order_link,
     )

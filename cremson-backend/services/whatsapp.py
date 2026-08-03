@@ -418,15 +418,32 @@ async def send_bulk_order_admin_notify(admin_phone: str, name: str, school: str,
     await _send_text_message(admin_phone, msg, log_tag=f"bulk_order_admin_notify school={school}")
 
 
-async def send_bulk_order_approved(phone: str, name: str, final_amount: float, order_link: str):
+async def send_bulk_order_approved(
+    phone: str,
+    name: str,
+    subtotal: float,
+    discount_type: str,
+    discount_value: float,
+    final_amount: float,
+    order_link: str
+):
     """Sent to teacher upon admin approval & discount application."""
+    if discount_type == "percentage":
+        savings = (subtotal * discount_value) / 100
+        disc_str = f"{discount_value}% OFF (-₹{savings:,.2f})"
+    else:
+        disc_str = f"Flat ₹{discount_value:,.2f} OFF"
+
     msg = (
         f"Great news {name}! 🎉\n\n"
-        f"Your Bulk Order has been *APPROVED* by Cremson Publications!\n"
-        f"💰 Final Payable Amount: *₹{final_amount:,.2f}*\n\n"
-        f"You can now view your order, pay directly, or generate individual payment links for your students:\n\n"
+        f"Your Bulk Order request has been *APPROVED* by Cremson Publications! 📚\n\n"
+        f"📋 *Order Price Breakdown:*\n"
+        f"• Original Subtotal: ₹{subtotal:,.2f}\n"
+        f"• Special Discount: *{disc_str}*\n"
+        f"• 💰 *Final Payable Amount: ₹{final_amount:,.2f}*\n\n"
+        f"You can now view your order, pay directly, or generate individual split payment links for your students:\n\n"
         f"👉 {order_link}\n\n"
-        "Thank you for choosing Cremson Publications!"
+        f"Thank you for choosing Cremson Publications!"
     )
     await _send_text_message(phone, msg, log_tag=f"bulk_order_approved name={name}")
 
