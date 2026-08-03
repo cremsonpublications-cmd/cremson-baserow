@@ -77,6 +77,23 @@ export function AppProvider({ children }) {
   const [authLoading, setAuthLoading] = useState(true);
   const [allProducts, setAllProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+
+  // Restore applied coupon from sessionStorage on mount
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem("cremson_applied_coupon");
+      if (saved) setAppliedCoupon(JSON.parse(saved));
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    if (appliedCoupon) {
+      sessionStorage.setItem("cremson_applied_coupon", JSON.stringify(appliedCoupon));
+    } else {
+      sessionStorage.removeItem("cremson_applied_coupon");
+    }
+  }, [appliedCoupon]);
 
   // Track whether we've already loaded backend data for the current session
   const backendLoaded = useRef(false);
@@ -371,6 +388,8 @@ export function AppProvider({ children }) {
         authLogout,
         allProducts,
         productsLoading,
+        appliedCoupon,
+        setAppliedCoupon,
       }}
     >
       {children}

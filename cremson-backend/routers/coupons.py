@@ -13,15 +13,14 @@ class CouponCreate(BaseModel):
     discount_type: Optional[str] = "percentage"
     discount_value: Optional[float] = None
     discount_percentage: Optional[float] = None
+    minimum_order_amount: Optional[float] = None
     min_order_amount: Optional[float] = None
-    max_discount_amount: Optional[float] = None
     max_uses: Optional[int] = None
     expiry_date: Optional[str] = None
     valid_until: Optional[str] = None
     is_active: Optional[bool] = True
     show_in_ui: Optional[bool] = True
     free_delivery: Optional[bool] = False
-    delivery_discount_amount: Optional[float] = None
     benefit: Optional[str] = None
     benefits: Optional[str] = None
     applicable_products: Optional[str] = None
@@ -33,15 +32,14 @@ class CouponUpdate(BaseModel):
     discount_type: Optional[str] = None
     discount_value: Optional[float] = None
     discount_percentage: Optional[float] = None
+    minimum_order_amount: Optional[float] = None
     min_order_amount: Optional[float] = None
-    max_discount_amount: Optional[float] = None
     max_uses: Optional[int] = None
     expiry_date: Optional[str] = None
     valid_until: Optional[str] = None
     is_active: Optional[bool] = None
     show_in_ui: Optional[bool] = None
     free_delivery: Optional[bool] = None
-    delivery_discount_amount: Optional[float] = None
     benefit: Optional[str] = None
     benefits: Optional[str] = None
     applicable_products: Optional[str] = None
@@ -72,7 +70,21 @@ async def get_coupon(row_id: int):
 @router.post("/", summary="Create coupon")
 async def create_coupon(body: CouponCreate):
     data = body.model_dump(exclude_none=True)
-    for field in ["discount_value", "discount_percentage", "min_order_amount", "max_discount_amount", "delivery_discount_amount"]:
+
+    # Ensure minimum_order_amount is set for Baserow table 766
+    min_val = data.get("minimum_order_amount") if data.get("minimum_order_amount") is not None else data.get("min_order_amount")
+    if min_val is not None:
+        int_min = int(round(min_val))
+        data["minimum_order_amount"] = int_min
+        data["min_order_amount"] = int_min
+
+    # Ensure valid_until is set for Baserow
+    date_val = data.get("valid_until") or data.get("expiry_date")
+    if date_val:
+        data["valid_until"] = date_val
+        data["expiry_date"] = date_val
+
+    for field in ["discount_value", "discount_percentage", "minimum_order_amount", "min_order_amount"]:
         if field in data and data[field] is not None:
             data[field] = int(round(data[field]))
     return await client.create_row(TABLE_IDS["coupons"], data)
@@ -81,7 +93,21 @@ async def create_coupon(body: CouponCreate):
 @router.patch("/{row_id}", summary="Update coupon")
 async def update_coupon(row_id: int, body: CouponUpdate):
     data = body.model_dump(exclude_none=True)
-    for field in ["discount_value", "discount_percentage", "min_order_amount", "max_discount_amount", "delivery_discount_amount"]:
+
+    # Ensure minimum_order_amount is set for Baserow table 766
+    min_val = data.get("minimum_order_amount") if data.get("minimum_order_amount") is not None else data.get("min_order_amount")
+    if min_val is not None:
+        int_min = int(round(min_val))
+        data["minimum_order_amount"] = int_min
+        data["min_order_amount"] = int_min
+
+    # Ensure valid_until is set for Baserow
+    date_val = data.get("valid_until") or data.get("expiry_date")
+    if date_val:
+        data["valid_until"] = date_val
+        data["expiry_date"] = date_val
+
+    for field in ["discount_value", "discount_percentage", "minimum_order_amount", "min_order_amount"]:
         if field in data and data[field] is not None:
             data[field] = int(round(data[field]))
     return await client.update_row(TABLE_IDS["coupons"], row_id, data)

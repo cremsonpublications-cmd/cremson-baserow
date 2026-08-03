@@ -22,7 +22,7 @@ function loadRazorpay() {
 }
 
 export default function CheckoutPage() {
-  const { cart, setCart, clearCart, showToast, user, authToken, authLoading } = useApp();
+  const { cart, setCart, clearCart, showToast, user, authToken, authLoading, appliedCoupon, setAppliedCoupon } = useApp();
   const router = useRouter();
 
   // Auth guard — redirect to signin if not logged in
@@ -161,14 +161,44 @@ export default function CheckoutPage() {
     return cart.reduce((sum, item) => sum + item.quantity, 0);
   }, [cart]);
 
-  const deliveryCharges = useMemo(() => {
+  const rawDeliveryCharges = useMemo(() => {
     if (subtotal === 0) return 0;
     return subtotal >= 500 ? 0 : 50;
   }, [subtotal]);
 
+  const deliveryCharges = useMemo(() => {
+    if (!appliedCoupon) return rawDeliveryCharges;
+    if (appliedCoupon.freeDelivery) return 0;
+    return rawDeliveryCharges;
+  }, [rawDeliveryCharges, appliedCoupon]);
+
+  const promoDiscount = useMemo(() => {
+    if (!appliedCoupon) return 0;
+
+    let baseAmount = subtotal;
+    if (appliedCoupon.applicableProducts && appliedCoupon.applicableProducts.length > 0) {
+      const eligibleItems = cart.filter((item) =>
+        appliedCoupon.applicableProducts.includes(String(item.product.id))
+      );
+      baseAmount = eligibleItems.reduce((sum, item) => sum + getItemTotalPrice(item.product, item.quantity), 0);
+      if (baseAmount === 0) return 0;
+    }
+
+    let disc = 0;
+    const typeLower = String(appliedCoupon.discountType || "").toLowerCase();
+    if (typeLower === "percentage") {
+      disc = (baseAmount * appliedCoupon.value) / 100;
+    } else if (typeLower.includes("fixed")) {
+      if (appliedCoupon.minOrder && subtotal < appliedCoupon.minOrder) return 0;
+      disc = Math.min(appliedCoupon.value, baseAmount);
+    }
+
+    return Math.round(disc);
+  }, [appliedCoupon, subtotal, cart]);
+
   const finalTotal = useMemo(() => {
-    return subtotal + deliveryCharges;
-  }, [subtotal, deliveryCharges]);
+    return Math.max(0, subtotal + deliveryCharges - promoDiscount);
+  }, [subtotal, deliveryCharges, promoDiscount]);
 
   const handlePay = async (e) => {
     e.preventDefault();
@@ -256,8 +286,9 @@ export default function CheckoutPage() {
               order_summary: {
                 subTotal: subtotal,
                 grandTotal: finalTotal,
-                discountTotal: 0,
-                couponDiscount: 0,
+                discountTotal: promoDiscount,
+                couponDiscount: promoDiscount,
+                couponCode: appliedCoupon?.code || "",
                 deliveryCharge: deliveryCharges,
               },
               delivery: {
@@ -301,6 +332,7 @@ export default function CheckoutPage() {
 
             showToast("Payment successful! Order placed.", "success");
             clearCart();
+            setAppliedCoupon(null);
             router.push("/my-orders");
           } catch {
             showToast("Payment done but verification failed. Contact support.", "error");
@@ -779,6 +811,12 @@ export default function CheckoutPage() {
                       {deliveryCharges === 0 ? "FREE" : `₹${deliveryCharges.toFixed(2)}`}
                     </span>
                   </div>
+                  {promoDiscount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600 font-semibold">
+                      <span>Coupon Discount ({appliedCoupon?.code})</span>
+                      <span>-₹{promoDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="border-t border-gray-200 pt-2 flex justify-between text-lg font-bold">
                     <span className="text-gray-900">Total</span>
                     <span className="text-gray-900">₹{finalTotal.toFixed(2)}</span>
@@ -806,6 +844,12 @@ export default function CheckoutPage() {
                         {deliveryCharges === 0 ? "FREE" : `₹${deliveryCharges.toFixed(2)}`}
                       </span>
                     </div>
+                    {promoDiscount > 0 && (
+                      <div className="flex justify-between text-green-600 font-semibold">
+                        <span>Coupon Discount ({appliedCoupon?.code})</span>
+                        <span>-₹{promoDiscount.toFixed(2)}</span>
+                      </div>
+                    )}
                     <div className="border-t border-gray-300 pt-2 flex justify-between font-bold text-lg">
                       <span>Total</span>
                       <span>₹{finalTotal.toFixed(2)}</span>

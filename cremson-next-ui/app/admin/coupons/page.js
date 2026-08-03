@@ -33,11 +33,9 @@ const EMPTY_FORM = {
   discount_type: "percentage",
   discount_value: "",
   min_order_amount: "",
-  max_discount_amount: "",
   show_in_ui: true,
   expiry_date: "",
   free_delivery: false,
-  delivery_discount_amount: "",
   is_active: true,
   benefit: "",
   apply_to: "all",
@@ -249,7 +247,8 @@ function getScalarVal(val, fallback = "") {
 }
 
 function CouponFormModal({ coupon, onClose, onSaved }) {
-  const isEdit = !!coupon;
+  const couponId = coupon?.id ?? coupon?.row_id;
+  const isEdit = !!couponId;
 
   let initialProducts = [];
   let initialApplyTo = "all";
@@ -271,12 +270,10 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
           code: getScalarVal(coupon.code, ""),
           discount_type: getScalarVal(coupon.discount_type, "percentage"),
           discount_value: getScalarVal(coupon.discount_value ?? coupon.discount_percentage, ""),
-          min_order_amount: getScalarVal(coupon.min_order_amount ?? coupon.minimum_order_amount, ""),
-          max_discount_amount: getScalarVal(coupon.max_discount_amount, ""),
+          min_order_amount: getScalarVal(coupon.minimum_order_amount ?? coupon.min_order_amount, ""),
           show_in_ui: coupon.show_in_ui ?? true,
-          expiry_date: getScalarVal(coupon.expiry_date ?? coupon.valid_until ?? coupon.expires_at, ""),
+          expiry_date: getScalarVal(coupon.valid_until ?? coupon.expiry_date ?? coupon.expires_at, ""),
           free_delivery: coupon.free_delivery ?? false,
-          delivery_discount_amount: getScalarVal(coupon.delivery_discount_amount, ""),
           is_active: coupon.is_active ?? coupon.active ?? true,
           benefit: getScalarVal(coupon.benefit ?? coupon.benefits, ""),
           apply_to: initialApplyTo,
@@ -350,16 +347,24 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
         payload.discount_value = valNum;
         payload.discount_percentage = form.discount_type === "percentage" ? valNum : null;
       }
-      if (form.min_order_amount !== "") payload.min_order_amount = Math.round(Number(form.min_order_amount));
-      if (form.max_discount_amount !== "") payload.max_discount_amount = Math.round(Number(form.max_discount_amount));
-      if (form.delivery_discount_amount !== "") payload.delivery_discount_amount = Math.round(Number(form.delivery_discount_amount));
+      if (form.min_order_amount !== "" && form.min_order_amount !== null && form.min_order_amount !== undefined) {
+        const minVal = Math.round(Number(form.min_order_amount));
+        payload.minimum_order_amount = minVal;
+        payload.min_order_amount = minVal;
+      } else {
+        payload.minimum_order_amount = null;
+        payload.min_order_amount = null;
+      }
       if (form.expiry_date) {
-        payload.expiry_date = form.expiry_date;
         payload.valid_until = form.expiry_date;
+        payload.expiry_date = form.expiry_date;
+      } else {
+        payload.valid_until = null;
+        payload.expiry_date = null;
       }
 
-      if (isEdit) {
-        await adminUpdateCoupon(coupon.id, payload);
+      if (isEdit && couponId) {
+        await adminUpdateCoupon(couponId, payload);
       } else {
         await adminCreateCoupon(payload);
       }
@@ -498,25 +503,6 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
                 />
               </div>
 
-              {/* Maximum Discount Amount */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Maximum Discount Amount (₹)
-                </label>
-                <input
-                  type="number"
-                  name="max_discount_amount"
-                  step="0.01"
-                  value={form.max_discount_amount}
-                  onChange={handleChange}
-                  placeholder="Enter maximum discount cap"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Maximum amount that can be discounted (e.g., 10% of ₹1000 = ₹100, but cap at ₹50)
-                </p>
-              </div>
-
               {/* Show in User Interface */}
               <div>
                 <label className="flex items-center space-x-3 cursor-pointer mt-2">
@@ -563,25 +549,6 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Customer gets free delivery (can combine with coupon discount)
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700">
-                    Delivery Discount Amount (₹)
-                  </label>
-                  <input
-                    type="number"
-                    name="delivery_discount_amount"
-                    min="0"
-                    step="0.01"
-                    value={form.delivery_discount_amount}
-                    onChange={handleChange}
-                    placeholder="Enter delivery discount amount"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors bg-white"
-                  />
-                  <p className="text-xs mt-1 text-gray-500">
-                    Discount on delivery charges (can combine with coupon discount)
                   </p>
                 </div>
               </div>

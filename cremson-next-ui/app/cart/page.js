@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useApp } from "../../context/AppContext";
 import { getEffectiveUnitPrice, getItemTotalPrice } from "../../lib/utils/pricing";
 import { useCoupons } from "../../lib/api/hooks";
-import { ChevronDown, ChevronUp, Minus, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, Minus, Plus, Tag, Check, AlertCircle } from "lucide-react";
 
 function CartSkeleton() {
   return (
@@ -50,10 +50,9 @@ function CartSkeleton() {
 }
 
 export default function CartPage() {
-  const { cart, removeFromCart, updateQuantity, authLoading, user } = useApp();
+  const { cart, removeFromCart, updateQuantity, authLoading, user, appliedCoupon, setAppliedCoupon, showToast } = useApp();
   const router = useRouter();
   const [promoInput, setPromoInput] = useState("");
-  const [appliedPromo, setAppliedPromo] = useState(null);
   const [showCoupons, setShowCoupons] = useState(false);
   const [promoError, setPromoError] = useState("");
 
@@ -70,27 +69,35 @@ export default function CartPage() {
           applicableProducts = String(rawApp).split(",").map((s) => s.trim()).filter(Boolean);
         }
       }
+
+      const rawCode = typeof c.code === "object" ? (c.code?.value || c.code?.name || "") : String(c.code || "").trim();
+      const rawType = typeof c.discount_type === "object" ? (c.discount_type?.value || c.discount_type?.name || "percentage") : String(c.discount_type || "percentage");
+      const valNum = Number(c.discount_value ?? c.discount_percentage ?? 0);
+      const benefitText = typeof c.benefit === "string" ? c.benefit : typeof c.benefits === "string" ? c.benefits : "";
+
+      const now = new Date();
+      const startDate = (c.start_date || c.valid_from) ? new Date(c.start_date || c.valid_from) : null;
+      const endDate = (c.end_date || c.valid_until || c.expiration_date) ? new Date(c.end_date || c.valid_until || c.expiration_date) : null;
+
+      let isExpired = false;
+      if (startDate && !isNaN(startDate.getTime()) && now < startDate) isExpired = true;
+      if (endDate && !isNaN(endDate.getTime()) && now > endDate) isExpired = true;
+
       return {
-        code: c.code,
-        description: c.benefit || c.benefits || c.description || (c.discount_type === "percentage" ? `${c.discount_value}% off` : `Flat ₹${c.discount_value} off`),
-        discountType: c.discount_type || "percentage",
-        value: Number(c.discount_value ?? c.discount_percentage ?? 0),
-        minOrder: (c.min_order_amount ?? c.minimum_order_amount) ? Number(c.min_order_amount ?? c.minimum_order_amount) : null,
-        maxDiscount: c.max_discount_amount ? Number(c.max_discount_amount) : null,
+        code: rawCode,
+        description: benefitText || (rawType.toLowerCase() === "percentage" ? `${valNum}% off` : `Flat ₹${valNum} off`),
+        discountType: rawType,
+        value: valNum,
+        minOrder: (c.minimum_order_amount ?? c.min_order_amount) ? Number(c.minimum_order_amount ?? c.min_order_amount) : null,
         showInUi: c.show_in_ui ?? true,
         freeDelivery: c.free_delivery ?? false,
-        deliveryDiscount: c.delivery_discount_amount ? Number(c.delivery_discount_amount) : 0,
-        isActive: c.is_active ?? c.active ?? true,
+        isActive: (c.is_active ?? c.active ?? true) && !isExpired,
         applicableProducts: Array.isArray(applicableProducts) ? applicableProducts.map(String) : [],
+        endDate: endDate && !isNaN(endDate.getTime()) ? endDate : null,
       };
-    }).filter((c) => c.isActive);
+    }).filter((c) => c.isActive && c.code);
 
-    if (apiCoupons.length > 0) return apiCoupons;
-
-    return [
-      { code: "CREMSON10", description: "10% off on all books", discountType: "percentage", value: 10, minOrder: 0, showInUi: true, applicableProducts: [] },
-      { code: "WELCOME50", description: "Flat ₹50 off on orders above ₹400", discountType: "fixed", value: 50, minOrder: 400, showInUi: true, applicableProducts: [] },
-    ];
+    return apiCoupons;
   }, [couponsData]);
 
   const subtotal = useMemo(() => {
@@ -107,56 +114,51 @@ export default function CartPage() {
   }, [subtotal]);
 
   const deliveryCharges = useMemo(() => {
-    if (!appliedPromo) return rawDeliveryCharges;
-    if (appliedPromo.freeDelivery) return 0;
-    if (appliedPromo.deliveryDiscount > 0) {
-      return Math.max(0, rawDeliveryCharges - appliedPromo.deliveryDiscount);
-    }
+    if (!appliedCoupon) return rawDeliveryCharges;
+    if (appliedCoupon.freeDelivery) return 0;
     return rawDeliveryCharges;
-  }, [rawDeliveryCharges, appliedPromo]);
+  }, [rawDeliveryCharges, appliedCoupon]);
 
   const promoDiscount = useMemo(() => {
-    if (!appliedPromo) return 0;
+    if (!appliedCoupon) return 0;
 
     let baseAmount = subtotal;
-    if (appliedPromo.applicableProducts && appliedPromo.applicableProducts.length > 0) {
+    if (appliedCoupon.applicableProducts && appliedCoupon.applicableProducts.length > 0) {
       const eligibleItems = cart.filter((item) =>
-        appliedPromo.applicableProducts.includes(String(item.product.id))
+        appliedCoupon.applicableProducts.includes(String(item.product.id))
       );
       baseAmount = eligibleItems.reduce((sum, item) => sum + getItemTotalPrice(item.product, item.quantity), 0);
       if (baseAmount === 0) return 0;
     }
 
     let disc = 0;
-    if (appliedPromo.discountType === "percentage") {
-      disc = (baseAmount * appliedPromo.value) / 100;
-    } else if (appliedPromo.discountType === "fixed") {
-      if (appliedPromo.minOrder && subtotal < appliedPromo.minOrder) return 0;
-      disc = Math.min(appliedPromo.value, baseAmount);
+    const typeLower = String(appliedCoupon.discountType || "").toLowerCase();
+    if (typeLower === "percentage") {
+      disc = (baseAmount * appliedCoupon.value) / 100;
+    } else if (typeLower.includes("fixed")) {
+      if (appliedCoupon.minOrder && subtotal < appliedCoupon.minOrder) return 0;
+      disc = Math.min(appliedCoupon.value, baseAmount);
     }
 
-    if (appliedPromo.maxDiscount && disc > appliedPromo.maxDiscount) {
-      disc = appliedPromo.maxDiscount;
-    }
     return Math.round(disc);
-  }, [appliedPromo, subtotal, cart]);
+  }, [appliedCoupon, subtotal, cart]);
 
   React.useEffect(() => {
-    if (appliedPromo) {
-      if (appliedPromo.minOrder && subtotal < appliedPromo.minOrder) {
-        setAppliedPromo(null);
+    if (appliedCoupon) {
+      if (appliedCoupon.minOrder && subtotal < appliedCoupon.minOrder) {
+        setAppliedCoupon(null);
         return;
       }
-      if (appliedPromo.applicableProducts && appliedPromo.applicableProducts.length > 0) {
+      if (appliedCoupon.applicableProducts && appliedCoupon.applicableProducts.length > 0) {
         const hasEligible = cart.some((item) =>
-          appliedPromo.applicableProducts.includes(String(item.product.id))
+          appliedCoupon.applicableProducts.includes(String(item.product.id))
         );
         if (!hasEligible) {
-          setAppliedPromo(null);
+          setAppliedCoupon(null);
         }
       }
     }
-  }, [subtotal, cart, appliedPromo]);
+  }, [subtotal, cart, appliedCoupon, setAppliedCoupon]);
 
   const finalTotal = useMemo(() => {
     return Math.max(0, subtotal + deliveryCharges - promoDiscount);
@@ -164,8 +166,8 @@ export default function CartPage() {
 
   const handleApplyPromo = () => {
     const trimmedCode = promoInput.trim().toUpperCase();
-    const coupon = availableCoupons.find((c) => c.code === trimmedCode);
-    if (!coupon) { setPromoError("Invalid promo code"); return; }
+    const coupon = availableCoupons.find((c) => c.code.toUpperCase() === trimmedCode);
+    if (!coupon) { setPromoError("Invalid or expired promo code"); return; }
     if (coupon.minOrder && subtotal < coupon.minOrder) {
       setPromoError(`This coupon requires a minimum order of ₹${coupon.minOrder}`);
       return;
@@ -180,12 +182,20 @@ export default function CartPage() {
       }
     }
     setPromoError("");
-    setAppliedPromo(coupon);
+    setAppliedCoupon(coupon);
     setPromoInput("");
+    showToast(`Coupon ${coupon.code} applied!`, "success");
   };
 
-  const handleRemovePromo = () => { setAppliedPromo(null); setPromoError(""); };
-  const handleCouponSelect = (code) => { setPromoInput(code); setShowCoupons(false); };
+  const handleRemovePromo = () => { setAppliedCoupon(null); setPromoError(""); };
+
+  const handleCouponSelect = (coupon) => {
+    setPromoError("");
+    setAppliedCoupon(coupon);
+    setPromoInput("");
+    setShowCoupons(false);
+    showToast(`Coupon ${coupon.code} applied!`, "success");
+  };
 
   return (
     <main className="pb-20">
@@ -352,7 +362,7 @@ export default function CartPage() {
                 )}
                 {promoDiscount > 0 && (
                   <div className="flex items-center justify-between text-green-600">
-                    <span className="md:text-xl">Discount ({appliedPromo.code})</span>
+                    <span className="md:text-xl">Discount ({appliedCoupon?.code})</span>
                     <span className="text-xl md:text-2xl font-bold">-₹{promoDiscount}</span>
                   </div>
                 )}
@@ -365,11 +375,11 @@ export default function CartPage() {
               {/* Promo input */}
               <div className="space-y-4">
                 <div className="flex space-x-3">
-                  {appliedPromo ? (
+                  {appliedCoupon ? (
                     <div className="flex items-center justify-between w-full bg-green-50 text-green-800 px-4 py-2.5 rounded-full border border-green-200">
                       <span className="text-sm font-semibold flex items-center gap-1.5">
                         <Tag className="w-4 h-4 text-green-600" />
-                        {appliedPromo.code} Applied
+                        {appliedCoupon.code} Applied
                       </span>
                       <button onClick={handleRemovePromo} className="text-xs font-bold text-red-600 hover:text-red-800 uppercase cursor-pointer">
                         Remove
@@ -431,7 +441,7 @@ export default function CartPage() {
                           <div
                             key={coupon.code}
                             className={`p-3 rounded-lg border text-xs flex flex-col gap-1 transition-all ${isDisabled ? "bg-gray-50 border-gray-100 text-gray-400" : "bg-orange-50/30 border-orange-100 hover:border-orange-200 cursor-pointer"}`}
-                            onClick={() => !isDisabled && handleCouponSelect(coupon.code)}
+                            onClick={() => !isDisabled && handleCouponSelect(coupon)}
                           >
                             <div className="flex items-center justify-between font-bold">
                               <span className={isDisabled ? "text-gray-400 font-mono" : "text-orange-600 font-mono"}>{coupon.code}</span>
