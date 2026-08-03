@@ -67,7 +67,7 @@ export default function MobileMenuDrawer() {
       />
 
       {/* Left-to-Right Drawer Panel */}
-      <div className="fixed inset-y-0 left-0 max-w-xs w-full bg-white shadow-2xl flex flex-col h-full max-h-[100dvh] z-[100000] animate-in slide-in-from-left duration-300">
+      <div className="fixed top-0 bottom-0 left-0 h-screen h-[100dvh] max-w-xs w-full bg-white shadow-2xl flex flex-col z-[100000] animate-in slide-in-from-left duration-300">
         
         {/* Top Header */}
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/80 flex-shrink-0">
@@ -281,7 +281,7 @@ export default function MobileMenuDrawer() {
         </div>
 
         {/* User Account / Footer */}
-        <div className="p-4 border-t border-gray-100 bg-gray-50/70 text-left flex-shrink-0">
+        <div className="p-4 pb-8 border-t border-gray-100 bg-white text-left flex-shrink-0">
           {user ? (
             <div className="space-y-2">
               <div className="flex items-center gap-3 pb-2 border-b border-gray-200/60">
