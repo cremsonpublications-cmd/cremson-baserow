@@ -928,7 +928,7 @@ function Shop() {
                           )}
                           {book.discount && (
                             <span className="bg-green-500 text-white text-xs font-bold px-2.5 py-1 rounded shadow-md">
-                              {book.discount}
+                              {book.discount.replace(/^-/, "")}
                             </span>
                           )}
                           {quantityInCart > 0 && (

@@ -117,7 +117,7 @@ export default function Home() {
                           <div className="absolute top-3 left-3 flex flex-col gap-2">
                             {book.discount && (
                               <span className="bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded shadow-md">
-                                {book.discount}
+                                {book.discount.replace(/^-/, "")}
                               </span>
                             )}
                             {quantityInCart > 0 && (

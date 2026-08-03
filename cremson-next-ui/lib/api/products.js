@@ -55,7 +55,7 @@ export function mapProduct(p) {
     subCategories: subCats,
     price,
     originalPrice: hasDiscount ? mrp : null,
-    discount: hasDiscount ? `-${discountPct}%` : null,
+    discount: hasDiscount ? `${discountPct}%` : null,
     rating: parseFloat(p.rating) || 0,
     reviewsCount: parseInt(p.review_count) || 0,
     image: p.main_image || "",

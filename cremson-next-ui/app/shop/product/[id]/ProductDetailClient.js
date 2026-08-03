@@ -450,7 +450,7 @@ export default function ProductDetailClient({ initialBook, bookId }) {
                     if (comboSum > effectiveUnitPrice) {
                       displayOriginalPrice = comboSum;
                       const savePct = Math.round(((comboSum - effectiveUnitPrice) / comboSum) * 100);
-                      discountTag = `-${savePct}% Combo Savings`;
+                      discountTag = `${savePct}% Combo Savings`;
                     }
                   }
 
@@ -458,11 +458,11 @@ export default function ProductDetailClient({ initialBook, bookId }) {
                     if (book.originalPrice && Number(book.originalPrice) > effectiveUnitPrice) {
                       displayOriginalPrice = Number(book.originalPrice);
                       const savePct = Math.round(((displayOriginalPrice - effectiveUnitPrice) / displayOriginalPrice) * 100);
-                      discountTag = book.discount || `-${savePct}%`;
+                      discountTag = book.discount ? book.discount.replace(/^-/, "") : `${savePct}%`;
                     } else if (book.mrp && Number(book.mrp) > effectiveUnitPrice) {
                       displayOriginalPrice = Number(book.mrp);
                       const savePct = Math.round(((displayOriginalPrice - effectiveUnitPrice) / displayOriginalPrice) * 100);
-                      discountTag = `-${savePct}%`;
+                      discountTag = `${savePct}%`;
                     }
                   }
                 }
