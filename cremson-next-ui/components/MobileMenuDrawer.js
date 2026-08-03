@@ -67,10 +67,10 @@ export default function MobileMenuDrawer() {
       />
 
       {/* Left-to-Right Drawer Panel */}
-      <div className="fixed inset-y-0 left-0 max-w-xs w-full bg-white shadow-2xl flex flex-col h-full z-[100000] animate-in slide-in-from-left duration-300">
+      <div className="fixed inset-y-0 left-0 max-w-xs w-full bg-white shadow-2xl flex flex-col h-full max-h-[100dvh] z-[100000] animate-in slide-in-from-left duration-300">
         
         {/* Top Header */}
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/80">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/80 flex-shrink-0">
           <Link href="/" onClick={() => setIsMobileMenuOpen(false)}>
             <CPLogo className="max-w-[85px]" />
           </Link>
@@ -84,7 +84,7 @@ export default function MobileMenuDrawer() {
         </div>
 
         {/* Search input in drawer */}
-        <div className="p-4 border-b border-gray-100 bg-white">
+        <div className="p-4 border-b border-gray-100 bg-white flex-shrink-0">
           <form onSubmit={handleSearchSubmit} className="relative w-full">
             <input
               type="text"
@@ -98,7 +98,7 @@ export default function MobileMenuDrawer() {
         </div>
 
         {/* Navigation Content */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1 text-left divide-y divide-gray-100/60">
+        <div className="flex-1 overflow-y-auto min-h-0 px-4 py-3 space-y-1 text-left divide-y divide-gray-100/60">
           
           {/* Main Links */}
           <div className="space-y-1 pb-3">
@@ -281,7 +281,7 @@ export default function MobileMenuDrawer() {
         </div>
 
         {/* User Account / Footer */}
-        <div className="p-4 border-t border-gray-100 bg-gray-50/70 text-left">
+        <div className="p-4 border-t border-gray-100 bg-gray-50/70 text-left flex-shrink-0">
           {user ? (
             <div className="space-y-2">
               <div className="flex items-center gap-3 pb-2 border-b border-gray-200/60">
