@@ -1,4 +1,5 @@
 import "./globals.css";
+import { Suspense } from "react";
 import { Toaster } from "sonner";
 import { AppProvider } from "../context/AppContext";
 import Header from "../components/Header";
@@ -83,7 +84,9 @@ export default function RootLayout({ children }) {
       <body className="font-sans antialiased text-black bg-white flex flex-col min-h-screen" suppressHydrationWarning>
         <QueryProvider>
           <AppProvider>
-            <Header />
+            <Suspense fallback={null}>
+              <Header />
+            </Suspense>
             <main className="flex-1 flex flex-col">
               {children}
             </main>
