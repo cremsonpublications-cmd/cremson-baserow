@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../lib/api/axios";
+import { useApp } from "../../context/AppContext";
 import {
   Mail,
   Phone,
@@ -13,9 +15,51 @@ import {
   ChevronRight,
   Loader2,
   CheckCircle2,
+  AlertTriangle,
+  Lock,
 } from "lucide-react";
 
 const STEPS = ["Select Books", "Your Details", "Confirm"];
+
+function TeacherAuthModal({ isOpen, onClose }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl max-w-md w-full p-6 text-center shadow-2xl border border-gray-100 animate-in fade-in zoom-in duration-200">
+        <div className="w-14 h-14 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Lock className="w-7 h-7" />
+        </div>
+        <h3 className="text-xl font-extrabold text-gray-900 mb-2">Teacher Verification Required</h3>
+        <p className="text-xs text-gray-600 leading-relaxed mb-6">
+          Specimen copies are free evaluation materials exclusively for verified school teachers &amp; educators. Please sign in with an approved teacher account or complete Teacher Registration to select specimen books.
+        </p>
+
+        <div className="space-y-3">
+          <Link
+            href="/auth/teacher-signup"
+            className="w-full py-3.5 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2"
+          >
+            <GraduationCap className="w-4 h-4" /> Register as Teacher →
+          </Link>
+          <Link
+            href="/auth/signin?redirect=/specimen"
+            className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-2"
+          >
+            Sign In with Existing Account
+          </Link>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-2 text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function BookCard({ book, selected, onToggle }) {
   return (
@@ -66,20 +110,35 @@ function BookCard({ book, selected, onToggle }) {
 }
 
 export default function Specimen() {
+  const { user } = useApp();
   const [step, setStep] = useState(0); // 0=books, 1=details, 2=confirm/done
   const [selectedBooks, setSelectedBooks] = useState([]);
   const [formData, setFormData] = useState({
-    fullName: "",
-    email: "",
-    mobile: "",
+    fullName: user?.name || "",
+    email: user?.email || "",
+    mobile: user?.phone || "",
     schoolName: "",
     address: "",
     designation: "Teacher",
     comments: "",
   });
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+
+  const isApprovedTeacher = user && user.role === "teacher" && user.is_approved === 1;
+
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({
+        ...prev,
+        fullName: prev.fullName || user.name || "",
+        email: prev.email || user.email || "",
+        mobile: prev.mobile || user.phone || "",
+      }));
+    }
+  }, [user]);
 
   const { data: specimenConfig } = useQuery({
     queryKey: ["specimen-eligible-ids"],
@@ -107,6 +166,10 @@ export default function Specimen() {
     : allProductsList.filter((p) => p.is_active !== false);
 
   function toggleBook(book) {
+    if (!isApprovedTeacher) {
+      setShowAuthModal(true);
+      return;
+    }
     setSelectedBooks((prev) =>
       prev.some((b) => b.id === book.id)
         ? prev.filter((b) => b.id !== book.id)
@@ -201,6 +264,52 @@ export default function Specimen() {
 
         <StepBar />
 
+        {/* Teacher restriction warning banner */}
+        {!isApprovedTeacher && (
+          <div className="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-left">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0 mt-0.5 sm:mt-0">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-amber-900">Verified Teacher Access Required</h4>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  {!user
+                    ? "Specimen copy requests are exclusively available for verified school teachers. Please sign in or register as a teacher."
+                    : user.role === "teacher"
+                    ? "Your teacher account is pending admin approval. Once approved by an admin, you can request specimen copies."
+                    : "Your account is not registered as a teacher. Please sign up with your Teacher ID card for verification."}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto">
+              {!user ? (
+                <>
+                  <Link
+                    href="/auth/signin?redirect=/specimen"
+                    className="flex-1 sm:flex-none px-4 py-2 bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 font-bold text-xs rounded-xl transition-all text-center"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/auth/teacher-signup"
+                    className="flex-1 sm:flex-none px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow transition-all text-center"
+                  >
+                    Teacher Sign Up →
+                  </Link>
+                </>
+              ) : (
+                <Link
+                  href="/auth/teacher-signup"
+                  className="w-full sm:w-auto px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow transition-all text-center"
+                >
+                  Register as Teacher →
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+
         {loadingProducts ? (
           <div className="flex items-center justify-center py-20 text-gray-400">
             <Loader2 className="w-8 h-8 animate-spin mr-2" />
@@ -233,14 +342,17 @@ export default function Specimen() {
               </div>
               <button
                 onClick={() => setStep(1)}
-                disabled={selectedBooks.length === 0}
+                disabled={selectedBooks.length === 0 || !isApprovedTeacher}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-sm rounded-2xl shadow-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                title={!isApprovedTeacher ? "Teacher approval required to continue" : ""}
               >
                 Continue <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </>
         )}
+
+        <TeacherAuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       </div>
     );
   }
@@ -462,6 +574,42 @@ export default function Specimen() {
           Request Another Specimen
         </button>
       </div>
+
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 text-center shadow-2xl border border-gray-100">
+            <div className="w-14 h-14 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-7 h-7" />
+            </div>
+            <h3 className="text-xl font-extrabold text-gray-900 mb-2">Teacher Verification Required</h3>
+            <p className="text-xs text-gray-600 leading-relaxed mb-6">
+              Specimen copies are free evaluation materials exclusively for verified school teachers &amp; educators. Please sign in with an approved teacher account or complete Teacher Registration.
+            </p>
+
+            <div className="space-y-3">
+              <Link
+                href="/auth/teacher-signup"
+                className="w-full py-3.5 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2"
+              >
+                <GraduationCap className="w-4 h-4" /> Register as Teacher →
+              </Link>
+              <Link
+                href="/auth/signin?redirect=/specimen"
+                className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-2"
+              >
+                Sign In with Existing Account
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(false)}
+                className="w-full py-2 text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

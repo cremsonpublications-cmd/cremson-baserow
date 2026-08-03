@@ -43,14 +43,16 @@ def init_db():
 
 # ── User helpers ──────────────────────────────────────────────────────────────
 
-async def create_user(email: str, name: str, password_hash: str, phone: str = "") -> dict:
+async def create_user(email: str, name: str, password_hash: str, phone: str = "", role: str = "customer", is_approved: int = 1, is_verified: int = 0) -> dict:
     row = await _client.create_row(T_USERS, {
         "email": email.lower().strip(),
         "name": name.strip(),
         "phone": phone.strip(),
         "password_hash": password_hash,
-        "is_verified": 0,
+        "is_verified": is_verified,
         "is_active": 1,
+        "role": role,
+        "is_approved": is_approved,
         "created_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
     })
     return _row(row)
@@ -60,6 +62,81 @@ async def get_user_by_email(email: str) -> Optional[dict]:
     result = await _client.get_rows(T_USERS, filters={"email": email.lower().strip()})
     rows = result.get("results", [])
     return _row(rows[0]) if rows else None
+
+
+async def get_user_by_phone(phone: str) -> Optional[dict]:
+    clean = "".join(filter(str.isdigit, str(phone)))
+    if not clean or len(clean) < 5:
+        return None
+    
+    last_10 = clean[-10:] if len(clean) >= 10 else clean
+
+    # 1. Search in auth_users table (769)
+    try:
+        res = await _client.get_rows(T_USERS, search=last_10)
+        for r in res.get("results", []):
+            db_p = "".join(filter(str.isdigit, str(r.get("phone", ""))))
+            if db_p and (db_p == clean or db_p.endswith(last_10) or last_10 in db_p):
+                return _row(r)
+    except Exception as e:
+        print("Error searching T_USERS by phone:", e)
+
+    # 2. Search in user_addresses table (771)
+    try:
+        res_addr = await _client.get_rows(T_ADDRS, search=last_10)
+        for r in res_addr.get("results", []):
+            db_p = "".join(filter(str.isdigit, str(r.get("phone", ""))))
+            if db_p and (db_p == clean or db_p.endswith(last_10) or last_10 in db_p):
+                uid = r.get("user_id")
+                if uid:
+                    u_row = await get_user_by_id(int(uid))
+                    if u_row:
+                        return u_row
+                return {
+                    "id": r.get("id"),
+                    "name": f"{r.get('first_name', '')} {r.get('last_name', '')}".strip(),
+                    "phone": db_p,
+                    "is_approved": 1,
+                    "is_active": 1,
+                }
+    except Exception as e:
+        print("Error searching T_ADDRS by phone:", e)
+
+    # 3. Search in teacher CRM table (877)
+    try:
+        t_table_id = TABLE_IDS.get("teacher", 877)
+        res_t = await _client.get_rows(t_table_id, search=last_10)
+        for r in res_t.get("results", []):
+            db_p = "".join(filter(str.isdigit, str(r.get("TeacherPhone") or r.get("phone") or "")))
+            if db_p and (db_p == clean or db_p.endswith(last_10) or last_10 in db_p):
+                return {
+                    "id": r.get("id"),
+                    "name": r.get("TeacherName", ""),
+                    "phone": db_p,
+                    "is_approved": 1 if r.get("Status") == "Approved" else (-1 if r.get("Status") == "Rejected" else 0),
+                    "is_active": 0 if r.get("Status") == "Rejected" else 1,
+                }
+    except Exception as e:
+        print("Error searching Teacher table by phone:", e)
+
+    # 4. Search in orders table (762)
+    try:
+        o_table_id = TABLE_IDS.get("orders", 762)
+        res_o = await _client.get_rows(o_table_id, search=last_10)
+        for r in res_o.get("results", []):
+            u_info = str(r.get("user_info", "")) + str(r.get("delivery", ""))
+            if last_10 in u_info:
+                return {
+                    "id": r.get("id"),
+                    "name": "Existing Order Customer",
+                    "phone": phone,
+                    "is_approved": 1,
+                    "is_active": 1,
+                }
+    except Exception as e:
+        print("Error searching Orders table by phone:", e)
+
+    return None
 
 
 async def get_user_by_id(user_id: int) -> Optional[dict]:

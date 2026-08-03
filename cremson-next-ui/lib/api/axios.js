@@ -33,7 +33,18 @@ api.interceptors.response.use(
       error.response = { data: { detail: msg } };
       toast.error(msg);
     } else {
-      const msg = error.response.data?.detail || "Something went wrong. Please try again.";
+      const raw = error.response.data?.detail;
+      let msg;
+      if (!raw) {
+        msg = "Something went wrong. Please try again.";
+      } else if (typeof raw === "string") {
+        msg = raw;
+      } else if (Array.isArray(raw)) {
+        // Pydantic v2 validation errors: [{loc, msg, type, ...}]
+        msg = raw.map(e => `${e.loc?.slice(-1)[0] || "field"}: ${e.msg}`).join("; ");
+      } else {
+        msg = JSON.stringify(raw);
+      }
       toast.error(msg);
     }
     return Promise.reject(error);

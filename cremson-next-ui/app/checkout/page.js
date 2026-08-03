@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp } from "../../context/AppContext";
-import { Mail, User, CreditCard, Shield, Truck, ChevronDown, Plus, MapPin } from "lucide-react";
+import { Mail, User, CreditCard, Shield, Truck, ChevronDown, Plus, MapPin, PackageCheck, Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
 import api from "../../lib/api/axios";
 import { getAddresses, addAddress } from "../../lib/api/addresses";
 import { getEffectiveUnitPrice, getItemTotalPrice } from "../../lib/utils/pricing";
@@ -47,6 +47,8 @@ export default function CheckoutPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [formError, setFormError] = useState("");
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
+  const [verifyingStep, setVerifyingStep] = useState("Verifying payment security...");
 
   // Saved Addresses State
   const [savedAddresses, setSavedAddresses] = useState([]);
@@ -210,8 +212,18 @@ export default function CheckoutPage() {
         theme: { color: "#ef4444" },
 
         handler: async function (response) {
-          // 4. Verify payment signature on FastAPI backend
+          setVerifyingPayment(true);
+          setVerifyingStep("Verifying payment signature with bank...");
+
           try {
+            setTimeout(() => {
+              setVerifyingStep("Processing order & reserving items...");
+            }, 800);
+
+            setTimeout(() => {
+              setVerifyingStep("Placing shipment & generating invoice...");
+            }, 1800);
+
             const orderDetails = {
               order_status: "Confirmed",
               order_date: new Date().toISOString(),
@@ -261,6 +273,8 @@ export default function CheckoutPage() {
               ...orderDetails,
             });
 
+            setVerifyingStep("Order placed successfully! Redirecting...");
+
             // Save address to profile if checkbox selected
             if (authToken && selectedAddressId === "new" && saveNewAddress) {
               try {
@@ -283,12 +297,15 @@ export default function CheckoutPage() {
               }
             }
 
+            await new Promise((res) => setTimeout(res, 500));
+
             showToast("Payment successful! Order placed.", "success");
             clearCart();
             router.push("/my-orders");
           } catch {
             showToast("Payment done but verification failed. Contact support.", "error");
           } finally {
+            setVerifyingPayment(false);
             setIsLoading(false);
           }
         },
@@ -873,6 +890,48 @@ export default function CheckoutPage() {
           </form>
         )}
       </div>
+
+      {/* Non-dismissable Payment & Order Verification Overlay Modal */}
+      {verifyingPayment && (
+        <div
+          className="fixed inset-0 bg-black/75 backdrop-blur-md z-[99999] flex items-center justify-center p-4 select-none"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <div
+            className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-gray-100 text-center space-y-6 animate-in fade-in zoom-in duration-200 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Animated Status Indicator */}
+            <div className="relative w-20 h-20 mx-auto flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-4 border-orange-200 animate-ping opacity-25" />
+              <div className="w-16 h-16 bg-gradient-to-tr from-orange-500 to-amber-500 text-white rounded-2xl flex items-center justify-center shadow-xl shadow-orange-500/20 transform rotate-3">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xl font-extrabold text-gray-900">
+                Verifying Payment & Placing Order
+              </h3>
+              <div className="flex items-center justify-center gap-2 text-sm font-semibold text-orange-600">
+                <PackageCheck className="w-4 h-4 animate-bounce" />
+                <span className="animate-pulse">{verifyingStep}</span>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-4 text-xs text-amber-800 flex items-start gap-3 text-left">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="font-medium leading-relaxed">
+                <strong className="block text-amber-900 mb-0.5">Do not close or refresh this page</strong>
+                We are securely confirming your transaction and communicating with shipping providers.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

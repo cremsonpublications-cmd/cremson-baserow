@@ -116,13 +116,63 @@ def map_product_out(row: dict) -> dict:
             row["class_"] = ""
     else:
         row["class_"] = ""
+
+    # 3. Extract combo_product_ids & is_combo from tags or descriptions
+    tags_str = str(row.get("tags") or "")
+    desc_str = str(row.get("short_description") or "") + " " + str(row.get("description") or "")
+    combined = tags_str + " " + desc_str
+
+    if "COMBO_IDS:" in combined:
+        try:
+            combo_raw = combined.split("COMBO_IDS:")[1].strip()
+            if combo_raw.startswith("["):
+                end_idx = combo_raw.find("]")
+                if end_idx != -1:
+                    row["combo_product_ids"] = combo_raw[:end_idx+1]
+                    row["is_combo"] = True
+        except Exception:
+            pass
+
+    if row.get("author") == "Cremson Bundle":
+        row["is_combo"] = True
             
     return row
 
 
 def map_product_in(data: dict, existing_mrp: float = 0.0) -> dict:
-    # Clean up price field so it doesn't get sent as an unknown field to Baserow
+    # Ensure primary Name field is set for Baserow
+    if "name" in data and data["name"]:
+        data["Name"] = data["name"]
+
+    # Clean up fields that are not columns in Baserow table
     data.pop("price", None)
+    data.pop("stock_status", None)
+    data.pop("delivery_info", None)
+    data.pop("returns_info", None)
+    data.pop("discount_type", None)
+    data.pop("own_discount_type", None)
+    data.pop("own_discount_val", None)
+    data.pop("side_images", None)
+    data.pop("is_combo", None)
+    data.pop("combo_product_ids", None)
+
+    # Ensure mrp is an int to avoid Baserow max_decimal_places error
+    if "mrp" in data and data["mrp"] is not None:
+        try:
+            data["mrp"] = int(round(float(data["mrp"])))
+        except (ValueError, TypeError):
+            pass
+
+    if "own_discount_percentage" in data and data["own_discount_percentage"] is not None:
+        try:
+            data["own_discount_percentage"] = int(round(float(data["own_discount_percentage"])))
+        except (ValueError, TypeError):
+            pass
+
+    # Convert empty strings to None for optional text fields to avoid constraint errors
+    for field in ["isbn", "edition", "short_description", "description", "status", "sub_categories", "tags"]:
+        if field in data and data[field] == "":
+            data[field] = None
 
     # Handle class_ mapping to classes
     if "class_" in data:
@@ -142,9 +192,10 @@ async def list_products(
     search: str = Query(None, description="Search string"),
     category_id: Optional[int] = Query(None, description="Filter by category ID"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    is_combo: Optional[bool] = Query(None, description="Filter by combo status"),
     order_by: Optional[str] = Query("-id", description="Order by field"),
 ):
-    """Return a paginated list of products. Optionally filter by category_id and/or is_active."""
+    """Return a paginated list of products. Optionally filter by category_id, is_active, and/or is_combo."""
     filters = {}
     if category_id is not None:
         filters["category_id"] = category_id
@@ -161,6 +212,20 @@ async def list_products(
     )
     if isinstance(res, dict) and "results" in res:
         all_results = sorted([map_product_out(r) for r in res["results"]], key=lambda x: x.get("id", 0), reverse=True)
+
+        if is_combo is not None:
+            def check_combo(item):
+                return bool(
+                    item.get("is_combo") or 
+                    item.get("author") == "Cremson Bundle" or 
+                    "Combo" in str(item.get("tags") or "") or 
+                    (item.get("combo_product_ids") and str(item.get("combo_product_ids")) != "[]")
+                )
+            if is_combo:
+                all_results = [r for r in all_results if check_combo(r)]
+            else:
+                all_results = [r for r in all_results if not check_combo(r)]
+
         start = (page - 1) * size
         end = start + size
         return {
@@ -168,7 +233,20 @@ async def list_products(
             "results": all_results[start:end],
         }
     elif isinstance(res, list):
-        return sorted([map_product_out(r) for r in res], key=lambda x: x.get("id", 0), reverse=True)
+        mapped = sorted([map_product_out(r) for r in res], key=lambda x: x.get("id", 0), reverse=True)
+        if is_combo is not None:
+            def check_combo(item):
+                return bool(
+                    item.get("is_combo") or 
+                    item.get("author") == "Cremson Bundle" or 
+                    "Combo" in str(item.get("tags") or "") or 
+                    (item.get("combo_product_ids") and str(item.get("combo_product_ids")) != "[]")
+                )
+            if is_combo:
+                mapped = [r for r in mapped if check_combo(r)]
+            else:
+                mapped = [r for r in mapped if not check_combo(r)]
+        return mapped
     return {"count": 0, "results": []}
 
 

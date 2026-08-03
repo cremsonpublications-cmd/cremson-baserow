@@ -241,6 +241,68 @@ async def delete_teacher(row_id: int):
     return {"message": "Teacher deleted successfully"}
 
 
+@router.patch("/teachers/{row_id}/approve", summary="Approve teacher registration")
+async def approve_teacher(row_id: int):
+    teacher = await client.get_row(TABLE_IDS["teacher"], row_id)
+    email = teacher.get("Email", "").lower().strip()
+    phone = teacher.get("Whatsapp Phone", "") or teacher.get("Phone", "")
+    teacher_name = teacher.get("Teacher Name", "") or "Teacher"
+    
+    updated_teacher = await client.update_row(TABLE_IDS["teacher"], row_id, {"Status": "Approved"})
+    
+    if email:
+        try:
+            from db.auth import get_user_by_email, _client, T_USERS
+            user = await get_user_by_email(email)
+            if user:
+                await _client.update_row(T_USERS, user["id"], {"is_approved": 1, "is_verified": 1})
+                if not phone and user.get("phone"):
+                    phone = user["phone"]
+        except Exception as e:
+            print("Warning: Failed to update auth_users for approved teacher:", e)
+
+    # Send WhatsApp Approval Message to Teacher
+    if phone:
+        try:
+            from services.whatsapp import send_teacher_approved_notification
+            await send_teacher_approved_notification(phone, teacher_name)
+        except Exception as e:
+            print("Warning: Failed to send WhatsApp approval notification:", e)
+
+    return {"message": "Teacher approved successfully", "teacher": updated_teacher}
+
+
+@router.patch("/teachers/{row_id}/reject", summary="Reject teacher registration")
+async def reject_teacher(row_id: int):
+    teacher = await client.get_row(TABLE_IDS["teacher"], row_id)
+    email = teacher.get("Email", "").lower().strip()
+    phone = teacher.get("Whatsapp Phone", "") or teacher.get("Phone", "")
+    teacher_name = teacher.get("Teacher Name", "") or "Teacher"
+    
+    updated_teacher = await client.update_row(TABLE_IDS["teacher"], row_id, {"Status": "Rejected"})
+    
+    if email:
+        try:
+            from db.auth import get_user_by_email, _client, T_USERS
+            user = await get_user_by_email(email)
+            if user:
+                await _client.update_row(T_USERS, user["id"], {"is_approved": -1, "is_active": 0})
+                if not phone and user.get("phone"):
+                    phone = user["phone"]
+        except Exception as e:
+            print("Warning: Failed to update auth_users for rejected teacher:", e)
+
+    # Send WhatsApp Rejection Message to Teacher
+    if phone:
+        try:
+            from services.whatsapp import send_teacher_rejected_notification
+            await send_teacher_rejected_notification(phone, teacher_name)
+        except Exception as e:
+            print("Warning: Failed to send WhatsApp rejection notification:", e)
+
+    return {"message": "Teacher registration rejected", "teacher": updated_teacher}
+
+
 # ------------------- BOOKS ROUTER -------------------
 @router.get("/books", summary="List CRM books catalog")
 async def list_crm_books(
@@ -281,40 +343,11 @@ async def list_subjects(
     search: Optional[str] = Query(None),
 ):
     filters = {k: v for k, v in request.query_params.items() if k not in ["page", "size", "search"] and v}
-    res = await get_sorted_rows(TABLE_IDS["subject"], page, size, search, filters)
-    await _resolve_subject_teacher_names(res.get("results", []))
-    return res
+    return await get_sorted_rows(TABLE_IDS["subject"], page, size, search, filters)
 
 @router.get("/subjects/{row_id}", summary="Get subject details")
 async def get_subject(row_id: int):
-    subject = await client.get_row(TABLE_IDS["subject"], row_id)
-    await _resolve_subject_teacher_names([subject])
-    return subject
-
-async def _resolve_subject_teacher_names(rows: list):
-    """Resolve raw teacher row IDs in the Teacher field to their names in-place."""
-    teacher_row_ids = set()
-    for row in rows:
-        for t in row.get("Teacher", []):
-            if isinstance(t, dict) and "id" in t:
-                teacher_row_ids.add(t["id"])
-
-    if not teacher_row_ids:
-        return
-
-    async def get_teacher_name(tid):
-        try:
-            t_row = await client.get_row(TABLE_IDS["teacher"], tid)
-            return tid, t_row.get("Teacher Name", "")
-        except Exception:
-            return tid, ""
-
-    teacher_names = dict(await asyncio.gather(*(get_teacher_name(tid) for tid in teacher_row_ids)))
-
-    for row in rows:
-        for t in row.get("Teacher", []):
-            if isinstance(t, dict) and "id" in t:
-                t["value"] = teacher_names.get(t["id"], t.get("value", ""))
+    return await client.get_row(TABLE_IDS["subject"], row_id)
 
 @router.post("/subjects", summary="Create subject")
 async def create_subject(body: dict):

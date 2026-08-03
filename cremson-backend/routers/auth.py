@@ -5,6 +5,8 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from functools import partial
 
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
@@ -14,6 +16,7 @@ from pydantic import BaseModel, EmailStr
 from db.auth import (
     create_user,
     get_user_by_email,
+    get_user_by_phone,
     get_user_by_id,
     mark_user_verified,
     save_otp,
@@ -41,6 +44,26 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     phone: str = ""
+
+
+class TeacherRegisterRequest(BaseModel):
+    name: str
+    email: EmailStr
+    phone: str
+    password: str
+    school_name: str = ""
+    school_id: Optional[int] = None
+    school_address: Optional[str] = ""
+    school_phone: Optional[str] = ""
+    school_email: Optional[str] = ""
+    affiliation_code: Optional[str] = ""
+    student_strength: Optional[str] = ""
+    region: Optional[str] = ""
+    id_card_url: str = ""
+    designation: str = "Teacher"
+    city: str = ""
+    pincode: Optional[int] = None
+    residence: str = ""
 
 
 class VerifyRequest(BaseModel):
@@ -75,7 +98,14 @@ def make_otp() -> str:
 def make_token(user: dict) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=TOKEN_EXPIRE)
     return jwt.encode(
-        {"sub": str(user["id"]), "email": user["email"], "name": user["name"], "exp": expire},
+        {
+            "sub": str(user["id"]),
+            "email": user["email"],
+            "name": user["name"],
+            "role": user.get("role", "customer"),
+            "is_approved": int(user.get("is_approved") or (0 if user.get("role") == "teacher" else 1)),
+            "exp": expire,
+        },
         JWT_SECRET,
         algorithm=JWT_ALGORITHM,
     )
@@ -133,6 +163,115 @@ async def register(body: RegisterRequest):
     return {"message": "Account created. Check your email for the 6-digit verification code."}
 
 
+@router.get("/check-phone")
+async def check_phone(phone: str):
+    user = await get_user_by_phone(phone)
+    if user:
+        if user.get("is_approved") == -1 or user.get("is_active") == 0:
+            return {"available": False, "reason": "This phone number has been blocked or rejected."}
+        return {"available": False, "reason": "This phone number is already registered."}
+    return {"available": True}
+
+
+@router.post("/teacher-register", status_code=201)
+async def teacher_register(body: TeacherRegisterRequest):
+    if len(body.password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
+
+    existing_email = await get_user_by_email(body.email)
+    if existing_email:
+        raise HTTPException(status_code=409, detail="An account with this email already exists.")
+
+    existing_phone = await get_user_by_phone(body.phone)
+    if existing_phone:
+        if existing_phone.get("is_approved") == -1 or existing_phone.get("is_active") == 0:
+            raise HTTPException(status_code=409, detail="This phone number has been blocked or rejected by administration.")
+        raise HTTPException(status_code=409, detail="An account with this phone number already exists.")
+
+    loop = asyncio.get_event_loop()
+    pw_hash = await loop.run_in_executor(None, partial(pwd_ctx.hash, body.password))
+    
+    b_client = BaserowClient()
+    final_school_id = body.school_id
+    final_school_name = body.school_name or ""
+
+    # Auto-create school in Baserow Schools CRM table (ID 876) if not exists
+    if not final_school_id and final_school_name:
+        try:
+            # Check if school already exists by name
+            schools_res = await b_client.get_rows(TABLE_IDS["school"], search=final_school_name)
+            match_school = None
+            for s in schools_res.get("results", []):
+                if s.get("SchoolName", "").strip().lower() == final_school_name.strip().lower():
+                    match_school = s
+                    break
+            if match_school:
+                final_school_id = match_school["id"]
+            else:
+                new_school_row = await b_client.create_row(TABLE_IDS["school"], {
+                    "SchoolName": final_school_name.strip(),
+                    "City": body.city or "",
+                    "SchoolAddress": body.school_address or "",
+                    "SchoolPhone": body.school_phone or "",
+                    "SchoolEmail": body.school_email or "",
+                    "AffiliationCode": body.affiliation_code or "",
+                    "StudentStrength": body.student_strength or "",
+                    "Region": body.region or "",
+                    "Pincode": body.pincode,
+                })
+                final_school_id = new_school_row.get("id")
+        except Exception as e:
+            print("Warning: Auto-creating school failed:", e)
+
+    # Teachers start with is_approved = 0 (Pending Admin Approval)
+    new_user = await create_user(
+        email=body.email,
+        name=body.name,
+        password_hash=pw_hash,
+        phone=body.phone,
+        role="teacher",
+        is_approved=0,
+        is_verified=1,
+    )
+
+    # Automatically create record in Baserow Teachers CRM table (ID 877)
+    try:
+        teacher_payload = {
+            "Teacher Name": body.name,
+            "Email": body.email.lower().strip(),
+            "Whatsapp Phone": body.phone.strip(),
+            "Status": "Pending Approval",
+            "IdCardUrl": body.id_card_url or "",
+            "City": body.city or "",
+            "Residence": body.residence or "",
+            "Notes": f"Website signup as {body.designation}. School: {final_school_name or 'Not specified'}",
+        }
+        if final_school_id:
+            teacher_payload["SchoolID"] = [final_school_id]
+        
+        if body.pincode:
+            try:
+                teacher_payload["Pin Code"] = int(body.pincode)
+            except Exception:
+                pass
+
+        await b_client.create_row(TABLE_IDS["teacher"], teacher_payload)
+    except Exception as e:
+        print("Warning: Failed to create Baserow teacher record:", e)
+
+    # Send WhatsApp Confirmation Message to Teacher
+    try:
+        from services.whatsapp import send_teacher_signup_confirmation
+        await send_teacher_signup_confirmation(body.phone, body.name)
+    except Exception as e:
+        print("Warning: Failed to send WhatsApp signup confirmation:", e)
+
+    return {
+        "message": "Teacher account created successfully. Your account is pending admin approval.",
+        "email": body.email,
+    }
+
+
 @router.post("/verify-email")
 async def verify_email(body: VerifyRequest):
     record = await get_valid_otp(body.email, body.otp)
@@ -148,7 +287,14 @@ async def verify_email(body: VerifyRequest):
         "message": "Email verified successfully",
         "access_token": token,
         "token_type": "bearer",
-        "user": {"id": user["id"], "email": user["email"], "name": user["name"], "phone": user.get("phone", "")},
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "name": user["name"],
+            "phone": user.get("phone", ""),
+            "role": user.get("role", "customer"),
+            "is_approved": int(user.get("is_approved") or (0 if user.get("role") == "teacher" else 1)),
+        },
     }
 
 
@@ -191,17 +337,62 @@ async def login(body: LoginRequest):
             detail="Email not verified. Please check your inbox for the OTP.",
         )
 
-    token = make_token(user)
+    role = user.get("role", "customer")
+    is_approved = int(user.get("is_approved") or 0)
+
+    # If teacher account, verify approval status
+    if role == "teacher":
+        b_client = BaserowClient()
+        teacher_rows = await b_client.get_rows(TABLE_IDS["teacher"], filters={"Email": body.email.lower().strip()})
+        t_results = teacher_rows.get("results", [])
+        if t_results:
+            t_status = t_results[0].get("Status", "")
+            if t_status == "Approved":
+                is_approved = 1
+            elif t_status in ["Pending Approval", "Inactive", "Rejected", "Called", "Follow up"]:
+                if t_status == "Pending Approval":
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Your teacher account is pending admin approval. You will be able to log in once an admin approves your account.",
+                    )
+                elif t_status == "Rejected":
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Your teacher registration request was rejected by admin.",
+                    )
+
+        if not is_approved:
+            raise HTTPException(
+                status_code=403,
+                detail="Your teacher account is pending admin approval. You will be able to log in once an admin approves your account.",
+            )
+
+    token = make_token({**user, "role": role, "is_approved": is_approved})
     return {
         "access_token": token,
         "token_type": "bearer",
-        "user": {"id": user["id"], "email": user["email"], "name": user["name"], "phone": user.get("phone", "")},
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "name": user["name"],
+            "phone": user.get("phone", ""),
+            "role": role,
+            "is_approved": is_approved,
+        },
     }
 
 
 @router.get("/me")
 async def me(user: dict = Depends(current_user)):
-    return {"id": user["id"], "email": user["email"], "name": user["name"], "phone": user.get("phone", ""), "created_at": user.get("created_at", "")}
+    return {
+        "id": user["id"],
+        "email": user["email"],
+        "name": user["name"],
+        "phone": user.get("phone", ""),
+        "role": user.get("role", "customer"),
+        "is_approved": int(user.get("is_approved") or (0 if user.get("role") == "teacher" else 1)),
+        "created_at": user.get("created_at", ""),
+    }
 
 
 @router.post("/forgot-password")

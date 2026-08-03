@@ -56,10 +56,24 @@ export default function SignupPage() {
 
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Create an account</h1>
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-gray-500 mb-4">
             Already have an account?{" "}
             <Link href="/auth/signin" className="text-red-600 font-semibold hover:underline">Sign in</Link>
           </p>
+
+          {/* Teacher Registration Link Banner */}
+          <div className="mb-6 bg-gradient-to-r from-red-50 to-orange-50 border border-red-100 rounded-xl p-3.5 flex items-center justify-between gap-2 text-left">
+            <div>
+              <span className="text-xs font-extrabold text-red-700 block uppercase tracking-wider">Are you a Teacher?</span>
+              <span className="text-[11px] text-gray-600">Register as educator for specimen copies</span>
+            </div>
+            <Link
+              href="/auth/teacher-signup"
+              className="flex-shrink-0 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition-all shadow-sm"
+            >
+              Teacher Sign Up →
+            </Link>
+          </div>
 
           {error && (
             <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">

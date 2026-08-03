@@ -74,12 +74,36 @@ export default function ProductDetailClient({ initialBook, bookId }) {
     }
   }, []);
 
-  // Pre-populate bought together selections once book is loaded
+  const boughtTogetherCandidates = React.useMemo(() => {
+    if (!book || book.isCombo) return [];
+
+    const otherNormalBooks = (allCatalogProducts || []).filter(
+      (p) => String(p.id) !== String(book.id) && !p.isCombo
+    );
+
+    if (otherNormalBooks.length === 0) return [book];
+
+    // Prefer books in the same class or category
+    const matching = otherNormalBooks.filter(
+      (p) => p.class === book.class || (p.mainCategory && p.mainCategory === book.mainCategory)
+    );
+
+    const candidatesPool = matching.length >= 2 ? matching : otherNormalBooks;
+
+    // Pick 2 items deterministically based on book id so it stays stable
+    const seed = Number(book.id) || 1;
+    const sorted = [...candidatesPool].sort((a, b) => ((Number(a.id) * seed) % 17) - ((Number(b.id) * seed) % 17));
+    const extraBooks = sorted.slice(0, 2);
+
+    return [book, ...extraBooks];
+  }, [book, allCatalogProducts]);
+
+  // Pre-populate bought together selections once candidates are computed
   useEffect(() => {
-    if (book) {
-      setSelectedBoughtIds([book.id]);
+    if (boughtTogetherCandidates.length > 0) {
+      setSelectedBoughtIds(boughtTogetherCandidates.map((b) => b.id));
     }
-  }, [book]);
+  }, [boughtTogetherCandidates]);
 
   if (loading) return (
     <main className="animate-pulse">
@@ -166,9 +190,6 @@ export default function ProductDetailClient({ initialBook, bookId }) {
       </div>
     );
   }
-
-  // Bought together: only the current book (no BOOKS_DATA available)
-  const boughtTogetherCandidates = [book];
 
   const selectedItems = boughtTogetherCandidates.filter((item) =>
     selectedBoughtIds.includes(item.id)
@@ -419,6 +440,33 @@ export default function ProductDetailClient({ initialBook, bookId }) {
                 const effectiveUnitPrice = activeBulkTier ? Number(activeBulkTier.price) : book.price;
                 const showBulkDiscountNotice = !!activeBulkTier;
 
+                // Calculate display original price (strikethrough) and discount badge
+                let displayOriginalPrice = null;
+                let discountTag = null;
+
+                if (!showBulkDiscountNotice) {
+                  if (book.isCombo && comboIncludedProducts.length > 0) {
+                    const comboSum = comboIncludedProducts.reduce((sum, item) => sum + (item.mrp || item.originalPrice || item.price || 0), 0);
+                    if (comboSum > effectiveUnitPrice) {
+                      displayOriginalPrice = comboSum;
+                      const savePct = Math.round(((comboSum - effectiveUnitPrice) / comboSum) * 100);
+                      discountTag = `-${savePct}% Combo Savings`;
+                    }
+                  }
+
+                  if (!displayOriginalPrice) {
+                    if (book.originalPrice && Number(book.originalPrice) > effectiveUnitPrice) {
+                      displayOriginalPrice = Number(book.originalPrice);
+                      const savePct = Math.round(((displayOriginalPrice - effectiveUnitPrice) / displayOriginalPrice) * 100);
+                      discountTag = book.discount || `-${savePct}%`;
+                    } else if (book.mrp && Number(book.mrp) > effectiveUnitPrice) {
+                      displayOriginalPrice = Number(book.mrp);
+                      const savePct = Math.round(((displayOriginalPrice - effectiveUnitPrice) / displayOriginalPrice) * 100);
+                      discountTag = `-${savePct}%`;
+                    }
+                  }
+                }
+
                 return (
                   <div>
                     {/* Pricing */}
@@ -432,10 +480,12 @@ export default function ProductDetailClient({ initialBook, bookId }) {
                           </span>
                         </>
                       ) : (
-                        book.originalPrice && (
+                        displayOriginalPrice && (
                           <>
-                            <span className="text-black/30 line-through text-2xl sm:text-[32px]">₹{book.originalPrice}</span>
-                            <span className="text-red-500 font-bold text-xs sm:text-sm px-3 py-1 bg-red-50 rounded-full">{book.discount}</span>
+                            <span className="text-black/30 line-through text-2xl sm:text-[32px]">₹{displayOriginalPrice}</span>
+                            {discountTag && (
+                              <span className="text-red-500 font-bold text-xs sm:text-sm px-3 py-1 bg-red-50 rounded-full">{discountTag}</span>
+                            )}
                           </>
                         )
                       )}
@@ -614,132 +664,134 @@ export default function ProductDetailClient({ initialBook, bookId }) {
         </section>
 
         {/* Bought Together Stateful Section */}
-        <section className="mb-11 text-left">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 lg:p-8 mb-8">
-            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-4 sm:mb-6 lg:mb-8">Bought Together</h2>
+        {!book.isCombo && boughtTogetherCandidates.length > 1 && (
+          <section className="mb-11 text-left">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 lg:p-8 mb-8">
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-4 sm:mb-6 lg:mb-8">Bought Together</h2>
 
-            {/* Visual Grid representing connection */}
-            <div className="flex items-center justify-start sm:justify-center gap-3 sm:gap-4 lg:gap-6 mb-4 sm:mb-6 lg:mb-8 p-3 sm:p-4 lg:p-6 bg-gray-50 rounded-xl overflow-x-auto">
-              {boughtTogetherCandidates.map((candidate, idx) => {
-                const isSelected = selectedBoughtIds.includes(candidate.id);
-                const isCurrent = candidate.id === book.id;
+              {/* Visual Grid representing connection */}
+              <div className="flex items-center justify-start sm:justify-center gap-3 sm:gap-4 lg:gap-6 mb-4 sm:mb-6 lg:mb-8 p-3 sm:p-4 lg:p-6 bg-gray-50 rounded-xl overflow-x-auto">
+                {boughtTogetherCandidates.map((candidate, idx) => {
+                  const isSelected = selectedBoughtIds.includes(candidate.id);
+                  const isCurrent = candidate.id === book.id;
 
-                return (
-                  <React.Fragment key={candidate.id}>
-                    {idx > 0 && (
-                      <div className="flex-shrink-0 bg-white rounded-full p-2 shadow-sm border border-gray-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400">
-                          <path d="M5 12h14"></path>
-                          <path d="M12 5v14"></path>
-                        </svg>
-                      </div>
-                    )}
-
-                    <div className="flex flex-col items-center flex-shrink-0">
-                      <div
-                        onClick={() => toggleBoughtSelection(candidate.id)}
-                        className={`relative group ${isCurrent ? "cursor-default" : "cursor-pointer"}`}
-                      >
-                        <div className={`w-24 h-32 sm:w-28 sm:h-36 lg:w-32 lg:h-40 bg-white rounded-lg shadow-md overflow-hidden border-2 transition-all duration-200 p-1 flex items-center justify-center ${
-                          isSelected
-                            ? isCurrent
-                              ? "border-green-500 ring-2 ring-green-100"
-                              : "border-blue-500 ring-2 sm:ring-4 ring-blue-100 transform scale-105"
-                            : "border-gray-200 opacity-60 hover:opacity-100 hover:border-blue-300 hover:shadow-lg"
-                        }`}>
-                          <img src={candidate.image} alt={candidate.title} className="max-w-full max-h-full object-contain" />
-                        </div>
-
-                        {/* Selector Badges */}
-                        {isSelected ? (
-                          <div className={`absolute -top-2 -right-2 rounded-full p-1 text-white ${isCurrent ? "bg-green-500" : "bg-blue-500"}`}>
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path>
-                            </svg>
-                          </div>
-                        ) : (
-                          <div className="absolute -top-2 -right-2 rounded-full p-1 bg-gray-300 text-gray-600 group-hover:bg-blue-400 group-hover:text-white">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                              <path d="M5 12h14"></path>
-                              <path d="M12 5v14"></path>
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-2 sm:mt-3 text-center max-w-[100px] sm:max-w-[120px] lg:max-w-[140px]">
-                        <p className="text-xs sm:text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">{candidate.title}</p>
-                        <p className={`text-sm sm:text-base font-bold mt-1 ${isCurrent ? "text-green-600" : "text-blue-600"}`}>₹{candidate.price}</p>
-                      </div>
-                    </div>
-                  </React.Fragment>
-                );
-              })}
-            </div>
-
-            {/* Selected items list */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Selected Items:</h3>
-              <div className="space-y-3">
-                {selectedItems.map((item) => {
-                  const isCurrent = item.id === book.id;
                   return (
-                    <div
-                      key={item.id}
-                      className={`flex items-center justify-between bg-white rounded-lg p-4 shadow-sm border-2 ${
-                        isCurrent ? "border-green-300 animate-pulse" : "border-gray-100"
-                      }`}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className={`w-2.5 h-2.5 rounded-full ${isCurrent ? "bg-green-500" : "bg-blue-500"}`}></div>
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-900 text-sm sm:text-base">{item.title}</p>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                            <span>by {item.author}</span>
-                            <span className="text-blue-600 font-semibold">Class {item.class}</span>
+                    <React.Fragment key={candidate.id}>
+                      {idx > 0 && (
+                        <div className="flex-shrink-0 bg-white rounded-full p-2 shadow-sm border border-gray-200">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400">
+                            <path d="M5 12h14"></path>
+                            <path d="M12 5v14"></path>
+                          </svg>
+                        </div>
+                      )}
+
+                      <div className="flex flex-col items-center flex-shrink-0">
+                        <div
+                          onClick={() => toggleBoughtSelection(candidate.id)}
+                          className={`relative group ${isCurrent ? "cursor-default" : "cursor-pointer"}`}
+                        >
+                          <div className={`w-24 h-32 sm:w-28 sm:h-36 lg:w-32 lg:h-40 bg-white rounded-lg shadow-md overflow-hidden border-2 transition-all duration-200 p-1 flex items-center justify-center ${
+                            isSelected
+                              ? isCurrent
+                                ? "border-green-500 ring-2 ring-green-100"
+                                : "border-blue-500 ring-2 sm:ring-4 ring-blue-100 transform scale-105"
+                              : "border-gray-200 opacity-60 hover:opacity-100 hover:border-blue-300 hover:shadow-lg"
+                          }`}>
+                            <img src={candidate.image} alt={candidate.title} className="max-w-full max-h-full object-contain" />
                           </div>
+
+                          {/* Selector Badges */}
+                          {isSelected ? (
+                            <div className={`absolute -top-2 -right-2 rounded-full p-1 text-white ${isCurrent ? "bg-green-500" : "bg-blue-500"}`}>
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path>
+                              </svg>
+                            </div>
+                          ) : (
+                            <div className="absolute -top-2 -right-2 rounded-full p-1 bg-gray-300 text-gray-600 group-hover:bg-blue-400 group-hover:text-white">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                                <path d="M5 12h14"></path>
+                                <path d="M12 5v14"></path>
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-2 sm:mt-3 text-center max-w-[100px] sm:max-w-[120px] lg:max-w-[140px]">
+                          <p className="text-xs sm:text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">{candidate.title}</p>
+                          <p className={`text-sm sm:text-base font-bold mt-1 ${isCurrent ? "text-green-600" : "text-blue-600"}`}>₹{candidate.price}</p>
                         </div>
                       </div>
-                      <div className="text-right flex flex-col items-end">
-                        <p className="text-lg font-bold text-gray-900">₹{item.price}</p>
-                        {!isCurrent && (
-                          <button
-                            onClick={() => toggleBoughtSelection(item.id)}
-                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-all duration-200 mt-1"
-                            title="Remove from selection"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5">
-                              <path d="M3 6h18"></path>
-                              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                              <line x1="10" x2="10" y1="11" y2="17"></line>
-                              <line x1="14" x2="14" y1="11" y2="17"></line>
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                    </React.Fragment>
                   );
                 })}
               </div>
-            </div>
 
-            {/* Total aggregation bar */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t-2 border-gray-100">
-              <div className="text-center sm:text-left">
-                <p className="text-2xl font-bold text-gray-900">
-                  Total Price: <span className="text-blue-600">₹{totalBoughtTogetherPrice}</span>
-                </p>
+              {/* Selected items list */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Selected Items:</h3>
+                <div className="space-y-3">
+                  {selectedItems.map((item) => {
+                    const isCurrent = item.id === book.id;
+                    return (
+                      <div
+                        key={item.id}
+                        className={`flex items-center justify-between bg-white rounded-lg p-4 shadow-sm border-2 ${
+                          isCurrent ? "border-green-300 animate-pulse" : "border-gray-100"
+                        }`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={`w-2.5 h-2.5 rounded-full ${isCurrent ? "bg-green-500" : "bg-blue-500"}`}></div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-gray-900 text-sm sm:text-base">{item.title}</p>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                              <span>by {item.author}</span>
+                              {item.class && <span className="text-blue-600 font-semibold">Class {item.class}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right flex flex-col items-end">
+                          <p className="text-lg font-bold text-gray-900">₹{item.price}</p>
+                          {!isCurrent && (
+                            <button
+                              onClick={() => toggleBoughtSelection(item.id)}
+                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-all duration-200 mt-1"
+                              title="Remove from selection"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5">
+                                <path d="M3 6h18"></path>
+                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                                <line x1="10" x2="10" y1="11" y2="17"></line>
+                                <line x1="14" x2="14" y1="11" y2="17"></line>
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <button
-                onClick={handleAddAllToCart}
-                className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-8 rounded-xl transition-all duration-200 transform hover:scale-[1.03] shadow-lg hover:shadow-xl"
-              >
-                ADD ALL TO CART
-              </button>
+
+              {/* Total aggregation bar */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t-2 border-gray-100">
+                <div className="text-center sm:text-left">
+                  <p className="text-2xl font-bold text-gray-900">
+                    Total Price: <span className="text-blue-600">₹{totalBoughtTogetherPrice}</span>
+                  </p>
+                </div>
+                <button
+                  onClick={handleAddAllToCart}
+                  className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-8 rounded-xl transition-all duration-200 transform hover:scale-[1.03] shadow-lg hover:shadow-xl"
+                >
+                  ADD ALL TO CART
+                </button>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Dynamic Reviews Section */}
         <section className="mb-11 text-left">
@@ -1002,7 +1054,7 @@ export default function ProductDetailClient({ initialBook, bookId }) {
 
       {/* Delivery & Return Information Modal */}
       {showDeliveryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto shadow-xl text-left">
             <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
               <h2 className="text-xl font-semibold text-gray-900">Delivery &amp; Return Information</h2>

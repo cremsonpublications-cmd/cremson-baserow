@@ -97,6 +97,7 @@ function toLabel(key) {
 export default function ProductDetail() {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
+  const [comboBooks, setComboBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -108,6 +109,35 @@ export default function ProductDetail() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setProduct(data);
+
+        // Fetch combo books if any
+        let ids = [];
+        if (data?.combo_product_ids) {
+          try {
+            const parsed = typeof data.combo_product_ids === "string" ? JSON.parse(data.combo_product_ids) : data.combo_product_ids;
+            if (Array.isArray(parsed)) ids = parsed.map(String);
+          } catch {}
+        }
+        if (ids.length === 0) {
+          const combined = [data?.tags, data?.short_description, data?.description].filter(Boolean).join(" ");
+          if (combined.includes("COMBO_IDS:")) {
+            try {
+              const raw = combined.split("COMBO_IDS:")[1].trim();
+              const match = raw.match(/^\[(.*?)\]/);
+              if (match) {
+                ids = match[1].split(",").map((s) => s.trim().replace(/['"]/g, "")).filter(Boolean);
+              }
+            } catch {}
+          }
+        }
+        if (ids.length > 0) {
+          const allRes = await fetch(`${API}/api/products/?size=200`);
+          if (allRes.ok) {
+            const allData = await allRes.json();
+            const items = allData?.results ?? allData?.items ?? [];
+            setComboBooks(items.filter((p) => ids.includes(String(p.id))));
+          }
+        }
       } catch (e) {
         setError(e.message);
       } finally {
@@ -210,6 +240,43 @@ export default function ProductDetail() {
           ))}
         </dl>
       </div>
+
+      {/* Combo Bundle Included Books */}
+      {comboBooks.length > 0 && (
+        <div className="bg-white rounded-xl shadow p-6 mb-6">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+            📦 Included Books in this Combo Bundle ({comboBooks.length})
+          </h2>
+          <div className="space-y-3">
+            {comboBooks.map((book) => (
+              <div
+                key={book.id}
+                className="flex items-center justify-between p-3.5 bg-gray-50 rounded-xl border border-gray-200"
+              >
+                <div className="flex items-center gap-3">
+                  {book.main_image ? (
+                    <img src={book.main_image} alt={book.name} className="w-12 h-14 object-cover rounded-lg border bg-white" />
+                  ) : (
+                    <div className="w-12 h-14 bg-gray-200 rounded-lg border flex items-center justify-center text-gray-400">
+                      📖
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">{book.name}</h3>
+                    {book.author && <p className="text-xs text-gray-500">by {book.author}</p>}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-bold text-gray-900">₹{book.price || book.mrp || 0}</div>
+                  {book.mrp && Number(book.mrp) > Number(book.price || 0) && (
+                    <div className="text-xs text-gray-400 line-through">₹{book.mrp}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Bulk Pricing */}
       {bulkPricing && (

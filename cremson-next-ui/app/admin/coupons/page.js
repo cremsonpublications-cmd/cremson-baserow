@@ -280,7 +280,7 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
   const { data: productsData } = useQuery({
     queryKey: ["admin-products-for-coupons"],
     queryFn: async () => {
-      const { data } = await api.get("/api/products/?size=300");
+      const { data } = await api.get("/api/products/?size=200");
       return data?.results ?? data?.items ?? data ?? [];
     },
   });

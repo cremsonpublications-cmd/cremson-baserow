@@ -1,16 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { MapPin, Phone, Smartphone, Mail, Clock } from "lucide-react";
 
 export default function ContactUs() {
   const [formData, setFormData] = useState({
     fullName: "",
+    phone: "",
     email: "",
-    subject: "",
-    message: ""
+    message: "",
   });
-  const [formStatus, setFormStatus] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -19,169 +19,124 @@ export default function ContactUs() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    setFormStatus("Message sent! Our support desk will reach out within 24 hours.");
-    setFormData({ fullName: "", email: "", subject: "", message: "" });
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setSubmitted(true);
+    }, 400);
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-8 py-12 w-full text-left">
-      <div className="text-center mb-12">
-        <span className="text-red-500 font-extrabold text-xs sm:text-sm uppercase tracking-widest block mb-2">
-          Get In Touch
-        </span>
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 uppercase tracking-tight">
-          Contact Our Helpdesk
-        </h1>
-        <p className="text-sm text-gray-500 max-w-md mx-auto leading-relaxed mt-2">
-          Have queries about orders, partnerships, or bulk pricing? Fill out the contact form or reach out directly.
-        </p>
+    <main className="min-h-screen bg-gray-50 text-left">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-8 md:py-16">
+        <div className="max-w-7xl mx-auto px-4 xl:px-0 text-center">
+          <h1 className="text-2xl md:text-5xl font-bold mb-2 md:mb-4">Contact Us</h1>
+          <p className="text-sm md:text-xl text-blue-100 max-w-2xl mx-auto">
+            We're here to help you with all your educational needs. Get in touch with us today!
+          </p>
+        </div>
       </div>
+      <div className="max-w-4xl mx-auto px-4 py-8 md:py-16 pb-12">
+        <div className="bg-white rounded-2xl shadow-lg p-4 md:p-12 border border-gray-200">
+          <div className="text-center mb-6 md:mb-8">
+            <h2 className="text-xl md:text-3xl font-bold text-gray-800 mb-2 md:mb-3">Send Us a Message</h2>
+            <p className="text-sm md:text-base text-gray-600">
+              Fill out the form below and we'll get back to you as soon as possible
+            </p>
+          </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-stretch">
-        {/* Contact Form */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-2xl p-6 sm:p-10 flex flex-col justify-between">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <h3 className="font-extrabold text-lg text-gray-900 uppercase tracking-wider mb-2">
-              Send Us A Message
-            </h3>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="fullName" className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+          {submitted ? (
+            <div className="p-8 bg-green-50 border border-green-200 rounded-xl text-center space-y-3">
+              <div className="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto font-bold text-xl">
+                ✓
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Message Sent Successfully!</h3>
+              <p className="text-sm text-gray-600 max-w-md mx-auto">
+                Thank you for reaching out to Cremson Publications. Our team will get back to you shortly.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSubmitted(false);
+                  setFormData({ fullName: "", phone: "", email: "", message: "" });
+                }}
+                className="mt-4 px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all cursor-pointer shadow-sm"
+              >
+                Send Another Message
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <div className="mb-3 md:mb-4">
+                <label className="block text-gray-700 text-xs md:text-sm font-semibold mb-1 md:mb-2">
                   Full Name
                 </label>
                 <input
-                  id="fullName"
                   type="text"
                   name="fullName"
                   required
+                  placeholder="Enter your full name"
+                  className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300"
                   value={formData.fullName}
                   onChange={handleChange}
-                  placeholder="Your Name"
-                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
                 />
               </div>
-
-              <div>
-                <label htmlFor="email" className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+              <div className="mb-3 md:mb-4">
+                <label className="block text-gray-700 text-xs md:text-sm font-semibold mb-1 md:mb-2">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  required
+                  placeholder="Enter your mobile number"
+                  className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300"
+                  value={formData.phone}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="mb-3 md:mb-4">
+                <label className="block text-gray-700 text-xs md:text-sm font-semibold mb-1 md:mb-2">
                   Email Address
                 </label>
                 <input
-                  id="email"
                   type="email"
                   name="email"
                   required
+                  placeholder="Enter your email address"
+                  className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300"
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="Your Email"
-                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
                 />
               </div>
-            </div>
-
-            <div>
-              <label htmlFor="subject" className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-                Subject
-              </label>
-              <input
-                id="subject"
-                type="text"
-                name="subject"
-                required
-                value={formData.subject}
-                onChange={handleChange}
-                placeholder="Query Subject"
-                className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="message" className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-                Message / Detail
-              </label>
-              <textarea
-                id="message"
-                name="message"
-                required
-                rows={5}
-                value={formData.message}
-                onChange={handleChange}
-                placeholder="Type your message here..."
-                className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all resize-none"
-              />
-            </div>
-
-            {formStatus && (
-              <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-4 py-3">
-                {formStatus}
+              <div className="mb-3 md:mb-4">
+                <label className="block text-gray-700 text-xs md:text-sm font-semibold mb-1 md:mb-2">
+                  Message
+                </label>
+                <textarea
+                  name="message"
+                  required
+                  placeholder="Type your message here..."
+                  rows={5}
+                  className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none border-gray-300"
+                  value={formData.message}
+                  onChange={handleChange}
+                ></textarea>
               </div>
-            )}
-            <button
-              type="submit"
-              className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm uppercase tracking-wider rounded-2xl shadow-lg hover:shadow-red-500/20 active:scale-98 transition-all"
-            >
-              Send Message
-            </button>
-          </form>
-        </div>
-
-        {/* Contact Info Cards & Map */}
-        <div className="space-y-6 flex flex-col justify-between">
-          <div className="bg-gray-50 border border-gray-100 rounded-3xl p-6 space-y-4">
-            <h3 className="font-extrabold text-lg text-gray-900 uppercase tracking-wider">
-              Quick Details
-            </h3>
-
-            <div className="space-y-3.5">
-              <div className="flex gap-3 text-sm">
-                <MapPin className="h-5 w-5 text-red-500 flex-shrink-0" />
-                <span className="text-gray-600">
-                  4578/15, Ansari Road, Opp. Happy School, Daryaganj, New Delhi, Delhi, 110002
-                </span>
-              </div>
-
-              <div className="flex gap-3 text-sm">
-                <Phone className="h-5 w-5 text-red-500 flex-shrink-0" />
-                <a href="tel:011-4578594" className="text-red-600 hover:underline font-bold">
-                  011-4578594
-                </a>
-              </div>
-
-              <div className="flex gap-3 text-sm">
-                <Smartphone className="h-5 w-5 text-red-500 flex-shrink-0" />
-                <a href="tel:+917982645175" className="text-red-600 hover:underline font-bold">
-                  +91 7982645175
-                </a>
-              </div>
-
-              <div className="flex gap-3 text-sm">
-                <Mail className="h-5 w-5 text-red-500 flex-shrink-0" />
-                <a href="mailto:info@cremsonpublications.com" className="text-red-600 hover:underline font-bold break-all">
-                  info@cremsonpublications.com
-                </a>
-              </div>
-
-              <div className="flex gap-3 text-sm">
-                <Clock className="h-5 w-5 text-red-500 flex-shrink-0" />
-                <span className="text-gray-600 font-medium">
-                  Mon - Sat, 09:00 AM - 06:00 PM
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-3xl shadow-xl overflow-hidden h-[250px] lg:flex-1 border border-gray-100/50 relative">
-            <iframe
-              title="Cremson Publications Location"
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3501.674920656613!2d77.243199!3d28.6489313!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390cfdb930b05529%3A0xc91931c5625f55a3!2sCremson%20Publications%204578%2F15%2C%20Ansari%20Rd%20opp.%20Happy%20School%2C%20Daryaganj%20New%20Delhi%2C%20Delhi%2C%20110002!5e0!3m2!1sen!2sin!4v1750450282497!5m2!1sen!2sin"
-              className="w-full h-full border-none absolute inset-0"
-              allowFullScreen=""
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-          </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-semibold py-4 px-6 rounded-lg hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer shadow-md"
+              >
+                <span>{loading ? "Sending..." : "Send Message"}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path>
+                </svg>
+              </button>
+            </form>
+          )}
         </div>
       </div>
-    </div>
+    </main>
   );
 }

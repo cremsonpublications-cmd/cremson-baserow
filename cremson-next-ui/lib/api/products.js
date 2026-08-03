@@ -23,6 +23,26 @@ export function mapProduct(p) {
     }
   }
 
+  const tagsStr = typeof p.tags === "string" ? p.tags : (Array.isArray(p.tags) ? p.tags.join(" ") : "");
+  const combined = [tagsStr, p.short_description, p.description].filter(Boolean).join(" ");
+  if ((!Array.isArray(comboProductIds) || comboProductIds.length === 0) && combined.includes("COMBO_IDS:")) {
+    try {
+      const raw = combined.split("COMBO_IDS:")[1].trim();
+      const match = raw.match(/^\[(.*?)\]/);
+      if (match) {
+        comboProductIds = match[1].split(",").map((s) => s.trim().replace(/['"]/g, "")).filter(Boolean);
+      }
+    } catch {}
+  }
+
+  const isCombo = Boolean(
+    p.is_combo ||
+    (Array.isArray(comboProductIds) && comboProductIds.length > 0) ||
+    p.author === "Cremson Bundle" ||
+    combined.includes("COMBO_IDS:") ||
+    tagsStr.toLowerCase().includes("combo")
+  );
+
   return {
     id: p.id,
     title: p.name || "",
@@ -51,7 +71,7 @@ export function mapProduct(p) {
     isActive: p.is_active,
     tags: parseArr(p.tags),
     bulkPricing: (() => { try { return JSON.parse(p.bulk_pricing || "[]"); } catch { return []; } })(),
-    isCombo: Boolean(p.is_combo || (Array.isArray(comboProductIds) && comboProductIds.length > 0)),
+    isCombo,
     comboProductIds: Array.isArray(comboProductIds) ? comboProductIds.map(String) : [],
   };
 }

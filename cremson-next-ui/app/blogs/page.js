@@ -66,36 +66,23 @@ export default function BlogsPage() {
 
       {/* Hero section */}
       <div className="mx-8 sm:mx-16 xl:mx-24 relative overflow-hidden">
-        <div className="text-center mt-20 mb-8">
-          <div className="inline-flex items-center justify-center gap-4 px-6 py-1.5 mb-4 border border-primary/40 bg-primary/10 rounded-full text-sm text-primary">
-            <p>New: Interactive Blog Hub</p>
-            <img
-              className="w-2.5"
-              alt=""
-              src="data:image/svg+xml,%3csvg%20width='13'%20height='13'%20viewBox='0%200%2013%2013'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%3e%3cpath%20d='M9.94893%201.40177L9.90308%203.8843C9.89653%204.22491%2010.1127%204.67687%2010.3878%204.87993L12.0122%206.11134C13.0537%206.89736%2012.8834%207.86024%2011.6389%208.25325L9.52316%208.91482C9.16945%209.02618%208.79609%209.41264%208.70439%209.7729L8.20002%2011.6987C7.80046%2013.2183%206.80483%2013.369%205.97951%2012.0327L4.82665%2010.1659C4.61704%209.8253%204.11923%209.56984%203.72622%209.58949L1.53845%209.70085C-0.0270471%209.77945%20-0.472461%208.87552%200.54937%207.68339L1.84631%206.17684C2.08867%205.89518%202.20002%205.37117%202.08867%205.01748L1.42055%202.89522C1.03409%201.65068%201.72841%200.962908%202.96639%201.36902L4.8987%202.00439C5.22623%202.10919%205.7175%202.03714%205.99261%201.83408L8.01007%200.37994C9.10395%20-0.399533%209.97513%200.0589805%209.94893%201.40177Z'%20fill='%235044E5'/%3e%3cpath%20d='M12.6652%2012.0979L10.6805%2010.1132C10.4906%209.92321%2010.1762%209.92321%209.98622%2010.1132C9.79626%2010.3031%209.79626%2010.6175%209.98622%2010.8075L11.9709%2012.7922C12.0692%2012.8905%2012.1936%2012.9363%2012.3181%2012.9363C12.4425%2012.9363%2012.567%2012.8905%2012.6652%2012.7922C12.8552%2012.6022%2012.8552%2012.2878%2012.6652%2012.0979Z'%20fill='%235044E5'/%3e%3c/svg%3e"
-            />
-          </div>
-          <h1 className="text-3xl sm:text-6xl font-semibold sm:leading-[1.1] text-gray-700">
-            Your own <span className="text-primary font-bold">blogging</span> <br /> platform.
+        <div className="text-center mt-12 mb-6">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">
+            Cremson Blogs
           </h1>
-          <p className="my-6 sm:my-8 max-w-2xl m-auto max-sm:text-xs text-gray-500">
-            This is your space to think out loud, to share what matters, and to write without filters.
-            Whether it's one word or a thousand, your story starts right here.
-          </p>
-          <form onSubmit={handleSearchSubmit} className="flex justify-between max-w-lg max-sm:scale-75 mx-auto border border-gray-300 bg-white rounded overflow-hidden shadow-sm focus-within:border-primary transition-all">
+          <form onSubmit={handleSearchSubmit} className="flex justify-between max-w-lg max-sm:scale-75 mx-auto border border-gray-300 bg-white rounded-xl overflow-hidden shadow-sm focus-within:border-primary transition-all">
             <input
-              placeholder="Search for blogs"
+              placeholder="Search for blogs..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-4 outline-none text-gray-700"
               type="text"
             />
-            <button type="submit" className="bg-primary text-white px-8 py-2 m-1.5 rounded hover:scale-105 active:scale-95 transition-all cursor-pointer">
+            <button type="submit" className="bg-primary text-white px-8 py-2.5 m-1 rounded-lg hover:scale-105 active:scale-95 transition-all cursor-pointer font-medium text-sm">
               Search
             </button>
           </form>
         </div>
-
         {/* Dynamic Gradient Background replacing the missing static asset */}
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 -z-1 opacity-40 w-full max-w-4xl h-[600px] bg-[radial-gradient(circle_at_top,rgba(80,68,229,0.15),transparent_70%)] pointer-events-none" />
       </div>
@@ -184,29 +171,7 @@ export default function BlogsPage() {
         </div>
       </div>
 
-      {/* Subscribe section */}
-      <div className="flex flex-col items-center justify-center text-center space-y-2 my-32 px-4">
-        <h1 className="md:text-4xl text-2xl font-bold text-gray-900">Never Miss a Blog!</h1>
-        <p className="md:text-lg text-gray-500/70 pb-8 max-w-lg">
-          Subscribe to get the latest blog, new tech, and exclusive news directly in your inbox.
-        </p>
-        <form onSubmit={handleSubscribeSubmit} className="flex items-center justify-between max-w-2xl w-full md:h-13 h-12 shadow-sm border border-gray-300 rounded-md overflow-hidden bg-white focus-within:border-primary transition-all">
-          <input
-            className="h-full outline-none w-full px-4 text-gray-700 bg-transparent"
-            placeholder="Enter your email id"
-            required
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <button
-            type="submit"
-            className="md:px-12 px-6 h-full text-white bg-primary hover:bg-opacity-95 transition-all cursor-pointer font-medium whitespace-nowrap"
-          >
-            {subscribed ? "Subscribed!" : "Subscribe"}
-          </button>
-        </form>
-      </div>
+
 
       {/* Local Footer (from snippet, adapted for Cremson Publications branding) */}
       <div className="px-6 md:px-16 lg:px-24 xl:px-32 bg-primary/[0.02] border-t border-gray-100">
@@ -226,7 +191,6 @@ export default function BlogsPage() {
                 <li><a href="/" className="hover:text-primary transition">Home</a></li>
                 <li><a href="/shop" className="hover:text-primary transition">Shop</a></li>
                 <li><a href="/specimen" className="hover:text-primary transition">Specimen</a></li>
-                <li><a href="/about-us" className="hover:text-primary transition">About Us</a></li>
                 <li><a href="/contact-us" className="hover:text-primary transition">Contact Us</a></li>
               </ul>
             </div>

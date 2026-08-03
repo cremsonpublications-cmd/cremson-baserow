@@ -42,7 +42,7 @@ import {
 const TABS = [
   { id: "schools", label: "Schools", singularLabel: "School", icon: Building2, endpoint: "/api/crm/schools", baserowUrl: "http://200.141.5.200/database/279/table/876/3619" },
   { id: "teachers", label: "Teachers", singularLabel: "Teacher", icon: GraduationCap, endpoint: "/api/crm/teachers", baserowUrl: "http://200.141.5.200/database/279/table/877/3620" },
-  { id: "specimen", label: "Specimen Requests", singularLabel: "Specimen Request", icon: FileText, endpoint: "/api/specimen-requests/", baserowUrl: "http://200.141.5.200/database/279/table/878/3624" },
+  { id: "specimen", label: "Specimen Requests", singularLabel: "Specimen Request", icon: FileText, endpoint: "/api/specimen-requests", baserowUrl: "http://200.141.5.200/database/279/table/878/3624" },
   { id: "books", label: "CRM Books Catalog", singularLabel: "CRM Book", icon: BookOpen, endpoint: "/api/crm/books", baserowUrl: "http://200.141.5.200/database/279/table/879/3628" },
   { id: "subjects", label: "Subjects", singularLabel: "Subject", icon: BookMarked, endpoint: "/api/crm/subjects", baserowUrl: "http://200.141.5.200/database/279/table/880/3629" },
 ];
@@ -69,7 +69,8 @@ const FIELDS_CONFIG = {
     { key: "City", label: "City", type: "text" },
     { key: "LastCallDate", label: "Last Call Date", type: "date" },
     { key: "NextFollow-upDate", label: "Next Follow-up Date", type: "date" },
-    { key: "Status", label: "Status", type: "select", options: ["Called", "Follow up", "Interested", "Ordered", "Inactive"] },
+    { key: "Status", label: "Status", type: "select", options: ["Approved", "Pending Approval", "Rejected", "Called", "Follow up", "Interested", "Ordered", "Inactive"] },
+    { key: "IdCardUrl", label: "Teacher ID Card Photo", type: "text" },
     { key: "Interest Level", label: "Interest Level", type: "select", options: ["Hot", "Warm", "Cold"] },
     { key: "DecisionPower", label: "Decision Power", type: "select", options: ["Decision Maker", "Influencer", "Assistant"], filterable: false },
     { key: "Ordered", label: "Ordered", type: "boolean" },
@@ -115,7 +116,7 @@ const FIELDS_CONFIG = {
 
 const TABLE_COLUMNS = {
   schools: ["SchoolName", "SchoolCity", "SchoolPhone", "SchoolEmail", "AffiliationCode"],
-  teachers: ["Teacher Name", "School Name", "Lookup", "Whatsapp Phone", "Status", "Interest Level", "Ordered"],
+  teachers: ["Teacher Name", "School Name", "Whatsapp Phone", "Status", "IdCardUrl", "Interest Level"],
   specimen: ["Teacheer Name", "School Name", "DeliveryStatus", "Converted", "DispatchDate"],
   books: ["BookName", "Class", "Series", "Active"],
   subjects: ["Name", "Active"]
@@ -664,7 +665,51 @@ export default function AdminCRMHub() {
   }
 
   function renderCellValue(val, colKey) {
-    if (val === null || val === undefined) return <span className="text-gray-300">—</span>;
+    if (val === null || val === undefined || val === "") return <span className="text-gray-300">—</span>;
+
+    if (colKey === "Status") {
+      const strVal = String(val);
+      if (strVal === "Approved") {
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+            ✓ Approved
+          </span>
+        );
+      }
+      if (strVal === "Pending Approval") {
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse">
+            ⏳ Pending Approval
+          </span>
+        );
+      }
+      if (strVal === "Rejected") {
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
+            ✕ Rejected
+          </span>
+        );
+      }
+    }
+
+    if (colKey === "IdCardUrl") {
+      const strVal = String(val);
+      if (strVal.startsWith("http")) {
+        return (
+          <a
+            href={strVal}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img src={strVal} alt="ID Card" className="w-7 h-7 object-cover rounded border border-gray-200" />
+            View Photo
+          </a>
+        );
+      }
+    }
+
     if (typeof val === "boolean") {
       if (colKey === "Guest") {
         return (
@@ -887,7 +932,40 @@ export default function AdminCRMHub() {
                             </td>
                           ))}
                           <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex justify-end space-x-2">
+                            <div className="flex justify-end items-center space-x-2">
+                              {activeTab === "teachers" && (
+                                <>
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        await api.patch(`/api/crm/teachers/${row.id}/approve`);
+                                        refetch();
+                                      } catch (err) {
+                                        alert(err?.response?.data?.detail || "Failed to approve teacher");
+                                      }
+                                    }}
+                                    className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                                    title="Approve Teacher"
+                                  >
+                                    ✓ Approve
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      if (!confirm("Are you sure you want to reject this teacher registration?")) return;
+                                      try {
+                                        await api.patch(`/api/crm/teachers/${row.id}/reject`);
+                                        refetch();
+                                      } catch (err) {
+                                        alert(err?.response?.data?.detail || "Failed to reject teacher");
+                                      }
+                                    }}
+                                    className="px-2 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                                    title="Reject Teacher"
+                                  >
+                                    ✕ Reject
+                                  </button>
+                                </>
+                              )}
                               <button
                                 onClick={() => setSelectedRecord(row)}
                                 className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
@@ -968,14 +1046,76 @@ export default function AdminCRMHub() {
             </div>
             <div className="p-6 overflow-y-auto space-y-4">
               <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {Object.entries(selectedRecord).map(([k, v]) => (
-                  <div key={k} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <dt className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{k.replace(/_/g, " ")}</dt>
-                    <dd className="text-sm font-semibold text-gray-900 break-words">
-                      {renderCellValue(v)}
-                    </dd>
-                  </div>
-                ))}
+                {Object.entries(selectedRecord).map(([k, v]) => {
+                  // Helper: is this value a linked-record object { id, value }?
+                  const isLinkObj = (x) => x && typeof x === "object" && !Array.isArray(x) && "id" in x && "value" in x;
+                  const isLinkedArray = Array.isArray(v) && v.length > 0 && v.every(isLinkObj);
+                  const isLinkedSingle = !Array.isArray(v) && isLinkObj(v);
+                  const isLinkField = isLinkedArray || isLinkedSingle;
+
+                  // Determine target tab: explicit config first, then field-name heuristics
+                  const fieldConfig = FIELDS_CONFIG[activeTab]?.find(f => f.key === k);
+                  let targetTab = fieldConfig?.type === "link" ? fieldConfig.targetTab : null;
+                  if (!targetTab && isLinkField) {
+                    const kl = k.toLowerCase();
+                    if (kl.includes("teacher")) targetTab = "teachers";
+                    else if (kl.includes("school")) targetTab = "schools";
+                    else if (kl.includes("book") || kl.includes("category")) targetTab = "books";
+                    else if (kl.includes("subject")) targetTab = "subjects";
+                    else if (kl.includes("specimen")) targetTab = "specimen";
+                  }
+
+                  const openLinkedRecord = (item) => {
+                    if (!targetTab) return;
+                    handleTabChange(targetTab);
+                    setSelectedRecord(null);
+                    const ep = (TABS.find(t => t.id === targetTab)?.endpoint || "").replace(/\/$/, "");
+                    api.get(`${ep}/${item.id}`)
+                      .then(res => {
+                        if (res.data) setSelectedRecord(res.data);
+                        else toast.error("Linked record not found.");
+                      })
+                      .catch(() => toast.error("Could not load linked record."));
+                  };
+
+                  const renderValue = () => {
+                    if (v === null || v === undefined) return <span className="text-gray-300">—</span>;
+                    if (isLinkField) {
+                      const items = Array.isArray(v) ? v : [v];
+                      if (items.length === 0) return <span className="text-gray-300">—</span>;
+                      return (
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {items.map((item, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => openLinkedRecord(item)}
+                              disabled={!targetTab}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                                targetTab
+                                  ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-400 cursor-pointer"
+                                  : "bg-gray-100 text-gray-500 border-gray-200 cursor-default"
+                              }`}
+                            >
+                              {item.value || `#${item.id}`}
+                              {targetTab && <ExternalLink className="w-3 h-3" />}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    }
+                    return renderCellValue(v, k);
+                  };
+
+                  return (
+                    <div key={k} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <dt className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{k.replace(/_/g, " ")}</dt>
+                      <dd className="text-sm font-semibold text-gray-900 break-words">
+                        {renderValue()}
+                      </dd>
+                    </div>
+                  );
+                })}
               </dl>
             </div>
           </div>

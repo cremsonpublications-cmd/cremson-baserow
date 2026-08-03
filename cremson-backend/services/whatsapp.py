@@ -88,6 +88,71 @@ def _txt(value: str) -> dict:
     return {"type": "text", "text": val}
 
 
+async def _send_text_message(phone: str, text: str, log_tag: str = "") -> None:
+    if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
+        logger.warning(f"[WhatsApp] Credentials not set — skipping {log_tag}")
+        return
+
+    formatted = _format_phone(phone)
+    if not formatted:
+        logger.warning(f"[WhatsApp] Invalid phone — skipping {log_tag}")
+        return
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": formatted,
+        "type": "text",
+        "text": {"preview_url": True, "body": text},
+    }
+
+    logger.info(f"[WhatsApp] → {log_tag} text to={formatted}")
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(_GRAPH_URL, headers=_HEADERS, json=payload)
+            if resp.status_code == 200:
+                logger.info(f"[WhatsApp] ✓ {log_tag} sent to {formatted}")
+            else:
+                logger.error(f"[WhatsApp] ✗ {log_tag} HTTP {resp.status_code}: {resp.text}")
+    except Exception as exc:
+        logger.error(f"[WhatsApp] Error sending {log_tag}: {exc}")
+
+
+async def send_teacher_signup_confirmation(phone: str, teacher_name: str):
+    """Notification sent to teacher upon successful registration."""
+    text_msg = (
+        f"Hello {teacher_name},\n\n"
+        "Thank you for registering as a teacher on Cremson Publications!\n\n"
+        "We have successfully received your profile and ID card. Our team will verify your account within 24 hours.\n\n"
+        "Best regards,\nCremson Publications Team"
+    )
+    await _send_text_message(phone, text_msg, log_tag=f"teacher_signup_confirm name={teacher_name}")
+
+
+async def send_teacher_approved_notification(phone: str, teacher_name: str, signin_url: str = "http://localhost:3000/auth/signin"):
+    """Notification sent to teacher upon admin approval."""
+    text_msg = (
+        f"Congratulations {teacher_name}! 🎉\n\n"
+        "Your Teacher Account on Cremson Publications has been APPROVED by our administration.\n\n"
+        "You can now sign in to request free specimen books and access teacher resources:\n"
+        f"{signin_url}\n\n"
+        "Thank you for choosing Cremson Publications!"
+    )
+    await _send_text_message(phone, text_msg, log_tag=f"teacher_approved name={teacher_name}")
+
+
+async def send_teacher_rejected_notification(phone: str, teacher_name: str):
+    """Notification sent to teacher upon admin rejection."""
+    text_msg = (
+        f"Hello {teacher_name},\n\n"
+        "Thank you for your interest in Cremson Publications.\n\n"
+        "Your teacher account registration request has been reviewed and was not approved at this time. "
+        "If you believe this was an error or have questions, please contact support.\n\n"
+        "Best regards,\nCremson Publications Team"
+    )
+    await _send_text_message(phone, text_msg, log_tag=f"teacher_rejected name={teacher_name}")
+
+
 # ── Existing notifications (unchanged behaviour) ───────────────────────────────
 
 

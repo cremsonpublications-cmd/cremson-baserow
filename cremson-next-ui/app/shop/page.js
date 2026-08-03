@@ -103,7 +103,15 @@ function Shop() {
 
   const { data: booksData = [], isLoading: dataLoading } = useProducts();
   const { data: categoriesData } = useCategories({ size: 100 });
-  const categories = useMemo(() => (categoriesData?.results || []).filter((c) => c.is_active !== false), [categoriesData]);
+  const categories = useMemo(() => {
+    const fetched = (categoriesData?.results || []).filter((c) => c.is_active !== false);
+    const hasComboCategory = fetched.some((c) => ["combos", "combo", "bundle", "bundles"].includes((c.name || "").toLowerCase()));
+    const hasCombosInBooks = booksData.some((b) => b.isCombo);
+    if (!hasComboCategory && hasCombosInBooks) {
+      return [{ id: "combos-virtual", name: "Combos" }, ...fetched];
+    }
+    return fetched;
+  }, [categoriesData, booksData]);
 
   // Filters State
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -138,7 +146,13 @@ function Shop() {
   // Derive unique filter options dynamically from product data
   const uniqueAuthors = useMemo(() => [...new Set(booksData.map((b) => b.author).filter(Boolean))].sort(), [booksData]);
   const uniqueClasses = useMemo(() => [...new Set(booksData.flatMap((b) => b.classes).filter(Boolean))].sort(), [booksData]);
-  const uniqueSubCategories = useMemo(() => [...new Set(booksData.flatMap((b) => b.subCategories).filter(Boolean))].sort(), [booksData]);
+  const uniqueSubCategories = useMemo(() => {
+    const fromBooks = booksData.flatMap((b) => b.subCategories || []).filter(Boolean);
+    const fromCats = (categoriesData?.results || [])
+      .flatMap((c) => (c.sub_categories ? c.sub_categories.split(",").map((s) => s.trim()) : []))
+      .filter(Boolean);
+    return [...new Set([...fromBooks, ...fromCats])].sort();
+  }, [booksData, categoriesData]);
   const uniqueEditions = useMemo(() => [...new Set(booksData.map((b) => b.edition).filter(Boolean))].sort(), [booksData]);
   const uniqueStatuses = useMemo(() => {
     const map = { in_stock: "In Stock", out_of_stock: "Out of Stock", on_backorders: "On Backorders" };
@@ -233,10 +247,16 @@ function Shop() {
         book.author.toLowerCase().includes(q) ||
         book.class.toLowerCase().includes(q);
 
-      // 2. Categories (match against Baserow category name via mainCategory field)
+      // 2. Categories (match against Baserow category name via mainCategory field OR combo status)
       const matchesCategory =
         selectedCategories.length === 0 ||
-        selectedCategories.some((cat) => book.mainCategory?.toLowerCase() === cat.toLowerCase());
+        selectedCategories.some((cat) => {
+          const lowerCat = cat.toLowerCase();
+          if (["combos", "combo", "bundle", "bundles", "combo pack", "combo packs"].includes(lowerCat)) {
+            return book.isCombo;
+          }
+          return book.mainCategory?.toLowerCase() === lowerCat;
+        });
 
       // 3. Sub Categories (match against subCategories array)
       const matchesSubCategory =
@@ -800,6 +820,43 @@ function Shop() {
               </div>
             </div>
 
+            {/* Subcategories Horizontal Pill Filter Bar */}
+            {uniqueSubCategories.length > 0 && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1 no-scrollbar">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider shrink-0 mr-1">
+                  Subcategories:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedSubCategories([]); setCurrentPage(1); }}
+                  className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all shrink-0 cursor-pointer ${
+                    selectedSubCategories.length === 0
+                      ? "bg-black text-white shadow-sm font-semibold"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  All Subcategories
+                </button>
+                {uniqueSubCategories.map((sub) => {
+                  const isSelected = selectedSubCategories.includes(sub);
+                  return (
+                    <button
+                      key={sub}
+                      type="button"
+                      onClick={() => handleToggleFilter(selectedSubCategories, setSelectedSubCategories, sub)}
+                      className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all shrink-0 cursor-pointer ${
+                        isSelected
+                          ? "bg-black text-white shadow-sm font-semibold"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      {sub}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Grid of Books */}
             {dataLoading ? (
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -857,15 +914,20 @@ function Shop() {
                             <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m3 15 5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>
                           </div>
                         )}
-                        {/* Discount & Combo Badges */}
-                        <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
+                        {/* Discount, Subcategory & Combo Badges */}
+                        <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10 items-start">
                           {book.isCombo && (
                             <span className="bg-purple-600 text-white text-xs font-bold px-2.5 py-1 rounded shadow-md flex items-center gap-1">
                               📦 Combo Pack
                             </span>
                           )}
+                          {book.subCategories && book.subCategories.length > 0 && (
+                            <span className="bg-black/70 backdrop-blur-md text-white text-[11px] font-semibold px-2 py-0.5 rounded shadow">
+                              {book.subCategories[0]}
+                            </span>
+                          )}
                           {book.discount && (
-                            <span className="bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded shadow-md">
+                            <span className="bg-green-500 text-white text-xs font-bold px-2.5 py-1 rounded shadow-md">
                               {book.discount}
                             </span>
                           )}
