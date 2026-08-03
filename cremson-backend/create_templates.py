@@ -188,6 +188,61 @@ templates = [
                 }
             }
         ]
+    },
+    {
+        "name": "track_package_list_v1",
+        "category": "UTILITY",
+        "language": "en",
+        "components": [
+            {
+                "type": "BODY",
+                "text": (
+                    "📚 We found the following packages for your number:\n\n"
+                    "{{1}}\n\n"
+                    "Reply with the number (e.g. 1 or 2) to view tracking details."
+                ),
+                "example": {
+                    "body_text": [
+                        [
+                            "1️⃣ #SPEC380 (Specimen)\nBook: Lab Manual Physical Activity Trainer XII\nStatus: Dispatched\n\n2️⃣ #SPEC386 (Specimen)\nBook: Yoga Text Book 12th\nStatus: Dispatched"
+                        ]
+                    ]
+                }
+            }
+        ]
+    },
+    {
+        "name": "package_tracking_detail_v1",
+        "category": "UTILITY",
+        "language": "en",
+        "components": [
+            {
+                "type": "BODY",
+                "text": (
+                    "📦 Package Tracking Details\n\n"
+                    "Type: {{1}}\n"
+                    "ID: #{{2}}\n"
+                    "Book: {{3}}\n"
+                    "Status: {{4}}\n"
+                    "AWB / Tracking No: {{5}}\n\n"
+                    "🔗 Live Tracking Link:\n"
+                    "{{6}}\n\n"
+                    "Team Cremson Publications"
+                ),
+                "example": {
+                    "body_text": [
+                        [
+                            "Specimen Copy (Free)",
+                            "SPEC386",
+                            "Yoga Text Book 12th",
+                            "Dispatched",
+                            "30234042583040",
+                            "https://app-v1.shipway.com/tracking/forward/30234042583040/"
+                        ]
+                    ]
+                }
+            }
+        ]
     }
 ]
 
