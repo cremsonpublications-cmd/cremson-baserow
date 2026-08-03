@@ -41,8 +41,6 @@ export default function MobileMenuDrawer() {
       .catch(console.error);
   }, [isMobileMenuOpen]);
 
-  if (!isMobileMenuOpen) return null;
-
   const handleLinkClick = (href) => {
     setIsMobileMenuOpen(false);
     if (href) router.push(href);
@@ -59,24 +57,33 @@ export default function MobileMenuDrawer() {
   const rootTeaching = teachingResources.filter((item) => !item.parent_id);
 
   return (
-    <div className="fixed inset-0 z-[99999] overflow-hidden md:hidden">
+    <div
+      className={`fixed inset-0 z-[99999] md:hidden transition-all duration-300 ${
+        isMobileMenuOpen ? "visible pointer-events-auto" : "invisible pointer-events-none"
+      }`}
+    >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+        className={`fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${
+          isMobileMenuOpen ? "opacity-100" : "opacity-0"
+        }`}
         onClick={() => setIsMobileMenuOpen(false)}
       />
 
-      {/* Left-to-Right Drawer Panel */}
-      <div className="fixed top-0 bottom-0 left-0 h-screen h-[100dvh] w-[85vw] sm:w-[360px] max-w-[380px] bg-white shadow-2xl flex flex-col z-[100000] animate-in slide-in-from-left duration-300">
-        
+      {/* Left-to-Right / Right-to-Left Sliding Drawer Panel */}
+      <div
+        className={`fixed inset-y-0 left-0 w-[85vw] sm:w-[360px] max-w-[380px] bg-white shadow-2xl flex flex-col z-[100000] transform transition-transform duration-300 ease-in-out ${
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
         {/* Top Header */}
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/80 flex-shrink-0">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-white flex-shrink-0">
           <Link href="/" onClick={() => setIsMobileMenuOpen(false)}>
             <CPLogo className="max-w-[85px]" />
           </Link>
           <button
             onClick={() => setIsMobileMenuOpen(false)}
-            className="p-2 rounded-full text-gray-500 hover:text-red-600 hover:bg-gray-200/60 transition-colors"
+            className="p-2 rounded-full text-gray-500 hover:text-red-600 hover:bg-gray-100 transition-colors"
             aria-label="Close menu"
           >
             <X className="w-5 h-5" />
@@ -97,8 +104,8 @@ export default function MobileMenuDrawer() {
           </form>
         </div>
 
-        {/* Navigation Content */}
-        <div className="flex-1 overflow-y-auto min-h-0 px-4 py-3 space-y-1 text-left divide-y divide-gray-100/60">
+        {/* Navigation Content (Scrollable Middle Section) */}
+        <div className="flex-1 overflow-y-auto min-h-0 px-4 py-3 space-y-1 text-left divide-y divide-gray-100/60 bg-white">
           
           {/* Main Links */}
           <div className="space-y-1 pb-3">
@@ -280,8 +287,8 @@ export default function MobileMenuDrawer() {
           </div>
         </div>
 
-        {/* User Account / Footer */}
-        <div className="p-4 pb-8 border-t border-gray-100 bg-white text-left flex-shrink-0">
+        {/* User Account / Footer (Pinned to absolute bottom) */}
+        <div className="p-4 pb-6 border-t border-gray-100 bg-white text-left flex-shrink-0">
           {user ? (
             <div className="space-y-2">
               <div className="flex items-center gap-3 pb-2 border-b border-gray-200/60">
@@ -297,13 +304,13 @@ export default function MobileMenuDrawer() {
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <button
                   onClick={() => handleLinkClick("/my-orders")}
-                  className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-100"
+                  className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-100"
                 >
                   <Package className="w-3.5 h-3.5 text-orange-500" /> Orders
                 </button>
                 <button
                   onClick={() => handleLinkClick("/account/addresses")}
-                  className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-100"
+                  className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-100"
                 >
                   <MapPin className="w-3.5 h-3.5 text-blue-500" /> Addresses
                 </button>
