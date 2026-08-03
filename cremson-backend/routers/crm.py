@@ -1,6 +1,6 @@
 import asyncio
 import re
-from fastapi import APIRouter, Query, HTTPException, Request
+from fastapi import APIRouter, Query, HTTPException, Request, BackgroundTasks
 from typing import Optional
 from pydantic import BaseModel
 from services.baserow import BaserowClient
@@ -317,15 +317,26 @@ async def approve_teacher(row_id: int):
     if email:
         try:
             from db.auth import get_user_by_email, _client, T_USERS
+            import re as _re
             user = await get_user_by_email(email)
             if user:
-                await _client.update_row(T_USERS, user["id"], {"is_approved": 1, "is_verified": 1})
                 if not phone and user.get("phone"):
                     phone = user["phone"]
+                # Rebuild Notes: preserve designation, set role=teacher, is_approved=1
+                old_notes = user.get("Notes") or ""
+                desig_match = _re.search(r"designation:\s*([^\n;]+)", old_notes)
+                designation = desig_match.group(1).strip() if desig_match else ""
+                new_notes_parts = ["role: teacher", "is_approved: 1"]
+                if designation:
+                    new_notes_parts.append(f"designation: {designation}")
+                await _client.update_row(T_USERS, user["id"], {
+                    "Notes": "; ".join(new_notes_parts),
+                    "is_verified": 1,
+                })
         except Exception as e:
             print("Warning: Failed to update auth_users for approved teacher:", e)
 
-    # Send WhatsApp Approval Message to Teacher
+    # Send WhatsApp Approval Message (awaited)
     if phone:
         try:
             from services.whatsapp import send_teacher_approved_notification
@@ -348,15 +359,26 @@ async def reject_teacher(row_id: int):
     if email:
         try:
             from db.auth import get_user_by_email, _client, T_USERS
+            import re as _re
             user = await get_user_by_email(email)
             if user:
-                await _client.update_row(T_USERS, user["id"], {"is_approved": -1, "is_active": 0})
                 if not phone and user.get("phone"):
                     phone = user["phone"]
+                # Rebuild Notes: preserve designation, set is_approved=-1
+                old_notes = user.get("Notes") or ""
+                desig_match = _re.search(r"designation:\s*([^\n;]+)", old_notes)
+                designation = desig_match.group(1).strip() if desig_match else ""
+                new_notes_parts = ["role: teacher", "is_approved: -1"]
+                if designation:
+                    new_notes_parts.append(f"designation: {designation}")
+                await _client.update_row(T_USERS, user["id"], {
+                    "Notes": "; ".join(new_notes_parts),
+                    "is_active": 0,
+                })
         except Exception as e:
             print("Warning: Failed to update auth_users for rejected teacher:", e)
 
-    # Send WhatsApp Rejection Message to Teacher
+    # Send WhatsApp Rejection Message (awaited)
     if phone:
         try:
             from services.whatsapp import send_teacher_rejected_notification

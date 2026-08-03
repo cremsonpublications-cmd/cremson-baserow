@@ -103,11 +103,16 @@ export function AppProvider({ children }) {
   // Restore auth session from localStorage on mount
   useEffect(() => {
     const token = localStorage.getItem("cremson_token");
+    const savedRole = localStorage.getItem("cremson_role");
     if (token) {
       setAuthToken(token);
+      if (savedRole) {
+        setUser({ role: savedRole });
+      }
       getMe(token)
         .then((u) => {
           setUser(u);
+          localStorage.setItem("cremson_role", u.role);
           // Load cart + wishlist from backend
           return Promise.all([getCart(), getWishlist()]);
         })
@@ -118,7 +123,9 @@ export function AppProvider({ children }) {
         })
         .catch(() => {
           localStorage.removeItem("cremson_token");
+          localStorage.removeItem("cremson_role");
           setAuthToken(null);
+          setUser(null);
           // Fall back to localStorage
           _loadFromLocalStorage();
         })
@@ -167,6 +174,7 @@ export function AppProvider({ children }) {
 
   const authLogin = async (token, userData) => {
     localStorage.setItem("cremson_token", token);
+    localStorage.setItem("cremson_role", userData.role || "customer");
     setAuthToken(token);
     setUser(userData);
 
@@ -195,9 +203,7 @@ export function AppProvider({ children }) {
   };
 
   const authLogout = () => {
-    localStorage.removeItem("cremson_token");
-    localStorage.removeItem("cremson_cart");
-    localStorage.removeItem("cremson_wishlist");
+    localStorage.clear();
     setAuthToken(null);
     setUser(null);
     setCart([]);

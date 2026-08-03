@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../lib/api/axios";
 import { useApp } from "../../context/AppContext";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Mail,
   Phone,
@@ -109,17 +110,39 @@ function BookCard({ book, selected, onToggle }) {
   );
 }
 
-export default function Specimen() {
-  const { user } = useApp();
-  const [step, setStep] = useState(0); // 0=books, 1=details, 2=confirm/done
+function SpecimenContent() {
+  const { user, authLogout } = useApp();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Read step from URL (default to 0)
+  const stepParam = searchParams.get("step");
+  let step = 0;
+  if (stepParam === "2") {
+    step = 1;
+  } else if (stepParam === "3") {
+    step = 2;
+  }
+
+  // Update step by routing
+  const setStep = (newStep) => {
+    const params = new URLSearchParams(window.location.search);
+    if (newStep === 0) {
+      params.delete("step");
+    } else {
+      params.set("step", String(newStep + 1));
+    }
+    router.push(`${window.location.pathname}?${params.toString()}`);
+  };
+
   const [selectedBooks, setSelectedBooks] = useState([]);
   const [formData, setFormData] = useState({
     fullName: user?.name || "",
     email: user?.email || "",
     mobile: user?.phone || "",
-    schoolName: "",
+    schoolName: user?.school_name || "",
     address: "",
-    designation: "Teacher",
+    designation: user?.designation || "Teacher",
     comments: "",
   });
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -127,15 +150,24 @@ export default function Specimen() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
+  // Safety redirect: if they try to access step 2 or 3 without books, send them back to select books
+  useEffect(() => {
+    if (step > 0 && selectedBooks.length === 0 && !submitted) {
+      setStep(0);
+    }
+  }, [step, selectedBooks.length, submitted]);
+
   const isApprovedTeacher = user && user.role === "teacher" && user.is_approved === 1;
 
   useEffect(() => {
     if (user) {
       setFormData((prev) => ({
         ...prev,
-        fullName: prev.fullName || user.name || "",
-        email: prev.email || user.email || "",
-        mobile: prev.mobile || user.phone || "",
+        fullName: user.name || "",
+        email: user.email || "",
+        mobile: user.phone || "",
+        schoolName: user.school_name || "",
+        designation: user.designation || "Teacher",
       }));
     }
   }, [user]);
@@ -188,24 +220,13 @@ export default function Specimen() {
     setSubmitting(true);
     try {
       const booksRequested = selectedBooks.map((b) => b.name).join(", ");
-      const notes = [
-        `Name: ${formData.fullName}`,
-        `School: ${formData.schoolName}`,
-        `Designation: ${formData.designation}`,
-        `Email: ${formData.email}`,
-        `Mobile: ${formData.mobile}`,
-        formData.comments ? `Note: ${formData.comments}` : "",
-      ]
-        .filter(Boolean)
-        .join(" | ");
-
       await api.post("/api/specimen-requests/", {
         BooksRequested: booksRequested,
         Full_Address: formData.address,
-        "Feedback/Notes": notes,
+        "Feedback/Notes": formData.comments || "",
         RequestDate: new Date().toISOString().split("T")[0],
         DeliveryStatus: "Not dispatched",
-        HandDeliveredBy: formData.fullName,
+        HandDeliveredBy: "",
       });
 
       setSubmitted(true);
@@ -272,13 +293,19 @@ export default function Specimen() {
                 <Lock className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-amber-900">Verified Teacher Access Required</h4>
+                <h4 className="text-sm font-bold text-amber-900">
+                  {user && user.role === "teacher"
+                    ? "Teacher Verification Pending"
+                    : user
+                    ? "Student or Customer Account Detected"
+                    : "Verified Teacher Access Required"}
+                </h4>
                 <p className="text-xs text-amber-700 mt-0.5">
                   {!user
                     ? "Specimen copy requests are exclusively available for verified school teachers. Please sign in or register as a teacher."
                     : user.role === "teacher"
                     ? "Your teacher account is pending admin approval. Once approved by an admin, you can request specimen copies."
-                    : "Your account is not registered as a teacher. Please sign up with your Teacher ID card for verification."}
+                    : "You are currently logged in as a student/customer. Free specimen copies are only available for verified teachers. Please log out and sign in with a teacher account, or register a new teacher account."}
                 </p>
               </div>
             </div>
@@ -299,12 +326,13 @@ export default function Specimen() {
                   </Link>
                 </>
               ) : (
-                <Link
-                  href="/auth/teacher-signup"
-                  className="w-full sm:w-auto px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow transition-all text-center"
+                <button
+                  type="button"
+                  onClick={authLogout}
+                  className="w-full sm:w-auto px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow transition-all text-center cursor-pointer"
                 >
-                  Register as Teacher →
-                </Link>
+                  Log Out
+                </button>
               )}
             </div>
           </div>
@@ -415,7 +443,8 @@ export default function Specimen() {
                   id="fullName" type="text" name="fullName" required
                   value={formData.fullName} onChange={handleChange}
                   placeholder="Enter your name"
-                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
+                  disabled={true}
+                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed text-sm focus:outline-none transition-all"
                 />
               </div>
               {/* School Name */}
@@ -429,7 +458,8 @@ export default function Specimen() {
                     id="schoolName" type="text" name="schoolName" required
                     value={formData.schoolName} onChange={handleChange}
                     placeholder="Enter school name"
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
+                    disabled={true}
+                    className="w-full pl-11 pr-4 py-3 rounded-2xl border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed text-sm focus:outline-none transition-all"
                   />
                 </div>
               </div>
@@ -447,7 +477,8 @@ export default function Specimen() {
                     id="email" type="email" name="email"
                     value={formData.email} onChange={handleChange}
                     placeholder="Enter your email"
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
+                    disabled={true}
+                    className="w-full pl-11 pr-4 py-3 rounded-2xl border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed text-sm focus:outline-none transition-all"
                   />
                 </div>
               </div>
@@ -462,7 +493,8 @@ export default function Specimen() {
                     id="mobile" type="tel" name="mobile" required
                     value={formData.mobile} onChange={handleChange}
                     placeholder="Enter contact number"
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
+                    disabled={true}
+                    className="w-full pl-11 pr-4 py-3 rounded-2xl border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed text-sm focus:outline-none transition-all"
                   />
                 </div>
               </div>
@@ -479,7 +511,8 @@ export default function Specimen() {
                   <select
                     id="designation" name="designation"
                     value={formData.designation} onChange={handleChange}
-                    className="w-full pl-11 pr-8 py-3 rounded-2xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all appearance-none cursor-pointer"
+                    disabled={true}
+                    className="w-full pl-11 pr-8 py-3 rounded-2xl border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed text-sm focus:outline-none transition-all appearance-none"
                   >
                     <option value="Teacher">Teacher / Faculty</option>
                     <option value="Principal">Principal / HOD</option>
@@ -567,12 +600,12 @@ export default function Specimen() {
             ))}
           </ul>
         </div>
-        <button
-          onClick={() => { setStep(0); setSelectedBooks([]); setFormData({ fullName: "", email: "", mobile: "", schoolName: "", address: "", designation: "Teacher", comments: "" }); setSubmitted(false); }}
-          className="mt-4 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-sm rounded-2xl shadow transition-all cursor-pointer"
+        <Link
+          href="/"
+          className="mt-6 inline-flex items-center justify-center px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl shadow transition-all cursor-pointer"
         >
-          Request Another Specimen
-        </button>
+          Return to Home
+        </Link>
       </div>
 
       {showAuthModal && (
@@ -611,5 +644,18 @@ export default function Specimen() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function Specimen() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-20 text-gray-400">
+        <Loader2 className="w-8 h-8 animate-spin mr-2" />
+        <span className="text-sm font-medium">Loading...</span>
+      </div>
+    }>
+      <SpecimenContent />
+    </Suspense>
   );
 }

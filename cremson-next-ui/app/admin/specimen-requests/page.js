@@ -68,9 +68,10 @@ function RequestModal({ request, onClose, onAction }) {
   const [rejecting, setRejecting] = useState(false);
 
   const statusRaw = getStatusRaw(request["DeliveryStatus"]).toLowerCase();
+  const isOldData = Number(request.id) <= 363;
   const isDispatched = statusRaw === "dispatched";
   const isRTO = statusRaw === "rto";
-  const isPending = !isDispatched && !isRTO;
+  const isPending = !isOldData && !isDispatched && !isRTO;
 
   async function handleApprove() {
     setApproving(true);
@@ -144,6 +145,17 @@ function RequestModal({ request, onClose, onAction }) {
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50 space-y-4 text-left">
+
+          {/* ── Old Data Banner ── */}
+          {isOldData && (
+            <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-slate-500 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-slate-700">Old Data Record</p>
+                <p className="text-xs text-slate-500 mt-0.5">This specimen request is from a previous record batch prior to the automated order integration.</p>
+              </div>
+            </div>
+          )}
 
           {/* ── Approve / Reject Action Panel ── */}
           {isPending && (
@@ -407,7 +419,8 @@ export default function AdminSpecimenRequests() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {requests.map((req) => {
                         const statusRaw = getStatusRaw(req["DeliveryStatus"]).toLowerCase();
-                        const isPending = statusRaw !== "dispatched" && statusRaw !== "rto";
+                        const isOldData = Number(req.id) <= 363;
+                        const isPending = !isOldData && statusRaw !== "dispatched" && statusRaw !== "rto";
                         const approvingKey = `${req.id}-approve`;
                         const rejectingKey = `${req.id}-reject`;
 
@@ -439,34 +452,38 @@ export default function AdminSpecimenRequests() {
                             </td>
                             <td className="px-6 py-4 text-right whitespace-nowrap">
                               <div className="flex items-center justify-end gap-1.5">
-                                {/* Approve button — only when pending */}
-                                {isPending && (
-                                  <button
-                                    onClick={(e) => handleInlineAction(e, req, "approve")}
-                                    disabled={actionLoading[approvingKey] || actionLoading[rejectingKey]}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 disabled:opacity-50 transition-all cursor-pointer"
-                                    title="Approve & Dispatch"
-                                  >
-                                    {actionLoading[approvingKey]
-                                      ? <RefreshCw className="w-3 h-3 animate-spin" />
-                                      : <CheckCircle className="w-3 h-3" />}
-                                    Approve
-                                  </button>
-                                )}
-                                {/* Reject button — only when pending */}
-                                {isPending && (
-                                  <button
-                                    onClick={(e) => handleInlineAction(e, req, "reject")}
-                                    disabled={actionLoading[approvingKey] || actionLoading[rejectingKey]}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 disabled:opacity-50 transition-all cursor-pointer"
-                                    title="Reject Request"
-                                  >
-                                    {actionLoading[rejectingKey]
-                                      ? <RefreshCw className="w-3 h-3 animate-spin" />
-                                      : <XCircle className="w-3 h-3" />}
-                                    Reject
-                                  </button>
-                                )}
+                                {isOldData ? (
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500 border border-gray-200">
+                                    Old Data
+                                  </span>
+                                ) : isPending ? (
+                                  <>
+                                    {/* Approve button — only when pending */}
+                                    <button
+                                      onClick={(e) => handleInlineAction(e, req, "approve")}
+                                      disabled={actionLoading[approvingKey] || actionLoading[rejectingKey]}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 disabled:opacity-50 transition-all cursor-pointer"
+                                      title="Approve & Dispatch"
+                                    >
+                                      {actionLoading[approvingKey]
+                                        ? <RefreshCw className="w-3 h-3 animate-spin" />
+                                        : <CheckCircle className="w-3 h-3" />}
+                                      Approve
+                                    </button>
+                                    {/* Reject button — only when pending */}
+                                    <button
+                                      onClick={(e) => handleInlineAction(e, req, "reject")}
+                                      disabled={actionLoading[approvingKey] || actionLoading[rejectingKey]}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 disabled:opacity-50 transition-all cursor-pointer"
+                                      title="Reject Request"
+                                    >
+                                      {actionLoading[rejectingKey]
+                                        ? <RefreshCw className="w-3 h-3 animate-spin" />
+                                        : <XCircle className="w-3 h-3" />}
+                                      Reject
+                                    </button>
+                                  </>
+                                ) : null}
                                 {/* View details */}
                                 <button
                                   onClick={() => setSelected(req)}
@@ -495,7 +512,8 @@ export default function AdminSpecimenRequests() {
                   <div className="md:hidden divide-y divide-gray-100">
                     {requests.map((req) => {
                       const statusRaw = getStatusRaw(req["DeliveryStatus"]).toLowerCase();
-                      const isPending = statusRaw !== "dispatched" && statusRaw !== "rto";
+                      const isOldData = Number(req.id) <= 363;
+                      const isPending = !isOldData && statusRaw !== "dispatched" && statusRaw !== "rto";
                       const approvingKey = `${req.id}-approve`;
                       const rejectingKey = `${req.id}-reject`;
                       return (
@@ -514,26 +532,30 @@ export default function AdminSpecimenRequests() {
                             return cvStr ? <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 mb-2">{cvStr}</span> : null;
                           })()}
                           <div className="flex items-center gap-2 flex-wrap mt-1">
-                            {isPending && (
-                              <button
-                                onClick={(e) => handleInlineAction(e, req, "approve")}
-                                disabled={actionLoading[approvingKey] || actionLoading[rejectingKey]}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 disabled:opacity-50 transition-all cursor-pointer"
-                              >
-                                {actionLoading[approvingKey] ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
-                                Approve
-                              </button>
-                            )}
-                            {isPending && (
-                              <button
-                                onClick={(e) => handleInlineAction(e, req, "reject")}
-                                disabled={actionLoading[approvingKey] || actionLoading[rejectingKey]}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 disabled:opacity-50 transition-all cursor-pointer"
-                              >
-                                {actionLoading[rejectingKey] ? <RefreshCw className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
-                                Reject
-                              </button>
-                            )}
+                            {isOldData ? (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500 border border-gray-200">
+                                Old Data
+                              </span>
+                            ) : isPending ? (
+                              <>
+                                <button
+                                  onClick={(e) => handleInlineAction(e, req, "approve")}
+                                  disabled={actionLoading[approvingKey] || actionLoading[rejectingKey]}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 disabled:opacity-50 transition-all cursor-pointer"
+                                >
+                                  {actionLoading[approvingKey] ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={(e) => handleInlineAction(e, req, "reject")}
+                                  disabled={actionLoading[approvingKey] || actionLoading[rejectingKey]}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 disabled:opacity-50 transition-all cursor-pointer"
+                                >
+                                  {actionLoading[rejectingKey] ? <RefreshCw className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
+                                  Reject
+                                </button>
+                              </>
+                            ) : null}
                             <button onClick={() => setSelected(req)} className="p-1.5 hover:bg-purple-50 rounded transition-colors cursor-pointer" title="View Details">
                               <Eye className="w-4 h-4 text-gray-400 hover:text-purple-600" />
                             </button>

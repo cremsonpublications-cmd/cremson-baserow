@@ -166,10 +166,22 @@ async def get_cheapest_carrier(
         except Exception as exc:
             logger.debug(f"[Shipway Rate Check] Endpoint {url} check error: {exc}")
 
+    # Fallback to weight-matched carrier ID from account
+    if weight_grams <= 500:
+        fallback_carrier = "80622"  # Delhivery 0.5kg
+    elif weight_grams <= 1000:
+        fallback_carrier = "80734"  # Delhivery 1kg
+    elif weight_grams <= 2000:
+        fallback_carrier = "80977"  # Delhivery 2kg
+    elif weight_grams <= 5000:
+        fallback_carrier = "7613"   # Delhivery 5kg
+    else:
+        fallback_carrier = "7666"   # Delhivery 10kg
+
     logger.info(
-        f"[Shipway Rate Check] Defaulting carrier_id to Shipway auto-assign (0)"
+        f"[Shipway Rate Check] Using weight-matched carrier_id {fallback_carrier} for {weight_grams}g"
     )
-    return "0"
+    return fallback_carrier
 
 
 # ── Create Shipment ───────────────────────────────────────────────────────────
@@ -365,23 +377,26 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
             except Exception:
                 return {"success": False, "error": f"Non-JSON response: {raw[:300]}"}
 
-            # v2 API: success=true means it worked
-            if not data.get("success"):
-                err = data.get("message") or data.get("error") or "Shipway returned failure"
-                logger.error(f"[Shipway] create_shipment failed: {err} | full={raw[:400]}")
-                return {"success": False, "error": err}
-
+            # v2 API: verify top-level success and awb_response
             awb_resp = data.get("awb_response")
             if not isinstance(awb_resp, dict):
                 awb_resp = {}
-            awb = awb_resp.get("AWB") or awb_resp.get("awb") or ""
+
+            awb = str(awb_resp.get("AWB") or awb_resp.get("awb") or "").strip()
+            awb_err = awb_resp.get("error") or data.get("message")
+
+            if not data.get("success") or not awb or awb_resp.get("success") is False:
+                err = awb_err or data.get("message") or data.get("error") or "Shipway AWB generation failed"
+                logger.error(f"[Shipway] create_shipment failed for order={order['order_id']}: {err} | full={raw[:400]}")
+                return {"success": False, "error": str(err)}
+
             carrier = str(awb_resp.get("carrier_id") or awb_resp.get("courier_name") or "")
             label_url = awb_resp.get("shipping_url") or awb_resp.get("label") or ""
             tracking_url = f"https://app-v1.shipway.com/tracking/forward/{awb}/" if awb else ""
             shipment_id = str(
                 data.get("shipment_id")
                 or awb_resp.get("shipment_id")
-                or awb  # fallback: use AWB as ID
+                or awb
             )
 
             logger.info(

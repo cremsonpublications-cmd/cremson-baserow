@@ -22,6 +22,7 @@ from db.auth import (
     save_otp,
     get_valid_otp,
     consume_otp,
+    normalize_phone,
 )
 from services.baserow import BaserowClient
 from config import TABLE_IDS
@@ -134,6 +135,13 @@ async def register(body: RegisterRequest):
     if len(body.password) < 8:
         raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
 
+    if body.phone:
+        existing_phone = await get_user_by_phone(body.phone)
+        if existing_phone:
+            if existing_phone.get("is_approved") == -1 or existing_phone.get("is_active") == 0:
+                raise HTTPException(status_code=409, detail="This phone number has been blocked or rejected by administration.")
+            raise HTTPException(status_code=409, detail="An account with this phone number already exists.")
+
     existing = await get_user_by_email(body.email)
 
     if existing:
@@ -223,7 +231,6 @@ async def teacher_register(body: TeacherRegisterRequest):
         except Exception as e:
             print("Warning: Auto-creating school failed:", e)
 
-    # Teachers start with is_approved = 0 (Pending Admin Approval)
     new_user = await create_user(
         email=body.email,
         name=body.name,
@@ -232,6 +239,7 @@ async def teacher_register(body: TeacherRegisterRequest):
         role="teacher",
         is_approved=0,
         is_verified=1,
+        designation=body.designation,
     )
 
     # Automatically create record in Baserow Teachers CRM table (ID 877)
@@ -256,12 +264,12 @@ async def teacher_register(body: TeacherRegisterRequest):
         teacher_payload = {
             "Teacher Name": body.name,
             "Email": body.email.lower().strip(),
-            "Whatsapp Phone": body.phone.strip(),
+            "Whatsapp Phone": normalize_phone(body.phone),
             "Status": "Pending Approval",
             "IdCardUrl": body.id_card_url or "",
             "City": city_name or "",
             "Residence": residence_address or "",
-            "Notes": "",
+            "Notes": f"Designation: {body.designation}",
         }
         if final_school_id:
             teacher_payload["SchoolID"] = [final_school_id]
@@ -334,6 +342,21 @@ async def resend_otp(body: ResendOTPRequest):
     return {"message": "New OTP sent to your email"}
 
 
+async def get_teacher_school_name(email: str) -> str:
+    try:
+        b_client = BaserowClient()
+        res = await b_client.get_rows(TABLE_IDS["teacher"], filters={"Email": email.lower().strip()})
+        results = res.get("results", [])
+        if results:
+            t_row = results[0]
+            school_name_list = t_row.get("School Name", []) or t_row.get("SchoolID", [])
+            if school_name_list:
+                return school_name_list[0].get("value", "")
+    except Exception as e:
+        print("Warning: Failed to fetch teacher school name:", e)
+    return ""
+
+
 @router.post("/login")
 async def login(body: LoginRequest):
     user = await get_user_by_email(body.email)
@@ -355,30 +378,19 @@ async def login(body: LoginRequest):
         )
 
     role = user.get("role", "customer")
-    is_approved = int(user.get("is_approved") or 0)
+    is_approved = int(user.get("is_approved") or (0 if role == "teacher" else 1))
+    school_name = ""
 
     # If teacher account, verify approval status
     if role == "teacher":
-        b_client = BaserowClient()
-        teacher_rows = await b_client.get_rows(TABLE_IDS["teacher"], filters={"Email": body.email.lower().strip()})
-        t_results = teacher_rows.get("results", [])
-        if t_results:
-            t_status = t_results[0].get("Status", "")
-            if t_status == "Approved":
-                is_approved = 1
-            elif t_status in ["Pending Approval", "Inactive", "Rejected", "Called", "Follow up"]:
-                if t_status == "Pending Approval":
-                    raise HTTPException(
-                        status_code=403,
-                        detail="Your teacher account is pending admin approval. You will be able to log in once an admin approves your account.",
-                    )
-                elif t_status == "Rejected":
-                    raise HTTPException(
-                        status_code=403,
-                        detail="Your teacher registration request was rejected by admin.",
-                    )
-
-        if not is_approved:
+        if is_approved == 1:
+            school_name = await get_teacher_school_name(user["email"])
+        elif is_approved == -1:
+            raise HTTPException(
+                status_code=403,
+                detail="Your teacher registration request was rejected by admin.",
+            )
+        else:
             raise HTTPException(
                 status_code=403,
                 detail="Your teacher account is pending admin approval. You will be able to log in once an admin approves your account.",
@@ -395,20 +407,29 @@ async def login(body: LoginRequest):
             "phone": user.get("phone", ""),
             "role": role,
             "is_approved": is_approved,
+            "school_name": school_name,
+            "designation": user.get("designation", "Teacher"),
         },
     }
 
 
 @router.get("/me")
 async def me(user: dict = Depends(current_user)):
+    role = user.get("role", "customer")
+    school_name = ""
+    if role == "teacher":
+        school_name = await get_teacher_school_name(user["email"])
+        
     return {
         "id": user["id"],
         "email": user["email"],
         "name": user["name"],
         "phone": user.get("phone", ""),
-        "role": user.get("role", "customer"),
-        "is_approved": int(user.get("is_approved") or (0 if user.get("role") == "teacher" else 1)),
+        "role": role,
+        "is_approved": int(user.get("is_approved") or (0 if role == "teacher" else 1)),
         "created_at": user.get("created_at", ""),
+        "school_name": school_name,
+        "designation": user.get("designation", "Teacher"),
     }
 
 

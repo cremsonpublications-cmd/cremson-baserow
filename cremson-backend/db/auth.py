@@ -17,9 +17,39 @@ T_WISH     = TABLE_IDS["wishlist_items"]
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
+def normalize_phone(phone: str) -> str:
+    """Return phone number normalized to 10 digits (without country code/leading zero)."""
+    if not phone:
+        return ""
+    # Keep only digits
+    clean = "".join(filter(str.isdigit, str(phone)))
+    # Strip leading zero if 11 digits
+    if clean.startswith("0") and len(clean) == 11:
+        clean = clean[1:]
+    # Strip Indian country code 91 if it's 12 digits starting with 91
+    if clean.startswith("91") and len(clean) == 12:
+        clean = clean[2:]
+    return clean
+
+
 def _row(r: dict) -> dict:
     """Return a plain dict from a Baserow row, keeping only useful keys."""
-    return {k: v for k, v in r.items() if not k.startswith("_")}
+    res = {k: v for k, v in r.items() if not k.startswith("_")}
+    notes = res.get("Notes") or ""
+    import re
+    # Extract role
+    role_matches = re.findall(r"role:\s*([a-zA-Z0-9_-]+)", notes)
+    if role_matches:
+        res["role"] = role_matches[-1].strip()
+    # Extract is_approved
+    app_matches = re.findall(r"is_approved:\s*(-?\d+)", notes)
+    if app_matches:
+        res["is_approved"] = int(app_matches[-1])
+    # Extract designation
+    desig_matches = re.findall(r"designation:\s*([^\n;|]+)", notes)
+    if desig_matches:
+        res["designation"] = desig_matches[-1].strip()
+    return res
 
 
 def _cart_row(r: dict) -> dict:
@@ -43,18 +73,23 @@ def init_db():
 
 # ── User helpers ──────────────────────────────────────────────────────────────
 
-async def create_user(email: str, name: str, password_hash: str, phone: str = "", role: str = "customer", is_approved: int = 1, is_verified: int = 0) -> dict:
-    row = await _client.create_row(T_USERS, {
+async def create_user(email: str, name: str, password_hash: str, phone: str = "", role: str = "customer", is_approved: int = 1, is_verified: int = 0, designation: Optional[str] = None) -> dict:
+    # Encode metadata into the Notes field — Baserow auth_users table stores
+    # role, is_approved and designation here (no separate columns for them).
+    notes_parts = [f"role: {role}", f"is_approved: {is_approved}"]
+    if designation:
+        notes_parts.append(f"designation: {designation}")
+    payload = {
         "email": email.lower().strip(),
         "name": name.strip(),
-        "phone": phone.strip(),
+        "phone": normalize_phone(phone),
         "password_hash": password_hash,
         "is_verified": is_verified,
         "is_active": 1,
-        "role": role,
-        "is_approved": is_approved,
+        "Notes": "; ".join(notes_parts),
         "created_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-    })
+    }
+    row = await _client.create_row(T_USERS, payload)
     return _row(row)
 
 

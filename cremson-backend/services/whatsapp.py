@@ -15,7 +15,7 @@ from config import (
     WHATSAPP_TEMPLATE_NAME,
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 _GRAPH_URL = (
     f"https://graph.facebook.com/v25.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
@@ -31,7 +31,14 @@ _HEADERS = {
 
 def _format_phone(phone: str) -> str:
     """Return phone in international format without +: 91XXXXXXXXXX"""
+    if not phone:
+        return ""
+    # Remove all non-digits
     phone = "".join(filter(str.isdigit, phone))
+    # Strip leading zero if it makes it 10 digits (e.g. 07200362436 -> 7200362436)
+    if phone.startswith("0") and len(phone) == 11:
+        phone = phone[1:]
+    # If 10 digits, add Indian country code "91"
     if len(phone) == 10:
         phone = "91" + phone
     return phone
@@ -120,25 +127,22 @@ async def _send_text_message(phone: str, text: str, log_tag: str = "") -> None:
 
 async def send_teacher_signup_confirmation(phone: str, teacher_name: str):
     """Notification sent to teacher upon successful registration."""
-    text_msg = (
-        f"Hello {teacher_name},\n\n"
-        "Thank you for registering as a teacher on Cremson Publications!\n\n"
-        "We have successfully received your profile and ID card. Our team will verify your account within 24 hours.\n\n"
-        "Best regards,\nCremson Publications Team"
+    await _send_template(
+        phone,
+        "teacher_signup_confirm",
+        [_txt(teacher_name)],
+        log_tag=f"teacher_signup_confirm name={teacher_name}",
     )
-    await _send_text_message(phone, text_msg, log_tag=f"teacher_signup_confirm name={teacher_name}")
 
 
 async def send_teacher_approved_notification(phone: str, teacher_name: str, signin_url: str = "http://localhost:3000/auth/signin"):
     """Notification sent to teacher upon admin approval."""
-    text_msg = (
-        f"Congratulations {teacher_name}! 🎉\n\n"
-        "Your Teacher Account on Cremson Publications has been APPROVED by our administration.\n\n"
-        "You can now sign in to request free specimen books and access teacher resources:\n"
-        f"{signin_url}\n\n"
-        "Thank you for choosing Cremson Publications!"
+    await _send_template(
+        phone,
+        "teacher_approved",
+        [_txt(teacher_name), _txt(signin_url)],
+        log_tag=f"teacher_approved name={teacher_name}",
     )
-    await _send_text_message(phone, text_msg, log_tag=f"teacher_approved name={teacher_name}")
 
 
 async def send_teacher_rejected_notification(phone: str, teacher_name: str):

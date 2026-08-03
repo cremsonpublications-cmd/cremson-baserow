@@ -26,7 +26,7 @@ class BaserowClient:
             self._fields_cache[table_id] = fields
             return fields
 
-    async def sanitize_payload(self, table_id: int, payload: dict) -> dict:
+    async def sanitize_payload(self, table_id: int, payload: dict, row_id: Optional[int] = None) -> dict:
         """Sanitize payload by removing non-existent fields and handling unsupported single select options."""
         try:
             fields = await self.get_table_fields(table_id)
@@ -61,12 +61,34 @@ class BaserowClient:
         if notes_to_append:
             notes_key = "Notes" if "Notes" in field_map else ("Feedback/Notes" if "Feedback/Notes" in field_map else None)
             if notes_key:
-                current_notes = sanitized.get(notes_key) or payload.get(notes_key) or ""
-                extra_notes = "; ".join(notes_to_append)
-                if current_notes:
-                    sanitized[notes_key] = f"{current_notes} | {extra_notes}"
-                else:
-                    sanitized[notes_key] = extra_notes
+                current_notes = sanitized.get(notes_key) or payload.get(notes_key)
+                if current_notes is None and row_id is not None:
+                    try:
+                        url = f"{self.base_url}/api/database/rows/table/{table_id}/{row_id}/?user_field_names=true"
+                        async with httpx.AsyncClient(timeout=10.0) as client:
+                            resp = await client.get(url, headers=self.headers)
+                            if resp.status_code == 200:
+                                current_notes = resp.json().get(notes_key) or ""
+                    except Exception as e:
+                        print(f"Warning: Failed to fetch row {row_id} notes for merge: {e}")
+                
+                if current_notes is None:
+                    current_notes = ""
+
+                import re
+                notes_dict = {}
+                parts = re.split(r'[;\n|]', current_notes)
+                for part in parts:
+                    if ":" in part:
+                        k, v = part.split(":", 1)
+                        notes_dict[k.strip()] = v.strip()
+
+                for item in notes_to_append:
+                    if ":" in item:
+                        k, v = item.split(":", 1)
+                        notes_dict[k.strip()] = v.strip()
+
+                sanitized[notes_key] = "; ".join(f"{k}: {v}" for k, v in notes_dict.items())
 
         return sanitized
 
@@ -182,7 +204,7 @@ class BaserowClient:
         Returns:
             dict representing the updated row.
         """
-        sanitized_data = await self.sanitize_payload(table_id, data)
+        sanitized_data = await self.sanitize_payload(table_id, data, row_id=row_id)
         url = f"{self.base_url}/api/database/rows/table/{table_id}/{row_id}/?user_field_names=true"
 
         async with httpx.AsyncClient(timeout=30.0) as client:

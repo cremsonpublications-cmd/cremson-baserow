@@ -12,6 +12,8 @@ import {
   BookMarked,
   Search,
   X,
+  Check,
+  Loader2,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
@@ -614,6 +616,7 @@ export default function AdminCRMHub() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [filters, setFilters] = useState({});
+  const [actionLoading, setActionLoading] = useState({});
 
   // Sync tab search parameter on load and history changes
   useEffect(() => {
@@ -641,7 +644,7 @@ export default function AdminCRMHub() {
 
   const currentTabObj = TABS.find((t) => t.id === activeTab);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["crm-hub", activeTab, page, search, filters],
     queryFn: async () => {
       const res = await api.get(currentTabObj.endpoint, {
@@ -749,25 +752,57 @@ export default function AdminCRMHub() {
       }
     }
 
+    if (colKey === "DeliveryStatus") {
+      const strVal = typeof val === "object" && val !== null ? val.value : String(val || "");
+      if (strVal === "Dispatched" || strVal === "Approved") {
+        return (
+          <span className="inline-flex items-center gap-1 whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+            ✓ Dispatched
+          </span>
+        );
+      }
+      if (strVal === "Not dispatched") {
+        return (
+          <span className="inline-flex items-center gap-1 whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse">
+            ⏳ Not dispatched
+          </span>
+        );
+      }
+      if (strVal === "RTO" || strVal === "Rejected") {
+        return (
+          <span className="inline-flex items-center gap-1 whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
+            ✕ Rejected
+          </span>
+        );
+      }
+      if (strVal === "Delivered") {
+        return (
+          <span className="inline-flex items-center gap-1 whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+            ✓ Delivered
+          </span>
+        );
+      }
+    }
+
     if (colKey === "Status") {
       const strVal = String(val);
       if (strVal === "Approved") {
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+          <span className="inline-flex items-center gap-1 whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
             ✓ Approved
           </span>
         );
       }
       if (strVal === "Pending Approval") {
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse">
+          <span className="inline-flex items-center gap-1 whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse">
             ⏳ Pending Approval
           </span>
         );
       }
       if (strVal === "Rejected") {
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
+          <span className="inline-flex items-center gap-1 whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
             ✕ Rejected
           </span>
         );
@@ -1019,35 +1054,140 @@ export default function AdminCRMHub() {
                                 <>
                                   <button
                                     onClick={async () => {
+                                      setActionLoading((prev) => ({ ...prev, [row.id]: "approve" }));
                                       try {
                                         await api.patch(`/api/crm/teachers/${row.id}/approve`);
                                         refetch();
                                       } catch (err) {
                                         alert(err?.response?.data?.detail || "Failed to approve teacher");
+                                      } finally {
+                                        setActionLoading((prev) => ({ ...prev, [row.id]: null }));
                                       }
                                     }}
-                                    className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                                    disabled={!!actionLoading[row.id]}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-60 border border-emerald-200 text-xs font-bold rounded-lg transition-colors cursor-pointer whitespace-nowrap shadow-sm"
                                     title="Approve Teacher"
                                   >
-                                    ✓ Approve
+                                    {actionLoading[row.id] === "approve" ? (
+                                      <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        <span>Approving...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                        <span>Approve</span>
+                                      </>
+                                    )}
                                   </button>
                                   <button
                                     onClick={async () => {
                                       if (!confirm("Are you sure you want to reject this teacher registration?")) return;
+                                      setActionLoading((prev) => ({ ...prev, [row.id]: "reject" }));
                                       try {
                                         await api.patch(`/api/crm/teachers/${row.id}/reject`);
                                         refetch();
                                       } catch (err) {
                                         alert(err?.response?.data?.detail || "Failed to reject teacher");
+                                      } finally {
+                                        setActionLoading((prev) => ({ ...prev, [row.id]: null }));
                                       }
                                     }}
-                                    className="px-2 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                                    disabled={!!actionLoading[row.id]}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-60 border border-rose-200 text-xs font-bold rounded-lg transition-colors cursor-pointer whitespace-nowrap shadow-sm"
                                     title="Reject Teacher"
                                   >
-                                    ✕ Reject
+                                    {actionLoading[row.id] === "reject" ? (
+                                      <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        <span>Rejecting...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                                        <span>Reject</span>
+                                      </>
+                                    )}
                                   </button>
                                 </>
                               )}
+                              {activeTab === "specimen" && (() => {
+                                const statusStr = typeof row.DeliveryStatus === "object" && row.DeliveryStatus !== null ? row.DeliveryStatus.value : String(row.DeliveryStatus || "");
+                                const isOldData = Number(row.id) <= 363;
+                                const isPending = !isOldData && statusStr !== "Dispatched" && statusStr !== "Approved" && statusStr !== "RTO" && statusStr !== "Rejected" && statusStr !== "Delivered";
+
+                                if (isOldData) {
+                                  return (
+                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500 border border-gray-200">
+                                      Old Data
+                                    </span>
+                                  );
+                                }
+
+                                return isPending ? (
+                                  <>
+                                    <button
+                                      onClick={async () => {
+                                        setActionLoading((prev) => ({ ...prev, [row.id]: "approve" }));
+                                        try {
+                                          await api.patch(`/api/specimen-requests/${row.id}/approve`);
+                                          toast.success(`Specimen Request Approved! Created Order #SPEC-${row.id}`);
+                                          refetch();
+                                        } catch (err) {
+                                          alert(err?.response?.data?.detail || "Failed to approve specimen request");
+                                        } finally {
+                                          setActionLoading((prev) => ({ ...prev, [row.id]: null }));
+                                        }
+                                      }}
+                                      disabled={!!actionLoading[row.id]}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-60 border border-emerald-200 text-xs font-bold rounded-lg transition-colors cursor-pointer whitespace-nowrap shadow-sm"
+                                      title="Approve Specimen Request & Create Order"
+                                    >
+                                      {actionLoading[row.id] === "approve" ? (
+                                        <>
+                                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                          <span>Approving...</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                          <span>Approve</span>
+                                        </>
+                                      )}
+                                    </button>
+                                    <button
+                                      onClick={async () => {
+                                        if (!confirm("Are you sure you want to reject this specimen request?")) return;
+                                        setActionLoading((prev) => ({ ...prev, [row.id]: "reject" }));
+                                        try {
+                                          await api.patch(`/api/specimen-requests/${row.id}/reject`);
+                                          toast.success("Specimen request rejected.");
+                                          refetch();
+                                        } catch (err) {
+                                          alert(err?.response?.data?.detail || "Failed to reject specimen request");
+                                        } finally {
+                                          setActionLoading((prev) => ({ ...prev, [row.id]: null }));
+                                        }
+                                      }}
+                                      disabled={!!actionLoading[row.id]}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-60 border border-rose-200 text-xs font-bold rounded-lg transition-colors cursor-pointer whitespace-nowrap shadow-sm"
+                                      title="Reject Specimen Request"
+                                    >
+                                      {actionLoading[row.id] === "reject" ? (
+                                        <>
+                                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                          <span>Rejecting...</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                                          <span>Reject</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  </>
+                                ) : null;
+                              })()}
                               <button
                                 onClick={() => setSelectedRecord(row)}
                                 className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"

@@ -804,7 +804,10 @@ export default function AdminOrders() {
                         const amount = priceInfo.grandTotal || order.total_amount || 0;
                         const dateFormatted = (order.order_date || order.created_at || "").slice(0, 10);
                         const deliveryStatusRaw = (order.order_status ?? order.status ?? "shipped").toLowerCase();
-                        const paymentStatus = order.payment_status || "Paid";
+                        const paymentObj = safeParseJSON(order.payment) || {};
+                        const orderIdStr = String(order.order_id || "");
+                        const isSpecimen = orderIdStr.startsWith("SPEC-") || paymentObj.method === "SPECIMEN (Free)" || paymentObj.status === "Specimen Copy";
+                        const paymentStatus = isSpecimen ? "SPECIMEN (Free)" : (order.payment_status || paymentObj.status || "Paid");
 
                         let delivColorClass = "bg-blue-100 text-blue-800";
                         if (deliveryStatusRaw === "pending") {
@@ -843,9 +846,15 @@ export default function AdminOrders() {
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                                {paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}
-                              </span>
+                              {isSpecimen ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                                  🎁 SPECIMEN (Free)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                                  {paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}
+                                </span>
+                              )}
                             </td>
                             <td className="px-6 py-4 text-xs font-semibold text-gray-900 whitespace-nowrap">
                               ₹{Math.round(amount)}
@@ -905,7 +914,10 @@ export default function AdminOrders() {
                       const amount = priceInfo.grandTotal || order.total_amount || 0;
                       const dateFormatted = (order.order_date || order.created_at || "").slice(0, 10);
                       const deliveryStatusRaw = (order.order_status ?? order.status ?? "shipped").toLowerCase();
-                      const paymentStatus = order.payment_status || "Paid";
+                      const paymentObj = safeParseJSON(order.payment) || {};
+                      const orderIdStr = String(order.order_id || "");
+                      const isSpecimen = orderIdStr.startsWith("SPEC-") || paymentObj.method === "SPECIMEN (Free)" || paymentObj.status === "Specimen Copy";
+                      const paymentStatus = isSpecimen ? "SPECIMEN (Free)" : (order.payment_status || paymentObj.status || "Paid");
                       let delivColorClass = "bg-blue-100 text-blue-800";
                       if (deliveryStatusRaw === "pending") delivColorClass = "bg-amber-100 text-amber-800";
                       else if (deliveryStatusRaw === "confirmed") delivColorClass = "bg-purple-100 text-purple-800";
@@ -926,7 +938,11 @@ export default function AdminOrders() {
                           </div>
                           <div className="flex flex-wrap items-center gap-2 mb-3">
                             <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${delivColorClass}`}>{deliveryStatusDisplay}</span>
-                            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">{paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}</span>
+                            {isSpecimen ? (
+                              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">🎁 SPECIMEN (Free)</span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">{paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}</span>
+                            )}
                             <span className="text-xs text-gray-400">{dateFormatted}</span>
                           </div>
                           <div className="flex items-center gap-3">
