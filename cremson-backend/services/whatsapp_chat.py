@@ -322,14 +322,7 @@ async def handle_incoming_message(from_phone: str, message_text: str) -> None:
         await send_text_message(from_phone, msg)
 
     elif clean_text.lower() in ["a", "registered", "yes, registered!"]:
-        set_conversation_state(from_phone, "MAIN_MENU")
-        portal_msg = (
-            "Welcome back! Your verified teacher portal is active. 🎉\n\n"
-            "📥 Download Answer Keys, Lesson Plans & Question Banks:\n"
-            "https://drive.google.com/drive/folders/1GV6nyKLREdZbAt1Vt1IHW-CkqoB8wtpB?usp=share_link\n\n"
-            "Type 'Menu' anytime to go back."
-        )
-        await send_text_message(from_phone, portal_msg)
+        await _handle_option_teacher_registered(from_phone)
 
     elif clean_text.lower() in ["b", "unregistered", "unregistered / new teacher", "no, not yet."]:
         set_conversation_state(from_phone, "TEACHER_REG_NAME", context={})
@@ -388,6 +381,82 @@ async def handle_incoming_message(from_phone: str, message_text: str) -> None:
 
 
 # --- BASEROW LOOKUP HELPERS ---
+
+async def _handle_option_teacher_registered(from_phone: str) -> None:
+    """Check if sender's phone number exists in Table 877 (Teachers) and verify account status."""
+    phone_digits = "".join(filter(str.isdigit, from_phone))
+    last_10_digits = phone_digits[-10:] if len(phone_digits) >= 10 else phone_digits
+
+    try:
+        t_res = await baserow_client.get_rows(TABLE_IDS["teacher"], search=last_10_digits)
+        teachers = t_res.get("results", [])
+
+        matched_teacher = None
+        for t in teachers:
+            wp_phone = str(t.get("Whatsapp Phone") or t.get("Alternate Number") or "")
+            wp_digits = "".join(filter(str.isdigit, wp_phone))
+            if last_10_digits and last_10_digits in wp_digits:
+                matched_teacher = t
+                break
+
+        if not matched_teacher and teachers:
+            matched_teacher = teachers[0]
+
+        set_conversation_state(from_phone, "MAIN_MENU")
+
+        if not matched_teacher:
+            # Case 1: Account Not Found
+            msg = (
+                f"We couldn't find a registered teacher account linked to your WhatsApp phone number (+91 {last_10_digits}). ⚠️\n\n"
+                "Would you like to register now as a new teacher?\n\n"
+                "Reply:\n"
+                "B) Register as New Teacher\n\n"
+                "Or request specimen copies directly on our website:\n"
+                "https://cremsonpublications.com/specimen-request"
+            )
+            await send_text_message(from_phone, msg)
+            return
+
+        teacher_name = matched_teacher.get("Teacher Name") or "Educator"
+        status_val = matched_teacher.get("Status")
+        status_str = status_val.get("value") if isinstance(status_val, dict) else str(status_val or "").lower()
+
+        if status_str and any(p in status_str for p in ["pending", "review", "unverified", "new"]):
+            # Case 2: Registration Pending Verification
+            msg = (
+                f"Welcome back, {teacher_name}! 🎓\n\n"
+                "Your teacher registration status is currently: ⏳ Pending Verification.\n\n"
+                "Our team is reviewing your profile and credentials. You will receive full portal access once verified.\n\n"
+                "📚 Request Free Specimen Copies:\n"
+                "https://cremsonpublications.com/specimen-request\n\n"
+                "Type 'Menu' anytime to go back."
+            )
+            await send_text_message(from_phone, msg)
+        else:
+            # Case 3: Verified / Active Teacher
+            msg = (
+                f"Welcome back, {teacher_name}! Your verified teacher portal is active. 🎉\n\n"
+                "📥 Download Answer Keys, Lesson Plans & Question Banks:\n"
+                "https://drive.google.com/drive/folders/1GV6nyKLREdZbAt1Vt1IHW-CkqoB8wtpB?usp=share_link\n\n"
+                "📚 Request Free Specimen Copies:\n"
+                "https://cremsonpublications.com/specimen-request\n\n"
+                "Type 'Menu' anytime to go back."
+            )
+            await send_text_message(from_phone, msg)
+
+    except Exception as exc:
+        logger.error(f"[WhatsApp Chat] Error checking teacher registration for {from_phone}: {exc}")
+        set_conversation_state(from_phone, "MAIN_MENU")
+        portal_msg = (
+            "Welcome back! Your teacher portal is active. 🎉\n\n"
+            "📥 Download Answer Keys, Lesson Plans & Question Banks:\n"
+            "https://drive.google.com/drive/folders/1GV6nyKLREdZbAt1Vt1IHW-CkqoB8wtpB?usp=share_link\n\n"
+            "📚 Request Free Specimen Copies:\n"
+            "https://cremsonpublications.com/specimen-request\n\n"
+            "Type 'Menu' anytime to go back."
+        )
+        await send_text_message(from_phone, portal_msg)
+
 
 async def _handle_option_my_orders(from_phone: str) -> None:
     """Fetch user's latest orders and specimen requests from Baserow by matching phone number."""
