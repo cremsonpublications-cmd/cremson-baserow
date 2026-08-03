@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useApp } from "../context/AppContext";
 import CPLogo from "./CPLogo";
 import Link from "next/link";
+import { Menu } from "lucide-react";
 
 export default function Header() {
   const pathname = usePathname();
@@ -137,7 +138,7 @@ export default function Header() {
                 className="p-1 -ml-1 focus:outline-none cursor-pointer flex items-center justify-center hover:opacity-75 transition-opacity"
                 aria-label="Open mobile menu"
               >
-                <img src="/icons/menu.svg" alt="Menu" className="max-w-[22px] max-h-[22px] w-[22px] h-[22px]" />
+                <Menu className="w-6 h-6 text-red-500 hover:text-red-600 transition-colors" />
               </button>
             </div>
             <Link className="mr-3 lg:mr-8 flex items-center" href="/">
