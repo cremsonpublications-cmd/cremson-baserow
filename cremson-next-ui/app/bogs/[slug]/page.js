@@ -1,5 +1,7 @@
 "use client";
 
+export const runtime = "edge";
+
 import BlogDetailPage from "../../blogs/[slug]/page";
 
 export default function BogsDetailPage({ params }) {

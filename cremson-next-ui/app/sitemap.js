@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
 
 export default async function sitemap() {
   const baseUrl = 'https://cremsonpublications.com';
