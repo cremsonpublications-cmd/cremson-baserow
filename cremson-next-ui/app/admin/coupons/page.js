@@ -237,6 +237,17 @@ function DatePickerField({ value, onChange }) {
   );
 }
 
+function getScalarVal(val, fallback = "") {
+  if (val == null) return fallback;
+  if (typeof val === "object") {
+    if (Array.isArray(val)) {
+      return val.map((v) => getScalarVal(v, "")).filter(Boolean).join(", ") || fallback;
+    }
+    return val.value ?? val.name ?? val.code ?? val.amount ?? val.discount_value ?? fallback;
+  }
+  return String(val);
+}
+
 function CouponFormModal({ coupon, onClose, onSaved }) {
   const isEdit = !!coupon;
 
@@ -257,17 +268,17 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
   const [form, setForm] = useState(
     isEdit
       ? {
-          code: coupon.code || "",
-          discount_type: coupon.discount_type || "percentage",
-          discount_value: (coupon.discount_value ?? coupon.discount_percentage) != null ? String(coupon.discount_value ?? coupon.discount_percentage) : "",
-          min_order_amount: (coupon.min_order_amount ?? coupon.minimum_order_amount) != null ? String(coupon.min_order_amount ?? coupon.minimum_order_amount) : "",
-          max_discount_amount: coupon.max_discount_amount != null ? String(coupon.max_discount_amount) : "",
+          code: getScalarVal(coupon.code, ""),
+          discount_type: getScalarVal(coupon.discount_type, "percentage"),
+          discount_value: getScalarVal(coupon.discount_value ?? coupon.discount_percentage, ""),
+          min_order_amount: getScalarVal(coupon.min_order_amount ?? coupon.minimum_order_amount, ""),
+          max_discount_amount: getScalarVal(coupon.max_discount_amount, ""),
           show_in_ui: coupon.show_in_ui ?? true,
-          expiry_date: coupon.expiry_date ?? coupon.valid_until ?? coupon.expires_at ?? "",
+          expiry_date: getScalarVal(coupon.expiry_date ?? coupon.valid_until ?? coupon.expires_at, ""),
           free_delivery: coupon.free_delivery ?? false,
-          delivery_discount_amount: coupon.delivery_discount_amount != null ? String(coupon.delivery_discount_amount) : "",
+          delivery_discount_amount: getScalarVal(coupon.delivery_discount_amount, ""),
           is_active: coupon.is_active ?? coupon.active ?? true,
-          benefit: coupon.benefit ?? coupon.benefits ?? "",
+          benefit: getScalarVal(coupon.benefit ?? coupon.benefits, ""),
           apply_to: initialApplyTo,
           selected_products: Array.isArray(initialProducts) ? initialProducts.map(String) : [],
         }
@@ -353,7 +364,19 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
       }
       onSaved();
     } catch (err) {
-      setError(err?.response?.data?.detail || "Failed to save coupon.");
+      const rawErr = err?.response?.data?.detail || err?.message || "Failed to save coupon.";
+      if (typeof rawErr === "object" && rawErr !== null) {
+        if (Array.isArray(rawErr)) {
+          setError(rawErr.map((e) => (typeof e === "object" ? e?.msg || JSON.stringify(e) : String(e))).join(", "));
+        } else {
+          const detailStr = Object.entries(rawErr)
+            .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
+            .join("; ");
+          setError(detailStr || "Failed to save coupon.");
+        }
+      } else {
+        setError(String(rawErr));
+      }
     } finally {
       setSaving(false);
     }
@@ -385,7 +408,7 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
           <div className="overflow-y-auto flex-1 p-6 space-y-6">
             {error && (
               <div className="text-red-600 text-sm font-semibold bg-red-50 border border-red-200 rounded-lg p-3">
-                {error}
+                {typeof error === "object" ? JSON.stringify(error) : String(error)}
               </div>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -807,12 +830,15 @@ export default function AdminCoupons() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {coupons.map((coupon) => {
-                  const discVal = coupon.discount_value ?? coupon.discount_percentage;
-                  const isPct = (coupon.discount_type || "percentage") === "percentage";
-                  const minOrder = coupon.min_order_amount ?? coupon.minimum_order_amount;
-                  const expiry = coupon.valid_until ?? coupon.expiry_date ?? coupon.expires_at;
+                  const rawDiscVal = coupon.discount_value ?? coupon.discount_percentage;
+                  const discVal = getScalarVal(rawDiscVal, null);
+                  const rawType = getScalarVal(coupon.discount_type, "percentage");
+                  const isPct = String(rawType).toLowerCase() === "percentage";
+                  const minOrder = getScalarVal(coupon.min_order_amount ?? coupon.minimum_order_amount, null);
+                  const expiry = getScalarVal(coupon.valid_until ?? coupon.expiry_date ?? coupon.expires_at, null);
                   const isFreeDelivery = coupon.free_delivery;
-                  const delDisc = coupon.delivery_discount_amount;
+                  const delDisc = getScalarVal(coupon.delivery_discount_amount, null);
+                  const benefitText = getScalarVal(coupon.benefit || coupon.benefits, null);
 
                   return (
                     <div
@@ -823,7 +849,7 @@ export default function AdminCoupons() {
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center space-x-2">
                           <Ticket className="w-5 h-5 text-purple-600" />
-                          <h3 className="font-semibold text-gray-900">{coupon.code || "—"}</h3>
+                          <h3 className="font-semibold text-gray-900">{getScalarVal(coupon.code, "—")}</h3>
                         </div>
                         <div className="flex items-center space-x-2">
                           <button
@@ -848,10 +874,10 @@ export default function AdminCoupons() {
                         <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                           <h4 className="text-xs font-semibold text-gray-700 uppercase">Benefits:</h4>
                           
-                          {(coupon.benefit || coupon.benefits) ? (
+                          {benefitText ? (
                             <div className="flex items-center space-x-2">
                               <span className="text-sm font-bold text-purple-900 bg-purple-100/60 px-2 py-1 rounded border border-purple-200/60">
-                                {coupon.benefit || coupon.benefits}
+                                {String(benefitText)}
                               </span>
                             </div>
                           ) : (
