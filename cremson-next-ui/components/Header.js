@@ -127,19 +127,20 @@ export default function Header() {
         <div className="flex relative max-w-9xl mx-auto items-center justify-between py-5 md:py-6 px-4 md:px-6 xl:px-4">
           
           {/* Logo & Mobile Menu Hamburger */}
-          <div className="flex items-center flex-shrink-0">
-            <div className="block md:hidden mr-4">
+          <div className="flex items-center flex-shrink-0 gap-3 md:gap-0">
+            <div className="block md:hidden">
               <button
                 onClick={() => setIsMobileMenuOpen(true)}
                 type="button"
                 aria-haspopup="dialog"
                 aria-expanded="false"
-                className="focus:outline-none"
+                className="p-1 -ml-1 focus:outline-none cursor-pointer flex items-center justify-center hover:opacity-75 transition-opacity"
+                aria-label="Open mobile menu"
               >
-                <img src="/icons/menu.svg" alt="Menu" className="cursor-pointer max-w-[22px] max-h-[22px]" />
+                <img src="/icons/menu.svg" alt="Menu" className="max-w-[22px] max-h-[22px] w-[22px] h-[22px]" />
               </button>
             </div>
-            <Link className="mb-2 mr-4 lg:mr-8" href="/">
+            <Link className="mr-3 lg:mr-8 flex items-center" href="/">
               <CPLogo className="max-w-[70px] md:max-w-[100px]" />
             </Link>
           </div>
