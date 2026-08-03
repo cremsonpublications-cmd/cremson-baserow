@@ -1,14 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Package, Plus, Trash2, CheckCircle2, ArrowRight, BookOpen, Building2, MapPin, User, Phone } from "lucide-react";
+import { Package, Plus, Trash2, CheckCircle2, ArrowRight, BookOpen, Building2, MapPin, User, Phone, Search, ChevronDown, Check } from "lucide-react";
 import api from "@/lib/api/axios";
 
 export default function PublicBulkOrderPage() {
   const [items, setItems] = useState([]);
-  const [selectedProductId, setSelectedProductId] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedQty, setSelectedQty] = useState(10);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const dropdownRef = useRef(null);
 
   const [form, setForm] = useState({
     contact_name: "",
@@ -34,10 +37,30 @@ export default function PublicBulkOrderPage() {
 
   const products = Array.isArray(productsData) ? productsData : [];
 
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredProducts = products.filter((p) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    const title = (p.title || p.name || "").toLowerCase();
+    const isbn = (p.isbn || "").toLowerCase();
+    const author = (p.author || "").toLowerCase();
+    const classes = (p.classes || "").toLowerCase();
+    return title.includes(term) || isbn.includes(term) || author.includes(term) || classes.includes(term);
+  });
+
   const handleAddItem = () => {
-    if (!selectedProductId) return;
-    const prod = products.find((p) => String(p.id) === String(selectedProductId));
-    if (!prod) return;
+    if (!selectedProduct) return;
+    const prod = selectedProduct;
 
     const existingIndex = items.findIndex((i) => String(i.product_id) === String(prod.id));
     if (existingIndex > -1) {
@@ -50,13 +73,17 @@ export default function PublicBulkOrderPage() {
         {
           product_id: prod.id,
           title: prod.title || prod.name || "Book",
+          classes: prod.classes || "",
+          isbn: prod.isbn || "",
+          main_image: prod.main_image || "",
           qty: Number(selectedQty),
           price: Number(prod.price || prod.mrp || 0),
         },
       ]);
     }
-    setSelectedProductId("");
+    setSelectedProduct(null);
     setSelectedQty(10);
+    setSearchTerm("");
   };
 
   const handleRemoveItem = (index) => {
@@ -151,7 +178,7 @@ export default function PublicBulkOrderPage() {
             Place a Bulk Order Request
           </h1>
           <p className="text-slate-600 text-sm sm:text-base max-w-xl mx-auto">
-            Order books directly for your school or class. No login required. Select books, submit details, and receive custom discounted pricing!
+            Order books directly for your school or class. No login required. Search books, submit details, and receive custom discounted pricing!
           </p>
         </div>
 
@@ -170,28 +197,122 @@ export default function PublicBulkOrderPage() {
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Select Books & Quantities</h3>
-                <p className="text-xs text-slate-500">Choose books to include in this bulk order</p>
+                <p className="text-xs text-slate-500">Search and choose books to include in this bulk order</p>
               </div>
             </div>
 
             {/* Selector Row */}
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
-              <div className="sm:col-span-7">
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Select Book</label>
-                <select
-                  value={selectedProductId}
-                  onChange={(e) => setSelectedProductId(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+              {/* Custom Searchable Select */}
+              <div className="sm:col-span-7 relative" ref={dropdownRef}>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Select Book *</label>
+
+                <button
+                  type="button"
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm bg-white hover:border-purple-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none flex items-center justify-between shadow-sm cursor-pointer"
                 >
-                  <option value="">-- Choose a book --</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title || p.name} (₹{p.price || p.mrp || 0})
-                    </option>
-                  ))}
-                </select>
+                  {selectedProduct ? (
+                    <div className="flex items-center gap-3 text-left overflow-hidden">
+                      {selectedProduct.main_image ? (
+                        <img
+                          src={selectedProduct.main_image}
+                          alt=""
+                          className="w-7 h-9 object-cover rounded shadow-sm flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-7 h-9 bg-purple-100 text-purple-600 rounded flex items-center justify-center text-xs font-bold flex-shrink-0">
+                          📖
+                        </div>
+                      )}
+                      <div className="truncate">
+                        <p className="font-semibold text-slate-900 text-xs sm:text-sm truncate">
+                          {selectedProduct.name || selectedProduct.title}
+                        </p>
+                        <p className="text-[11px] text-slate-500 font-mono">₹{selectedProduct.price || selectedProduct.mrp}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-slate-400 text-xs sm:text-sm flex items-center gap-2">
+                      <Search className="w-4 h-4 text-slate-400" /> Search & Select a book...
+                    </span>
+                  )}
+                  <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0 ml-2" />
+                </button>
+
+                {/* Dropdown Menu Popover */}
+                {dropdownOpen && (
+                  <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden space-y-2 p-2 max-h-80 flex flex-col">
+                    {/* Search Input Box */}
+                    <div className="relative sticky top-0 bg-white z-10 pb-2">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                      <input
+                        type="text"
+                        placeholder="Search book by name, class, ISBN, author..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        autoFocus
+                        className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-500 outline-none bg-slate-50"
+                      />
+                    </div>
+
+                    {/* Products List */}
+                    <div className="overflow-y-auto flex-1 divide-y divide-slate-100">
+                      {loadingProducts ? (
+                        <div className="py-8 text-center text-xs text-slate-400">Loading catalog books...</div>
+                      ) : filteredProducts.length === 0 ? (
+                        <div className="py-8 text-center text-xs text-slate-400">No books found matching search.</div>
+                      ) : (
+                        filteredProducts.map((p) => {
+                          const isSelected = selectedProduct?.id === p.id;
+                          return (
+                            <div
+                              key={p.id}
+                              onClick={() => {
+                                setSelectedProduct(p);
+                                setDropdownOpen(false);
+                              }}
+                              className={`p-2.5 rounded-xl transition-colors flex items-center justify-between cursor-pointer ${
+                                isSelected ? "bg-purple-50 border border-purple-200" : "hover:bg-slate-50"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 overflow-hidden">
+                                {p.main_image ? (
+                                  <img src={p.main_image} alt="" className="w-9 h-12 object-cover rounded shadow-sm flex-shrink-0" />
+                                ) : (
+                                  <div className="w-9 h-12 bg-purple-100 text-purple-600 rounded flex items-center justify-center font-bold text-xs flex-shrink-0">
+                                    📖
+                                  </div>
+                                )}
+
+                                <div className="space-y-0.5 min-w-0">
+                                  <p className="text-xs font-bold text-slate-900 line-clamp-1">{p.name || p.title}</p>
+                                  <div className="flex items-center gap-2 text-[10px] text-slate-500 flex-wrap">
+                                    {p.classes && (
+                                      <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-semibold">
+                                        Class {p.classes}
+                                      </span>
+                                    )}
+                                    {p.isbn && <span>ISBN: {p.isbn}</span>}
+                                    {p.author && <span className="truncate">By {p.author}</span>}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="text-right flex-shrink-0 ml-3">
+                                <span className="font-mono font-bold text-xs text-slate-900">₹{p.price || p.mrp || 0}</span>
+                                {isSelected && <Check className="w-4 h-4 text-purple-600 ml-auto mt-1" />}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
+              {/* Quantity Field */}
               <div className="sm:col-span-3">
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Quantity</label>
                 <input
@@ -199,15 +320,17 @@ export default function PublicBulkOrderPage() {
                   min="1"
                   value={selectedQty}
                   onChange={(e) => setSelectedQty(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none font-semibold"
                 />
               </div>
 
+              {/* Add Button */}
               <div className="sm:col-span-2">
                 <button
                   type="button"
                   onClick={handleAddItem}
-                  className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-xl transition-colors inline-flex items-center justify-center cursor-pointer shadow-sm"
+                  disabled={!selectedProduct}
+                  className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors inline-flex items-center justify-center cursor-pointer shadow-sm"
                 >
                   <Plus className="w-4 h-4 mr-1" /> Add
                 </button>
@@ -219,7 +342,7 @@ export default function PublicBulkOrderPage() {
               <div className="text-center py-10 border-2 border-dashed border-slate-200 rounded-xl">
                 <BookOpen className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                 <p className="text-sm font-medium text-slate-500">No books added yet.</p>
-                <p className="text-xs text-slate-400">Select a book above and click Add.</p>
+                <p className="text-xs text-slate-400">Search and select a book above, then click Add.</p>
               </div>
             ) : (
               <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
@@ -231,18 +354,30 @@ export default function PublicBulkOrderPage() {
                 </div>
                 {items.map((item, idx) => (
                   <div key={idx} className="px-4 py-3 grid grid-cols-12 items-center text-sm">
-                    <div className="col-span-6 font-medium text-slate-900 flex items-center gap-2">
+                    <div className="col-span-6 font-medium text-slate-900 flex items-center gap-3">
                       <button
                         type="button"
                         onClick={() => handleRemoveItem(idx)}
-                        className="text-red-400 hover:text-red-600 transition-colors p-1"
+                        className="text-red-400 hover:text-red-600 transition-colors p-1 flex-shrink-0"
                         title="Remove"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
-                      <span className="truncate">{item.title}</span>
+
+                      {item.main_image ? (
+                        <img src={item.main_image} alt="" className="w-8 h-10 object-cover rounded shadow-sm flex-shrink-0" />
+                      ) : (
+                        <div className="w-8 h-10 bg-purple-100 text-purple-600 rounded flex items-center justify-center font-bold text-xs flex-shrink-0">
+                          📖
+                        </div>
+                      )}
+
+                      <div className="truncate">
+                        <p className="truncate text-xs sm:text-sm font-bold text-slate-900">{item.title}</p>
+                        {item.classes && <p className="text-[10px] text-slate-500">Class {item.classes}</p>}
+                      </div>
                     </div>
-                    <div className="col-span-2 text-center text-slate-600 font-mono">₹{item.price}</div>
+                    <div className="col-span-2 text-center text-slate-600 font-mono text-xs sm:text-sm">₹{item.price}</div>
                     <div className="col-span-2 text-center">
                       <input
                         type="number"
@@ -252,7 +387,7 @@ export default function PublicBulkOrderPage() {
                         className="w-16 text-center py-1 border border-slate-300 rounded-lg text-xs font-semibold"
                       />
                     </div>
-                    <div className="col-span-2 text-right font-bold text-slate-900 font-mono">
+                    <div className="col-span-2 text-right font-bold text-slate-900 font-mono text-xs sm:text-sm">
                       ₹{(item.price * item.qty).toLocaleString()}
                     </div>
                   </div>
