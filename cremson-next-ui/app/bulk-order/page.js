@@ -210,7 +210,7 @@ export default function PublicBulkOrderPage() {
                 <button
                   type="button"
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm bg-white hover:border-purple-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none flex items-center justify-between shadow-sm cursor-pointer"
+                  className="w-full h-11 px-4 border border-slate-300 rounded-xl text-sm bg-white hover:border-purple-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none flex items-center justify-between shadow-sm cursor-pointer"
                 >
                   {selectedProduct ? (
                     <div className="flex items-center gap-3 text-left overflow-hidden">
@@ -218,14 +218,14 @@ export default function PublicBulkOrderPage() {
                         <img
                           src={selectedProduct.main_image}
                           alt=""
-                          className="w-7 h-9 object-cover rounded shadow-sm flex-shrink-0"
+                          className="w-6 h-8 object-cover rounded shadow-sm flex-shrink-0"
                         />
                       ) : (
-                        <div className="w-7 h-9 bg-purple-100 text-purple-600 rounded flex items-center justify-center text-xs font-bold flex-shrink-0">
+                        <div className="w-6 h-8 bg-purple-100 text-purple-600 rounded flex items-center justify-center text-xs font-bold flex-shrink-0">
                           📖
                         </div>
                       )}
-                      <div className="truncate">
+                      <div className="truncate leading-tight">
                         <p className="font-semibold text-slate-900 text-xs sm:text-sm truncate">
                           {selectedProduct.name || selectedProduct.title}
                         </p>
@@ -320,17 +320,18 @@ export default function PublicBulkOrderPage() {
                   min="1"
                   value={selectedQty}
                   onChange={(e) => setSelectedQty(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none font-semibold"
+                  className="w-full h-11 px-4 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none font-semibold"
                 />
               </div>
 
               {/* Add Button */}
               <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-transparent uppercase mb-1 select-none hidden sm:block">Action</label>
                 <button
                   type="button"
                   onClick={handleAddItem}
                   disabled={!selectedProduct}
-                  className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors inline-flex items-center justify-center cursor-pointer shadow-sm"
+                  className="w-full h-11 px-4 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors inline-flex items-center justify-center cursor-pointer shadow-sm"
                 >
                   <Plus className="w-4 h-4 mr-1" /> Add
                 </button>
