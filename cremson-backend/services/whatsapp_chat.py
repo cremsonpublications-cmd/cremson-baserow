@@ -351,14 +351,7 @@ async def handle_incoming_message(from_phone: str, message_text: str) -> None:
         await send_text_message(from_phone, msg)
 
     elif clean_text in ["3", "track your order", "track order", "track"]:
-        set_conversation_state(from_phone, "WAITING_FOR_ORDER_ID")
-        msg = (
-            "Let's find your package! 📦\n\n"
-            "Please enter your Order ID (e.g. CR10025 or BOOK5).\n\n"
-            "Or track directly on our website:\n"
-            "https://cremsonpublications.com/track-order"
-        )
-        await send_text_message(from_phone, msg)
+        await _handle_option_my_orders(from_phone)
 
     elif clean_text in ["4", "request specimen", "specimen"]:
         set_conversation_state(from_phone, "MAIN_MENU")
@@ -386,8 +379,9 @@ async def handle_incoming_message(from_phone: str, message_text: str) -> None:
         await send_text_message(from_phone, msg)
 
     else:
-        # Check direct Order ID match
-        if clean_text.upper().startswith("BOOK") or clean_text.upper().startswith("CR"):
+        # Check direct Order ID / Specimen ID match
+        clean_upper = clean_text.upper()
+        if clean_upper.startswith("BOOK") or clean_upper.startswith("CR") or clean_upper.startswith("SPEC") or clean_upper.isdigit():
             await _process_track_order_id_input(from_phone, clean_text)
         else:
             await send_text_message(from_phone, get_fallback_menu())
@@ -396,20 +390,19 @@ async def handle_incoming_message(from_phone: str, message_text: str) -> None:
 # --- BASEROW LOOKUP HELPERS ---
 
 async def _handle_option_my_orders(from_phone: str) -> None:
-    """Fetch user's latest orders from Baserow by matching phone number."""
+    """Fetch user's latest orders and specimen requests from Baserow by matching phone number."""
     phone_digits = "".join(filter(str.isdigit, from_phone))
     last_10_digits = phone_digits[-10:] if len(phone_digits) >= 10 else phone_digits
 
+    matched_items: List[Dict[str, Any]] = []
+
+    # 1. Search Orders (Table 762)
     try:
         rows_data = await baserow_client.get_rows(
             TABLE_IDS["orders"],
             size=100,
-            order_by="-order_date",
         )
-        all_orders = rows_data.get("results", [])
-
-        matched_orders: List[Dict[str, Any]] = []
-        for order in all_orders:
+        for order in rows_data.get("results", []):
             u_info_raw = order.get("user_info") or "{}"
             deliv_raw = order.get("delivery") or "{}"
 
@@ -420,59 +413,140 @@ async def _handle_option_my_orders(from_phone: str) -> None:
             order_phone_digits = "".join(filter(str.isdigit, order_phone))
 
             if last_10_digits and last_10_digits in order_phone_digits:
-                matched_orders.append(order)
+                items_raw = order.get("items") or "[]"
+                items = json.loads(items_raw) if isinstance(items_raw, str) and items_raw.startswith("[") else (items_raw if isinstance(items_raw, list) else [])
+                book_title = items[0].get("name") or items[0].get("title") if items else "Book Order"
 
-        if not matched_orders:
-            set_conversation_state(from_phone, "MAIN_MENU")
-            await send_text_message(
-                from_phone,
-                "No orders found associated with your WhatsApp phone number.\n\n"
-                "Please enter your Order ID to track your package directly."
-            )
-            return
+                awb = order.get("awb") or deliv.get("awb") or ""
+                tracking_url = order.get("tracking_url") or deliv.get("tracking_url") or ""
+                if awb and not tracking_url:
+                    tracking_url = f"https://app-v1.shipway.com/tracking/forward/{awb}"
 
-        recent_orders = matched_orders[:5]
-        orders_map = {}
-        lines = ["📚 Your Recent Orders\n"]
-
-        for idx, ord_item in enumerate(recent_orders, 1):
-            ord_id = ord_item.get("order_id") or f"BOOK{ord_item.get('id')}"
-            status = ord_item.get("order_status") or "Processing"
-            items_raw = ord_item.get("items") or "[]"
-            items = json.loads(items_raw) if isinstance(items_raw, str) and items_raw.startswith("[") else (items_raw if isinstance(items_raw, list) else [])
-            book_title = items[0].get("name") or items[0].get("title") if items else "Book"
-
-            lines.append(f"{idx}️⃣ Order #{ord_id}\n{book_title}\nStatus: {status}\n")
-            orders_map[str(idx)] = ord_id
-            orders_map[ord_id.upper()] = ord_id
-
-        lines.append("Reply with the number to view details.")
-        set_conversation_state(
-            from_phone,
-            "WAITING_FOR_ORDER_SELECTION",
-            context={"orders": orders_map, "order_list": [o.get("order_id") for o in recent_orders]}
-        )
-        await send_text_message(from_phone, "\n".join(lines))
-
+                matched_items.append({
+                    "type": "ORDER",
+                    "id": order.get("order_id") or f"BOOK{order.get('id')}",
+                    "title": book_title,
+                    "status": order.get("order_status") or "Processing",
+                    "awb": awb,
+                    "tracking_url": tracking_url,
+                    "courier": order.get("courier") or deliv.get("courier") or "DTDC",
+                    "raw": order,
+                })
     except Exception as exc:
-        logger.error(f"[WhatsApp Chat] Error fetching orders: {exc}")
+        logger.error(f"[WhatsApp Chat] Error searching orders for {from_phone}: {exc}")
+
+    # 2. Search Teachers (Table 877) -> Specimen Requests (Table 878)
+    try:
+        t_res = await baserow_client.get_rows(TABLE_IDS["teacher"], search=last_10_digits)
+        matching_tids = [t["id"] for t in t_res.get("results", [])]
+
+        s_res = await baserow_client.get_rows(TABLE_IDS["specimen_requests"], size=100)
+        for spec in s_res.get("results", []):
+            t_link = spec.get("TeacherID", [])
+            linked_ids = [t["id"] for t in t_link if isinstance(t, dict)]
+            
+            p_val = spec.get("Phone", [])
+            p_str = " ".join(str(p.get("value", "")) for p in p_val if isinstance(p, dict))
+            p_digits = "".join(filter(str.isdigit, p_str))
+
+            if any(tid in matching_tids for tid in linked_ids) or (last_10_digits and last_10_digits in p_digits):
+                status_raw = spec.get("DeliveryStatus")
+                status_str = status_raw.get("value") if isinstance(status_raw, dict) else str(status_raw or "Not dispatched")
+
+                awb = spec.get("AWB_Number") or ""
+                tracking_url = spec.get("TrackingLink") or ""
+                if awb and not tracking_url:
+                    tracking_url = f"https://app-v1.shipway.com/tracking/forward/{awb}"
+
+                matched_items.append({
+                    "type": "SPECIMEN",
+                    "id": f"SPEC{spec.get('id')}",
+                    "title": spec.get("BooksRequested") or "Specimen Copy",
+                    "status": status_str,
+                    "awb": awb,
+                    "tracking_url": tracking_url,
+                    "courier": "Shipway Express",
+                    "raw": spec,
+                })
+    except Exception as exc:
+        logger.error(f"[WhatsApp Chat] Error searching specimen requests for {from_phone}: {exc}")
+
+    # 3. Handle matched results
+    if not matched_items:
+        set_conversation_state(from_phone, "WAITING_FOR_ORDER_ID")
+        msg = (
+            "Let's find your package! 📦\n\n"
+            "We couldn't find any recent orders or specimen requests linked to your phone number.\n\n"
+            "Please enter your Order ID or Specimen ID (e.g. CR10025 or SPEC386).\n\n"
+            "Or track directly on our website:\n"
+            "https://cremsonpublications.com/track-order"
+        )
+        await send_text_message(from_phone, msg)
+        return
+
+    # If EXACTLY 1 item found, send full tracking details directly!
+    if len(matched_items) == 1:
+        item = matched_items[0]
         set_conversation_state(from_phone, "MAIN_MENU")
-        await send_text_message(from_phone, "Temporary issue retrieving orders. Please try again.")
+        lines = [
+            "📦 Package Tracking Details\n",
+            f"Type: {'Specimen Copy (Free)' if item['type'] == 'SPECIMEN' else 'Book Order'}",
+            f"ID: #{item['id']}",
+            f"Book: {item['title']}",
+            f"Status: {item['status']}",
+        ]
+        if item["awb"]:
+            lines.append(f"AWB / Tracking No: {item['awb']}")
+        if item["tracking_url"]:
+            lines.append(f"\n🔗 Live Tracking Link:\n{item['tracking_url']}")
+
+        lines.append("\nType 'Menu' anytime to go back.")
+        await send_text_message(from_phone, "\n".join(lines))
+        return
+
+    # If MULTIPLE items found, send selection list!
+    recent_items = matched_items[:5]
+    items_map = {}
+    lines = ["📚 We found the following packages for your number:\n"]
+
+    for idx, item in enumerate(recent_items, 1):
+        lines.append(f"{idx}️⃣ #{item['id']} ({'Specimen' if item['type'] == 'SPECIMEN' else 'Order'})\nBook: {item['title']}\nStatus: {item['status']}\n")
+        items_map[str(idx)] = item
+        items_map[item['id'].upper()] = item
+
+    lines.append("Reply with the number (e.g. 1 or 2) to view tracking details.")
+    set_conversation_state(
+        from_phone,
+        "WAITING_FOR_ORDER_SELECTION",
+        context={"items_map": items_map}
+    )
+    await send_text_message(from_phone, "\n".join(lines))
 
 
 async def _process_order_selection_input(from_phone: str, user_input: str, context: Dict[str, Any]) -> None:
-    orders_map = context.get("orders", {})
-    selected_order_id = orders_map.get(user_input) or orders_map.get(user_input.upper())
+    items_map = context.get("items_map", {})
+    selected_item = items_map.get(user_input) or items_map.get(user_input.upper())
 
-    if not selected_order_id:
-        if user_input.upper().startswith("BOOK") or user_input.upper().startswith("CR"):
-            await _process_track_order_id_input(from_phone, user_input)
-            return
+    if selected_item:
         set_conversation_state(from_phone, "MAIN_MENU")
-        await send_text_message(from_phone, f"Invalid selection.\n\n" + get_welcome_menu())
+        lines = [
+            "📦 Package Tracking Details\n",
+            f"Type: {'Specimen Copy (Free)' if selected_item['type'] == 'SPECIMEN' else 'Book Order'}",
+            f"ID: #{selected_item['id']}",
+            f"Book: {selected_item['title']}",
+            f"Status: {selected_item['status']}",
+        ]
+        if selected_item["awb"]:
+            lines.append(f"AWB / Tracking No: {selected_item['awb']}")
+        if selected_item["tracking_url"]:
+            lines.append(f"\n🔗 Live Tracking Link:\n{selected_item['tracking_url']}")
+
+        lines.append("\nType 'Menu' to return to main menu.")
+        await send_text_message(from_phone, "\n".join(lines))
         return
 
-    await _send_order_details_response(from_phone, selected_order_id)
+    # Fallback to direct Order ID lookup
+    await _process_track_order_id_input(from_phone, user_input)
 
 
 async def _process_track_order_id_input(from_phone: str, order_id_input: str) -> None:
@@ -482,6 +556,34 @@ async def _process_track_order_id_input(from_phone: str, order_id_input: str) ->
 
 async def _send_order_details_response(from_phone: str, order_id: str) -> None:
     try:
+        # Check Specimen Requests Table (Table 878) if order_id has SPEC or numeric
+        clean_numeric = "".join(filter(str.isdigit, order_id))
+        if clean_numeric:
+            s_res = await baserow_client.get_rows(TABLE_IDS["specimen_requests"], size=100)
+            for spec in s_res.get("results", []):
+                if str(spec.get("id")) == clean_numeric or f"SPEC{spec.get('id')}" == order_id:
+                    status_raw = spec.get("DeliveryStatus")
+                    status_str = status_raw.get("value") if isinstance(status_raw, dict) else str(status_raw or "Not dispatched")
+                    awb = spec.get("AWB_Number") or ""
+                    tracking_url = spec.get("TrackingLink") or (f"https://app-v1.shipway.com/tracking/forward/{awb}" if awb else "")
+
+                    lines = [
+                        "📦 Specimen Tracking Details\n",
+                        f"Specimen Request ID: #{spec.get('id')}",
+                        f"Book: {spec.get('BooksRequested') or 'Specimen Copy'}",
+                        f"Status: {status_str}",
+                    ]
+                    if awb:
+                        lines.append(f"AWB Number: {awb}")
+                    if tracking_url:
+                        lines.append(f"\n🔗 Live Tracking Link:\n{tracking_url}")
+
+                    lines.append("\nType 'Menu' to return to main menu.")
+                    set_conversation_state(from_phone, "MAIN_MENU")
+                    await send_text_message(from_phone, "\n".join(lines))
+                    return
+
+        # Check Orders Table (Table 762)
         rows = await baserow_client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
         results = rows.get("results", [])
 
@@ -491,7 +593,7 @@ async def _send_order_details_response(from_phone: str, order_id: str) -> None:
 
         if not results:
             set_conversation_state(from_phone, "MAIN_MENU")
-            await send_text_message(from_phone, "Order not found.\nPlease check your Order ID.")
+            await send_text_message(from_phone, "Order or Specimen request not found.\nPlease check your ID and try again.")
             return
 
         order = results[0]

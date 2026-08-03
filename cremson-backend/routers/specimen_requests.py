@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query, Request, Depends, BackgroundTasks, HTTPException
-from typing import Optional
+from typing import Optional, List
 import asyncio
 import json
 import logging
@@ -18,6 +18,20 @@ client = BaserowClient()
 
 class SpecimenStatusUpdate(BaseModel):
     status: str
+
+
+class AdminCreateSpecimenRequest(BaseModel):
+    teacher_id: Optional[int] = None
+    teacher_name: str
+    school_name: str
+    phone: str
+    email: Optional[str] = ""
+    full_address: str
+    city: Optional[str] = ""
+    pincode: Optional[str] = ""
+    books_requested: List[str]
+    feedback_notes: Optional[str] = ""
+    dispatch_immediately: bool = True
 
 
 async def _resolve_specimen_names(rows: list):
@@ -415,5 +429,89 @@ async def reject_specimen_request(row_id: int):
 async def delete_specimen_request(row_id: int):
     await client.delete_row(TABLE_IDS["specimen_requests"], row_id)
     return {"message": "Specimen request deleted successfully"}
+
+
+@router.post("/admin-create", summary="Admin manually create specimen request for a teacher")
+async def admin_create_specimen_request(body: AdminCreateSpecimenRequest):
+    """
+    Manually create a specimen request by Admin on behalf of a teacher.
+    Does not require teacher login or password.
+    If dispatch_immediately is True, it triggers Shipway shipment creation immediately.
+    """
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    books_str = ", ".join(body.books_requested) if isinstance(body.books_requested, list) else str(body.books_requested)
+
+    teacher_id = body.teacher_id
+
+    # If no teacher_id was passed, check if teacher exists by phone in Table 877
+    if not teacher_id and body.phone:
+        try:
+            search_res = await client.get_rows(TABLE_IDS["teacher"], search=body.phone)
+            results = search_res.get("results", [])
+            if results:
+                teacher_id = results[0]["id"]
+        except Exception as err:
+            logger.warning(f"[Admin Create Specimen] Teacher search by phone failed: {err}")
+
+    # If still no teacher_id, create a new teacher row in Table 877 so lookups work
+    if not teacher_id:
+        t_data = {
+            "Teacher Name": body.teacher_name,
+            "Whatsapp Phone": body.phone,
+            "Email": body.email or "",
+            "Residence": body.full_address or "",
+            "City": body.city or "",
+            "Status": "Approved",
+        }
+        if body.pincode:
+            try:
+                t_data["Pin Code"] = int(body.pincode)
+            except Exception:
+                pass
+        try:
+            new_teacher = await client.create_row(TABLE_IDS["teacher"], t_data)
+            teacher_id = new_teacher.get("id")
+        except Exception as err:
+            logger.error(f"[Admin Create Specimen] Failed to create teacher in Table 877: {err}")
+
+    # Build row data for Table 878 (Only writable fields, NO lookup fields!)
+    row_data = {
+        "BooksRequested": books_str,
+        "Feedback/Notes": body.feedback_notes or "Created by Admin",
+        "RequestDate": today_str,
+        "DeliveryStatus": "Not dispatched",
+        "Full_Address": body.full_address,
+    }
+
+    if teacher_id:
+        row_data["TeacherID"] = [teacher_id]
+
+    # 1. Create specimen request row in Table 878
+    created_row = await client.create_row(TABLE_IDS["specimen_requests"], row_data)
+    row_id = created_row.get("id")
+
+    dispatched = False
+    approval_result = None
+
+    # 2. If dispatch_immediately is requested, attempt atomic approval & shipment creation
+    if body.dispatch_immediately and row_id:
+        try:
+            approval_result = await approve_specimen_request(row_id)
+            dispatched = True
+        except Exception as err:
+            logger.error(f"[Admin Create Specimen] Immediate dispatch failed for #{row_id}: {err}")
+            return {
+                "message": f"Specimen request #{row_id} created, but immediate dispatch failed: {str(err)}",
+                "id": row_id,
+                "dispatched": False,
+                "warning": str(err),
+            }
+
+    return {
+        "message": f"Specimen request #{row_id} created successfully" + (" and dispatched!" if dispatched else " as pending."),
+        "id": row_id,
+        "dispatched": dispatched,
+        "details": approval_result,
+    }
 
 

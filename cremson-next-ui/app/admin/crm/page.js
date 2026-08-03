@@ -23,6 +23,7 @@ import {
   Plus
 } from "lucide-react";
 import ConfirmModal from "../components/ConfirmModal";
+import CreateSpecimenModal from "../components/CreateSpecimenModal";
 import {
   adminCreateSchool,
   adminUpdateSchool,
@@ -617,6 +618,7 @@ export default function AdminCRMHub() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [filters, setFilters] = useState({});
   const [actionLoading, setActionLoading] = useState({});
+  const [showCreateSpecimenModal, setShowCreateSpecimenModal] = useState(false);
 
   // Sync tab search parameter on load and history changes
   useEffect(() => {
@@ -984,7 +986,13 @@ export default function AdminCRMHub() {
 
                   {/* Add Button */}
                   <button
-                    onClick={() => setEditRecord({})}
+                    onClick={() => {
+                      if (activeTab === "specimen") {
+                        setShowCreateSpecimenModal(true);
+                      } else {
+                        setEditRecord({});
+                      }
+                    }}
                     className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white text-sm cursor-pointer"
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -1351,6 +1359,17 @@ export default function AdminCRMHub() {
           record={editRecord}
           onClose={() => setEditRecord(null)}
           onSaved={handleSaved}
+        />
+      )}
+
+      {/* Create Specimen Modal */}
+      {showCreateSpecimenModal && (
+        <CreateSpecimenModal
+          onClose={() => setShowCreateSpecimenModal(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["crm-hub"] });
+            refetch();
+          }}
         />
       )}
 

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import api from "../../../lib/api/axios";
 import { adminApproveSpecimen, adminRejectSpecimen, adminDeleteSpecimenRequest } from "../../../lib/api/admin";
 import ConfirmModal from "../components/ConfirmModal";
+import CreateSpecimenModal from "../components/CreateSpecimenModal";
 import {
   Search,
   X,
@@ -17,6 +18,9 @@ import {
   AlertCircle,
   Trash2,
   BookOpen,
+  Plus,
+  UserCheck,
+  Send,
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
@@ -60,6 +64,8 @@ function DeliveryStatusBadge({ status }) {
     </span>
   );
 }
+
+
 
 function DetailModal({ request, onClose, onAction }) {
   if (!request) return null;
@@ -298,6 +304,7 @@ export default function AdminSpecimenRequests() {
   const [actionLoading, setActionLoading] = useState({});
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const debouncedSearch = useDebounce(search, 400);
   useEffect(() => { setPage(1); }, [debouncedSearch, statusFilter]);
@@ -413,7 +420,16 @@ export default function AdminSpecimenRequests() {
                         className="pl-8 md:pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none w-full sm:w-80"
                       />
                     </div>
-                    <div className="text-sm text-gray-600">Total: {count} requests</div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 rounded-xl shadow-md transition-all cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Create Specimen Request
+                      </button>
+                      <div className="text-sm text-gray-600">Total: {count} requests</div>
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
@@ -679,6 +695,14 @@ export default function AdminSpecimenRequests() {
           request={selected}
           onClose={() => setSelected(null)}
           onAction={handleModalAction}
+        />
+      )}
+
+      {/* Create Specimen Modal */}
+      {showCreateModal && (
+        <CreateSpecimenModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ["admin-specimen-requests"] })}
         />
       )}
 
