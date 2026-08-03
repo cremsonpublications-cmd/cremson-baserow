@@ -1,6 +1,7 @@
 """
 Bulk Order System — FastAPI Router
 Handles bulk order creation (no auth), admin approval, split payments, and shipping.
+Uses Baserow Table 767.
 """
 import os
 import uuid
@@ -95,24 +96,83 @@ async def _razorpay_create_order(amount_inr: float, receipt: str) -> dict:
         return resp.json()
 
 
-def _get_row_items(row: dict) -> list:
-    raw = row.get("items", "[]")
-    if isinstance(raw, list):
-        return raw
-    try:
-        return json.loads(raw) if raw else []
-    except Exception:
-        return []
+def _normalize_bulk_row(row: dict) -> dict:
+    if not row:
+        return {}
+
+    notes_raw = row.get("Notes", "")
+    data = {}
+    if notes_raw and isinstance(notes_raw, str):
+        try:
+            data = json.loads(notes_raw)
+        except Exception:
+            data = {}
+
+    token = row.get("Name") or data.get("token") or ""
+    contact_name = row.get("full_name") or data.get("contact_name") or ""
+    school_name = row.get("school_name") or data.get("school_name") or ""
+    phone = row.get("whatsapp_number") or data.get("phone") or ""
+    address = row.get("address_line_1") or data.get("address") or ""
+    city = row.get("town_city") or data.get("city") or ""
+    state = row.get("state_region") or data.get("state") or ""
+    pincode = row.get("post_code") or data.get("pincode") or ""
+    status = row.get("status") or data.get("status") or "pending_review"
+    admin_notes = row.get("admin_notes") or data.get("admin_notes") or ""
+
+    items = data.get("items", [])
+    if isinstance(items, str):
+        try: items = json.loads(items)
+        except: items = []
+
+    student_payments = data.get("student_payments", [])
+    if isinstance(student_payments, str):
+        try: student_payments = json.loads(student_payments)
+        except: student_payments = []
+
+    return {
+        "id": row.get("id"),
+        "token": token,
+        "contact_name": contact_name,
+        "school_name": school_name,
+        "phone": phone,
+        "address": address,
+        "city": city,
+        "state": state,
+        "pincode": pincode,
+        "items": items,
+        "subtotal": float(data.get("subtotal", 0)),
+        "discount_type": data.get("discount_type", "percentage"),
+        "discount_value": float(data.get("discount_value", 0)),
+        "final_amount": float(data.get("final_amount", data.get("subtotal", 0))),
+        "split_count": int(data.get("split_count", 0)),
+        "paid_count": int(data.get("paid_count", 0)),
+        "status": status,
+        "admin_notes": admin_notes,
+        "student_payments": student_payments,
+        "razorpay_order_id": data.get("razorpay_order_id"),
+        "razorpay_payment_id": data.get("razorpay_payment_id"),
+        "shipway_awb": data.get("shipway_awb"),
+        "order_date": data.get("order_date") or row.get("created_at"),
+        "approved_at": data.get("approved_at"),
+    }
 
 
-def _get_student_payments(row: dict) -> list:
-    raw = row.get("student_payments", "[]")
-    if isinstance(raw, list):
-        return raw
-    try:
-        return json.loads(raw) if raw else []
-    except Exception:
-        return []
+async def _save_bulk_data(row_id: int, obj: dict):
+    payload = {
+        "Name": obj["token"],
+        "full_name": obj["contact_name"],
+        "school_name": obj["school_name"],
+        "whatsapp_number": obj["phone"],
+        "address_line_1": obj["address"],
+        "town_city": obj["city"],
+        "state_region": obj["state"],
+        "post_code": obj["pincode"],
+        "status": obj["status"],
+        "admin_notes": obj.get("admin_notes", ""),
+        "Active": True,
+        "Notes": json.dumps(obj),
+    }
+    return await client.update_row(TABLE_IDS["bulk_orders"], row_id, payload)
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
@@ -121,9 +181,9 @@ def _get_student_payments(row: dict) -> list:
 async def create_bulk_order(body: BulkOrderCreate, bg: BackgroundTasks):
     token = str(uuid.uuid4())
     subtotal = round(sum(item.price * item.qty for item in body.items), 2)
-    items_json = json.dumps([i.model_dump() for i in body.items])
+    items_list = [i.model_dump() for i in body.items]
 
-    row = await client.create_row(TABLE_IDS["bulk_orders"], {
+    obj = {
         "token": token,
         "contact_name": body.contact_name,
         "school_name": body.school_name,
@@ -132,7 +192,7 @@ async def create_bulk_order(body: BulkOrderCreate, bg: BackgroundTasks):
         "city": body.city,
         "state": body.state,
         "pincode": body.pincode,
-        "items": items_json,
+        "items": items_list,
         "subtotal": subtotal,
         "discount_type": "percentage",
         "discount_value": 0,
@@ -140,8 +200,22 @@ async def create_bulk_order(body: BulkOrderCreate, bg: BackgroundTasks):
         "split_count": 0,
         "paid_count": 0,
         "status": "pending_review",
-        "student_payments": "[]",
+        "student_payments": [],
         "order_date": datetime.utcnow().isoformat(),
+    }
+
+    row = await client.create_row(TABLE_IDS["bulk_orders"], {
+        "Name": token,
+        "full_name": body.contact_name,
+        "school_name": body.school_name,
+        "whatsapp_number": body.phone,
+        "address_line_1": body.address,
+        "town_city": body.city,
+        "state_region": body.state,
+        "post_code": body.pincode,
+        "status": "pending_review",
+        "Active": True,
+        "Notes": json.dumps(obj),
     })
 
     order_link = f"{SITE_URL}/bulk-order/{token}"
@@ -167,21 +241,30 @@ async def create_bulk_order(body: BulkOrderCreate, bg: BackgroundTasks):
 
 @router.get("/", summary="List all bulk orders (admin)")
 async def list_bulk_orders(page: int = 1, size: int = 50, search: str = None):
-    return await client.get_rows(TABLE_IDS["bulk_orders"], page=page, size=size, search=search)
+    data = await client.get_rows(TABLE_IDS["bulk_orders"], page=page, size=size, search=search)
+    raw_rows = data.get("results", data.get("items", []))
+    
+    # Filter rows that are valid bulk orders (have token in Name or Notes)
+    normalized = []
+    for r in raw_rows:
+        norm = _normalize_bulk_row(r)
+        if norm.get("token"):
+            normalized.append(norm)
+
+    return {"count": len(normalized), "results": normalized}
 
 
 @router.get("/{token}", summary="Get a bulk order by token (public)")
 async def get_bulk_order(token: str):
-    data = await client.get_rows(TABLE_IDS["bulk_orders"], size=1, search=token)
-    rows = data.get("results", data.get("items", []))
-    matched = [r for r in rows if r.get("token") == token]
-    if not matched:
-        raise HTTPException(status_code=404, detail="Bulk order not found")
-    row = matched[0]
-    # Parse JSON fields for response
-    row["items"] = _get_row_items(row)
-    row["student_payments"] = _get_student_payments(row)
-    return row
+    data = await client.get_rows(TABLE_IDS["bulk_orders"], size=100, search=token)
+    raw_rows = data.get("results", data.get("items", []))
+    
+    for r in raw_rows:
+        norm = _normalize_bulk_row(r)
+        if norm.get("token") == token:
+            return norm
+
+    raise HTTPException(status_code=404, detail="Bulk order not found")
 
 
 @router.patch("/{row_id}/approve", summary="Admin approves bulk order + sets discount")
@@ -190,62 +273,50 @@ async def approve_bulk_order(row_id: int, body: BulkOrderApprove, bg: Background
     if not row:
         raise HTTPException(status_code=404, detail="Bulk order not found")
 
-    subtotal = float(row.get("subtotal", 0))
+    norm = _normalize_bulk_row(row)
+    subtotal = norm.get("subtotal", 0)
     final_amount = _calc_final_amount(subtotal, body.discount_type, body.discount_value)
 
-    updated = await client.update_row(TABLE_IDS["bulk_orders"], row_id, {
-        "status": "approved",
-        "discount_type": body.discount_type,
-        "discount_value": body.discount_value,
-        "final_amount": final_amount,
-        "admin_notes": body.admin_notes or "",
-        "approved_at": datetime.utcnow().isoformat(),
-    })
+    norm["status"] = "approved"
+    norm["discount_type"] = body.discount_type
+    norm["discount_value"] = body.discount_value
+    norm["final_amount"] = final_amount
+    norm["admin_notes"] = body.admin_notes or ""
+    norm["approved_at"] = datetime.utcnow().isoformat()
 
-    token = row.get("token", "")
-    order_link = f"{SITE_URL}/bulk-order/{token}"
-    phone = row.get("phone", "")
-    name = row.get("contact_name", "")
+    await _save_bulk_data(row_id, norm)
 
+    order_link = f"{SITE_URL}/bulk-order/{norm['token']}"
     bg.add_task(
         send_bulk_order_approved,
-        phone=phone,
-        name=name,
+        phone=norm["phone"],
+        name=norm["contact_name"],
         final_amount=final_amount,
         order_link=order_link,
     )
 
-    updated["items"] = _get_row_items(updated)
-    updated["student_payments"] = _get_student_payments(updated)
-    return updated
+    return norm
 
 
 @router.post("/{token}/create-payment", summary="Teacher pays full amount — create Razorpay order")
 async def create_full_payment(token: str):
-    data = await client.get_rows(TABLE_IDS["bulk_orders"], size=1, search=token)
-    rows = data.get("results", data.get("items", []))
-    matched = [r for r in rows if r.get("token") == token]
-    if not matched:
-        raise HTTPException(status_code=404, detail="Bulk order not found")
-
-    row = matched[0]
-    if row.get("status") != "approved":
+    norm = await get_bulk_order(token)
+    if norm.get("status") != "approved":
         raise HTTPException(status_code=400, detail="Order is not approved yet")
 
-    final_amount = float(row.get("final_amount", 0))
-    rz_order = await _razorpay_create_order(final_amount, f"bulk_{row['id']}")
+    final_amount = norm.get("final_amount", 0)
+    rz_order = await _razorpay_create_order(final_amount, f"bulk_{norm['id']}")
 
-    await client.update_row(TABLE_IDS["bulk_orders"], row["id"], {
-        "razorpay_order_id": rz_order["id"],
-    })
+    norm["razorpay_order_id"] = rz_order["id"]
+    await _save_bulk_data(norm["id"], norm)
 
     return {
         "razorpay_order_id": rz_order["id"],
         "amount": rz_order["amount"],
         "currency": "INR",
         "key_id": RAZORPAY_KEY_ID,
-        "contact_name": row.get("contact_name", ""),
-        "phone": row.get("phone", ""),
+        "contact_name": norm.get("contact_name", ""),
+        "phone": norm.get("phone", ""),
     }
 
 
@@ -254,17 +325,11 @@ async def create_split_payment(token: str, body: SplitPaymentCreate):
     if body.split_count < 2:
         raise HTTPException(status_code=400, detail="Split count must be at least 2")
 
-    data = await client.get_rows(TABLE_IDS["bulk_orders"], size=1, search=token)
-    rows = data.get("results", data.get("items", []))
-    matched = [r for r in rows if r.get("token") == token]
-    if not matched:
-        raise HTTPException(status_code=404, detail="Bulk order not found")
-
-    row = matched[0]
-    if row.get("status") != "approved":
+    norm = await get_bulk_order(token)
+    if norm.get("status") != "approved":
         raise HTTPException(status_code=400, detail="Order is not approved yet")
 
-    final_amount = float(row.get("final_amount", 0))
+    final_amount = norm.get("final_amount", 0)
     per_student = round(final_amount / body.split_count, 2)
 
     students = []
@@ -278,20 +343,17 @@ async def create_split_payment(token: str, body: SplitPaymentCreate):
             "razorpay_payment_id": None,
         })
 
-    await client.update_row(TABLE_IDS["bulk_orders"], row["id"], {
-        "split_count": body.split_count,
-        "paid_count": 0,
-        "status": "approved",
-        "student_payments": json.dumps(students),
-    })
+    norm["split_count"] = body.split_count
+    norm["paid_count"] = 0
+    norm["student_payments"] = students
+    await _save_bulk_data(norm["id"], norm)
 
     site = SITE_URL
-    main_token = row.get("token", "")
     return {
         "split_count": body.split_count,
         "per_student_amount": per_student,
         "students": [
-            {**s, "pay_link": f"{site}/bulk-order/{main_token}/pay/{s['student_token']}"}
+            {**s, "pay_link": f"{site}/bulk-order/{token}/pay/{s['student_token']}"}
             for s in students
         ],
     }
@@ -299,14 +361,8 @@ async def create_split_payment(token: str, body: SplitPaymentCreate):
 
 @router.post("/{token}/student-payment/{student_token}", summary="Create Razorpay order for a student")
 async def create_student_payment(token: str, student_token: str):
-    data = await client.get_rows(TABLE_IDS["bulk_orders"], size=1, search=token)
-    rows = data.get("results", data.get("items", []))
-    matched = [r for r in rows if r.get("token") == token]
-    if not matched:
-        raise HTTPException(status_code=404, detail="Bulk order not found")
-
-    row = matched[0]
-    students = _get_student_payments(row)
+    norm = await get_bulk_order(token)
+    students = norm.get("student_payments", [])
     student = next((s for s in students if s.get("student_token") == student_token), None)
     if not student:
         raise HTTPException(status_code=404, detail="Student payment link not found")
@@ -315,7 +371,7 @@ async def create_student_payment(token: str, student_token: str):
 
     rz_order = await _razorpay_create_order(
         student["amount"],
-        f"bulk_{row['id']}_s_{student_token[:8]}"
+        f"bulk_{norm['id']}_s_{student_token[:8]}"
     )
 
     return {
@@ -336,9 +392,8 @@ async def verify_bulk_payment(token: str, body: dict):
     razorpay_order_id = body.get("razorpay_order_id", "")
     razorpay_payment_id = body.get("razorpay_payment_id", "")
     razorpay_signature = body.get("razorpay_signature", "")
-    student_token = body.get("student_token")  # None = teacher full pay
+    student_token = body.get("student_token")
 
-    # Verify signature
     message = f"{razorpay_order_id}|{razorpay_payment_id}"
     expected = hmac.new(
         RAZORPAY_KEY_SECRET.encode(),
@@ -348,18 +403,11 @@ async def verify_bulk_payment(token: str, body: dict):
     if expected != razorpay_signature:
         raise HTTPException(status_code=400, detail="Invalid payment signature")
 
-    data = await client.get_rows(TABLE_IDS["bulk_orders"], size=1, search=token)
-    rows = data.get("results", data.get("items", []))
-    matched = [r for r in rows if r.get("token") == token]
-    if not matched:
-        raise HTTPException(status_code=404, detail="Bulk order not found")
-
-    row = matched[0]
-    row_id = row["id"]
+    norm = await get_bulk_order(token)
+    row_id = norm["id"]
 
     if student_token:
-        # Student split payment
-        students = _get_student_payments(row)
+        students = norm.get("student_payments", [])
         for s in students:
             if s.get("student_token") == student_token:
                 s["paid"] = True
@@ -367,22 +415,19 @@ async def verify_bulk_payment(token: str, body: dict):
                 break
 
         paid_count = sum(1 for s in students if s.get("paid"))
-        split_count = int(row.get("split_count", len(students)))
+        split_count = int(norm.get("split_count", len(students)))
         new_status = "fully_paid" if paid_count >= split_count else "partially_paid"
 
-        await client.update_row(TABLE_IDS["bulk_orders"], row_id, {
-            "student_payments": json.dumps(students),
-            "paid_count": paid_count,
-            "status": new_status,
-        })
+        norm["student_payments"] = students
+        norm["paid_count"] = paid_count
+        norm["status"] = new_status
+        await _save_bulk_data(row_id, norm)
         return {"success": True, "status": new_status, "paid_count": paid_count, "split_count": split_count}
     else:
-        # Teacher full payment
-        await client.update_row(TABLE_IDS["bulk_orders"], row_id, {
-            "razorpay_payment_id": razorpay_payment_id,
-            "status": "fully_paid",
-            "paid_count": 1,
-        })
+        norm["razorpay_payment_id"] = razorpay_payment_id
+        norm["status"] = "fully_paid"
+        norm["paid_count"] = 1
+        await _save_bulk_data(row_id, norm)
         return {"success": True, "status": "fully_paid"}
 
 
@@ -391,26 +436,27 @@ async def ship_bulk_order(row_id: int, bg: BackgroundTasks):
     row = await client.get_row(TABLE_IDS["bulk_orders"], row_id)
     if not row:
         raise HTTPException(status_code=404, detail="Bulk order not found")
-    if row.get("status") != "fully_paid":
+    norm = _normalize_bulk_row(row)
+    if norm.get("status") != "fully_paid":
         raise HTTPException(status_code=400, detail="Order is not fully paid yet")
 
-    items = _get_row_items(row)
+    items = norm.get("items", [])
     item_count = sum(i.get("qty", 1) for i in items)
 
     shipment_data = {
-        "first_name": row.get("contact_name", "").split()[0],
-        "last_name": " ".join(row.get("contact_name", "").split()[1:]) or "-",
+        "first_name": norm.get("contact_name", "").split()[0],
+        "last_name": " ".join(norm.get("contact_name", "").split()[1:]) or "-",
         "email": "",
-        "phone": row.get("phone", ""),
-        "address": row.get("address", ""),
-        "city": row.get("city", ""),
-        "state": row.get("state", ""),
-        "pincode": row.get("pincode", ""),
+        "phone": norm.get("phone", ""),
+        "address": norm.get("address", ""),
+        "city": norm.get("city", ""),
+        "state": norm.get("state", ""),
+        "pincode": norm.get("pincode", ""),
         "order_id": f"BULK-{row_id}",
-        "item_name": f"{row.get('school_name', 'Bulk')} - {item_count} items",
+        "item_name": f"{norm.get('school_name', 'Bulk')} - {item_count} items",
         "item_count": item_count,
         "cod": 0,
-        "total": float(row.get("final_amount", 0)),
+        "total": float(norm.get("final_amount", 0)),
         "weight": item_count * 0.3,
     }
 
@@ -421,9 +467,8 @@ async def ship_bulk_order(row_id: int, bg: BackgroundTasks):
         logger.error(f"[BulkOrder] Shipway error: {e}")
         raise HTTPException(status_code=502, detail=f"Shipway error: {str(e)}")
 
-    await client.update_row(TABLE_IDS["bulk_orders"], row_id, {
-        "status": "shipped",
-        "shipway_awb": str(awb),
-    })
+    norm["status"] = "shipped"
+    norm["shipway_awb"] = str(awb)
+    await _save_bulk_data(row_id, norm)
 
     return {"success": True, "awb": awb, "status": "shipped"}
