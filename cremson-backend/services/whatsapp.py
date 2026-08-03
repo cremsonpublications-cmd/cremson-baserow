@@ -389,3 +389,44 @@ async def send_rto(
         [_txt(customer_name), _txt(order_id)],
         log_tag=f"rto order={order_id}",
     )
+
+
+# ── Bulk Order Notifications ──────────────────────────────────────────────────
+
+
+async def send_bulk_order_received(phone: str, name: str, school: str, order_link: str):
+    """Sent to teacher upon bulk order submission."""
+    msg = (
+        f"Hello {name},\n\n"
+        f"Thank you for submitting your Bulk Order request for *{school}* with Cremson Publications! 📚\n\n"
+        "Our admin team is currently reviewing your order request. Once approved, you will receive a WhatsApp notification with your special discounted pricing and payment link.\n\n"
+        f"📌 Track your bulk order status anytime here:\n{order_link}\n\n"
+        "Thank you,\nCremson Publications Team"
+    )
+    await _send_text_message(phone, msg, log_tag=f"bulk_order_received name={name}")
+
+
+async def send_bulk_order_admin_notify(admin_phone: str, name: str, school: str, total: float, order_link: str):
+    """Sent to admin upon new bulk order submission."""
+    msg = (
+        f"🔔 *NEW BULK ORDER RECEIVED*\n\n"
+        f"• Teacher: {name}\n"
+        f"• School: {school}\n"
+        f"• Total Pre-Discount: ₹{total:,.2f}\n\n"
+        f"Review & approve discount here:\n{order_link}"
+    )
+    await _send_text_message(admin_phone, msg, log_tag=f"bulk_order_admin_notify school={school}")
+
+
+async def send_bulk_order_approved(phone: str, name: str, final_amount: float, order_link: str):
+    """Sent to teacher upon admin approval & discount application."""
+    msg = (
+        f"Great news {name}! 🎉\n\n"
+        f"Your Bulk Order has been *APPROVED* by Cremson Publications!\n"
+        f"💰 Final Payable Amount: *₹{final_amount:,.2f}*\n\n"
+        f"You can now view your order, pay directly, or generate individual payment links for your students:\n\n"
+        f"👉 {order_link}\n\n"
+        "Thank you for choosing Cremson Publications!"
+    )
+    await _send_text_message(phone, msg, log_tag=f"bulk_order_approved name={name}")
+

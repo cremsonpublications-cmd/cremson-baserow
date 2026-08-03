@@ -5,6 +5,7 @@ load_dotenv()
 
 BASEROW_URL = os.getenv("BASEROW_URL", "http://200.141.5.200")
 BASEROW_TOKEN = os.getenv("BASEROW_TOKEN", "HkWj6pCpBqAxEeFqyGDDQOqr92m3iauI")
+SITE_URL = os.getenv("SITE_URL", "https://cremsonpublications.com")
 WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
 WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "264411460083166")
 WHATSAPP_TEMPLATE_NAME = os.getenv("WHATSAPP_TEMPLATE_NAME", "hello_world")
@@ -38,4 +39,5 @@ TABLE_IDS = {
     "cart_items": int(os.getenv("TABLE_CART_ITEMS", "772")),
     "wishlist_items": int(os.getenv("TABLE_WISHLIST_ITEMS", "773")),
     "shipment_history": int(os.getenv("TABLE_SHIPMENT_HISTORY", "774")),
+    "bulk_orders": int(os.getenv("TABLE_BULK_ORDERS", "900")),
 }
