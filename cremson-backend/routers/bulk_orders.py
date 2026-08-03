@@ -393,6 +393,56 @@ async def create_student_payment(token: str, student_token: str):
     }
 
 
+async def _auto_ship_bulk_order(row_id: int):
+    try:
+        row = await client.get_row(TABLE_IDS["bulk_orders"], row_id)
+        if not row:
+            return
+        norm = _normalize_bulk_row(row)
+
+        items = norm.get("items", [])
+        item_count = sum(i.get("qty", 1) for i in items)
+
+        shipment_data = {
+            "first_name": norm.get("contact_name", "").split()[0],
+            "last_name": " ".join(norm.get("contact_name", "").split()[1:]) or "-",
+            "email": "",
+            "phone": norm.get("phone", ""),
+            "address": norm.get("address", ""),
+            "city": norm.get("city", ""),
+            "state": norm.get("state", ""),
+            "pincode": norm.get("pincode", ""),
+            "order_id": f"BULK-{row_id}",
+            "item_name": f"{norm.get('school_name', 'Bulk')} - {item_count} items",
+            "item_count": item_count,
+            "cod": 0,
+            "total": float(norm.get("final_amount", 0)),
+            "weight": item_count * 0.3,
+        }
+
+        result = await create_shipment(shipment_data)
+        awb = result.get("awb") or result.get("data", {}).get("awb", "")
+
+        norm["status"] = "shipped"
+        norm["shipway_awb"] = str(awb)
+        await _save_bulk_data(row_id, norm)
+
+        tracking_link = f"https://shipway.in/track/{awb}"
+        order_link = f"{SITE_URL}/bulk-order/{norm['token']}"
+
+        await send_bulk_order_shipped(
+            phone=norm["phone"],
+            name=norm["contact_name"],
+            school=norm["school_name"],
+            awb=str(awb),
+            tracking_link=tracking_link,
+            order_link=order_link,
+        )
+        logger.info(f"[BulkOrder] Auto-shipped order row {row_id} with AWB {awb}")
+    except Exception as e:
+        logger.error(f"[BulkOrder] Auto-ship error for row {row_id}: {e}")
+
+
 @router.post("/{token}/verify-payment", summary="Verify Razorpay payment (teacher or student)")
 async def verify_bulk_payment(token: str, body: dict, bg: BackgroundTasks):
     import hmac, hashlib
@@ -442,6 +492,7 @@ async def verify_bulk_payment(token: str, body: dict, bg: BackgroundTasks):
                 amount=norm["final_amount"],
                 order_link=order_link,
             )
+            bg.add_task(_auto_ship_bulk_order, row_id)
 
         return {"success": True, "status": new_status, "paid_count": paid_count, "split_count": split_count}
     else:
@@ -458,6 +509,7 @@ async def verify_bulk_payment(token: str, body: dict, bg: BackgroundTasks):
             amount=norm["final_amount"],
             order_link=order_link,
         )
+        bg.add_task(_auto_ship_bulk_order, row_id)
 
         return {"success": True, "status": "fully_paid"}
 

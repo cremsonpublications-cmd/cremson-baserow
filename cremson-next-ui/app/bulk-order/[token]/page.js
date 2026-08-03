@@ -181,13 +181,63 @@ export default function BulkOrderDetailPage() {
             </div>
           )}
 
-          {/* Shipped Banner */}
-          {isShipped && (
-            <div className="mt-6 bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-xs text-emerald-800 space-y-2">
-              <p className="font-bold text-sm flex items-center gap-2">
-                <Truck className="w-4 h-4 text-emerald-600" /> Order Shipped via Shipway!
-              </p>
-              <p>AWB Number: <span className="font-mono font-bold">{order.shipway_awb}</span></p>
+          {/* Fully Paid & Shipping Status Banner */}
+          {(isFullyPaid || isShipped) && (
+            <div className="mt-6 bg-emerald-50/70 border border-emerald-200 rounded-2xl p-5 sm:p-6 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-600 text-white rounded-xl flex items-center justify-center shadow-sm">
+                    {isShipped ? <Truck className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-emerald-950">
+                      {isShipped ? "Order Dispatched & On The Way! 🚚" : "Payment Confirmed! ✅"}
+                    </h3>
+                    <p className="text-xs text-emerald-700 font-medium">
+                      Full payment of <span className="font-extrabold font-mono">₹{Number(order.final_amount).toLocaleString()}</span> received for <span className="font-bold">{order.school_name}</span>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/90 backdrop-blur border border-emerald-200/80 rounded-xl p-4 space-y-3 text-xs sm:text-sm">
+                <div className="flex items-center justify-between border-b border-emerald-100 pb-2.5">
+                  <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <Package className="w-4 h-4 text-emerald-600" /> Shipment Status
+                  </span>
+                  <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-extrabold rounded-full text-xs">
+                    {isShipped ? "Dispatched" : "Preparing Shipment"}
+                  </span>
+                </div>
+
+                {isShipped ? (
+                  <div className="space-y-3 pt-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <div>
+                        <span className="text-slate-500">AWB Tracking Number:</span>{" "}
+                        <span className="font-mono font-extrabold text-slate-900 text-sm ml-1">{order.shipway_awb}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Carrier:</span>{" "}
+                        <span className="font-bold text-slate-800 ml-1">Shipway Courier</span>
+                      </div>
+                    </div>
+
+                    <a
+                      href={`https://shipway.in/track/${order.shipway_awb}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-2 w-full py-3 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow text-xs sm:text-sm cursor-pointer"
+                    >
+                      Track Shipment Live on Shipway <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                ) : (
+                  <div className="text-slate-600 leading-relaxed text-xs pt-1">
+                    📦 Our warehouse team is preparing your books for dispatch. Automatic shipment generation with Shipway is in progress. You will receive live tracking updates via WhatsApp as soon as tracking is active!
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
