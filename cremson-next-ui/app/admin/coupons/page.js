@@ -146,7 +146,7 @@ function DatePickerField({ value, onChange }) {
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute left-0 bottom-full mb-2 z-50 bg-white rounded-xl shadow-2xl border border-gray-100 p-4 w-72 animate-in fade-in zoom-in-95 duration-150">
+          <div className="absolute left-0 top-full mt-2 z-50 bg-white rounded-xl shadow-2xl border border-gray-200 p-4 w-72 animate-in fade-in zoom-in-95 duration-150">
             {/* Calendar Header */}
             <div className="flex items-center justify-between mb-4">
               <span className="font-semibold text-gray-900 text-sm">
