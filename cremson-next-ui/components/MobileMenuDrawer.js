@@ -67,7 +67,7 @@ export default function MobileMenuDrawer() {
       />
 
       {/* Left-to-Right Drawer Panel */}
-      <div className="fixed top-0 bottom-0 left-0 h-screen h-[100dvh] max-w-xs w-full bg-white shadow-2xl flex flex-col z-[100000] animate-in slide-in-from-left duration-300">
+      <div className="fixed top-0 bottom-0 left-0 h-screen h-[100dvh] w-[85vw] sm:w-[360px] max-w-[380px] bg-white shadow-2xl flex flex-col z-[100000] animate-in slide-in-from-left duration-300">
         
         {/* Top Header */}
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/80 flex-shrink-0">
