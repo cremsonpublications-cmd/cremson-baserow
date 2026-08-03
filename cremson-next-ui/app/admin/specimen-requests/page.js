@@ -61,11 +61,20 @@ function DeliveryStatusBadge({ status }) {
   );
 }
 
-function RequestModal({ request, onClose, onAction }) {
+function DetailModal({ request, onClose, onAction }) {
   if (!request) return null;
 
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+
+  const { data: catalogProducts = [] } = useQuery({
+    queryKey: ["products-catalog"],
+    queryFn: async () => {
+      const { data } = await api.get("/api/products/", { params: { size: 200 } });
+      return data?.results || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   const statusRaw = getStatusRaw(request["DeliveryStatus"]).toLowerCase();
   const isOldData = Number(request.id) <= 363;
@@ -124,6 +133,9 @@ function RequestModal({ request, onClose, onAction }) {
     if (typeof val === "object") return val.value || val.name || JSON.stringify(val);
     return String(val);
   }
+
+  const rawBooksStr = renderVal(request["BooksRequested"]);
+  const booksList = rawBooksStr !== "—" ? rawBooksStr.split(",").map(s => s.trim()).filter(Boolean) : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-slate-950/60 backdrop-blur-md transition-all duration-300">
@@ -214,7 +226,55 @@ function RequestModal({ request, onClose, onAction }) {
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {fields.map(({ label, key }) => {
               const val = request[key];
-              const isLong = key === "BooksRequested" || key === "Feedback/Notes" || key === "Full_Address";
+
+              if (key === "BooksRequested") {
+                return (
+                  <div key={key} className="bg-white border border-slate-100 rounded-2xl p-4 sm:col-span-2 shadow-xs">
+                    <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5 text-red-500" />
+                      Requested Books ({booksList.length})
+                    </dt>
+                    <dd className="space-y-2.5 mt-1">
+                      {booksList.length > 0 ? (
+                        booksList.map((bName, idx) => {
+                          const cleanBName = bName.replace(/\(.*?\)/g, "").trim().toLowerCase();
+                          const matchedProduct = catalogProducts.find(p => {
+                            const pName = (p.name || "").toLowerCase();
+                            return pName === cleanBName || pName.includes(cleanBName) || cleanBName.includes(pName);
+                          });
+                          const finalTitle = matchedProduct?.name || bName.replace(/\(.*?\)/g, "").trim() || bName;
+                          return (
+                            <div key={idx} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200/80 rounded-xl hover:border-red-200 transition-all">
+                              {matchedProduct?.main_image ? (
+                                <img src={matchedProduct.main_image} alt={finalTitle} className="w-12 h-14 object-cover rounded-lg border border-slate-200 shadow-xs flex-shrink-0" />
+                              ) : (
+                                <div className="w-12 h-14 bg-red-50 border border-red-100 rounded-lg flex items-center justify-center text-red-500 flex-shrink-0">
+                                  <BookOpen className="w-6 h-6" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-xs font-bold text-slate-900 truncate">{finalTitle}</p>
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                                    <CheckCircle className="w-3 h-3" /> Website Catalog
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 mt-1">
+                                  {matchedProduct?.author || "Cremson Publications"} {matchedProduct?.weight ? `• Weight: ${matchedProduct.weight}` : ""}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-xs text-slate-400 italic">No books specified</p>
+                      )}
+                    </dd>
+                  </div>
+                );
+              }
+
+              const isLong = key === "Feedback/Notes" || key === "Full_Address";
               return (
                 <div key={key} className={`bg-white border border-slate-100 rounded-xl p-4 ${isLong ? "sm:col-span-2" : ""}`}>
                   <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</dt>
@@ -615,7 +675,7 @@ export default function AdminSpecimenRequests() {
 
       {/* Detail Modal */}
       {selected && (
-        <RequestModal
+        <DetailModal
           request={selected}
           onClose={() => setSelected(null)}
           onAction={handleModalAction}

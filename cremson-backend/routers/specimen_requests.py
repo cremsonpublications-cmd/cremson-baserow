@@ -194,22 +194,49 @@ async def approve_specimen_request(row_id: int):
     except Exception as p_err:
         logger.warning(f"Failed to fetch products catalog for specimen matching: {p_err}")
 
-    books_list = [b.strip() for b in books_requested.split(",") if b.strip()] if books_requested else ["Specimen Evaluation Copy"]
+    import re
+
+    def _clean_book_name(name: str) -> str:
+        s = re.sub(r'\(.*?\)', '', name).strip()
+        return re.sub(r'\s+', ' ', s).lower()
+
+    books_list = [b.strip() for b in books_requested.split(",") if b.strip()]
+    if not books_list:
+        raise HTTPException(
+            status_code=400,
+            detail="No books specified in specimen request. Please select valid books from the website."
+        )
+
     items = []
 
     for bname in books_list:
         matched_p = None
-        bname_lower = bname.lower()
+        cbname = _clean_book_name(bname)
 
-        # Try exact name match or fuzzy substring match in catalog_products
+        # 1. Exact or clean string match
         for p in catalog_products:
             p_name = (p.get("name") or "").strip()
             if not p_name:
                 continue
-            p_name_lower = p_name.lower()
-            if p_name_lower == bname_lower or bname_lower in p_name_lower or p_name_lower in bname_lower:
+            cpname = _clean_book_name(p_name)
+            if cpname == cbname or cbname in cpname or cpname in cbname:
                 matched_p = p
                 break
+
+        # 2. Token overlap match if fuzzy
+        if not matched_p:
+            b_tokens = set(cbname.split())
+            best_score = 0
+            for p in catalog_products:
+                p_name = (p.get("name") or "").strip()
+                if not p_name:
+                    continue
+                cpname = _clean_book_name(p_name)
+                p_tokens = set(cpname.split())
+                overlap = len(b_tokens.intersection(p_tokens))
+                if overlap > best_score and overlap >= 2:
+                    best_score = overlap
+                    matched_p = p
 
         if matched_p:
             items.append({
@@ -225,7 +252,7 @@ async def approve_specimen_request(row_id: int):
         else:
             items.append({
                 "productId": 0,
-                "name": bname,
+                "name": re.sub(r'\(.*?\)', '', bname).strip(),
                 "author": "Cremson Publications",
                 "weight": "0.5kg",
                 "quantity": 1,
