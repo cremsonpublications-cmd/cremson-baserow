@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "../context/AppContext";
 import CPLogo from "./CPLogo";
 import Link from "next/link";
@@ -10,8 +10,9 @@ import { Menu, Search, X } from "lucide-react";
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const headerSearchDebounce = useRef(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const profileRef = useRef(null);
 
   // Hierarchical study materials states
@@ -89,6 +90,13 @@ export default function Header() {
     authLogout
   } = useApp();
 
+  // Sync AppContext searchQuery from URL when arriving on shop page (e.g. via direct link with ?search=)
+  useEffect(() => {
+    if (pathname === "/shop") {
+      setSearchQuery(searchParams.get("search") || "");
+    }
+  }, [pathname, searchParams]);
+
   if (pathname?.startsWith("/admin")) return null;
 
   const totalCartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
@@ -103,13 +111,23 @@ export default function Header() {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    router.push("/shop");
+    const val = searchQuery.trim();
+    router.push(val ? `/shop?search=${encodeURIComponent(val)}` : "/shop");
   };
 
   const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
-    if (pathname !== "/shop") {
-      router.push("/shop");
+    const val = e.target.value;
+    setSearchQuery(val);
+    if (pathname === "/shop") {
+      clearTimeout(headerSearchDebounce.current);
+      headerSearchDebounce.current = setTimeout(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (val) { params.set("search", val); } else { params.delete("search"); }
+        params.delete("page");
+        router.replace(params.toString() ? `/shop?${params.toString()}` : "/shop", { scroll: false });
+      }, 300);
+    } else {
+      router.push(val ? `/shop?search=${encodeURIComponent(val)}` : "/shop");
     }
   };
 
@@ -428,7 +446,15 @@ export default function Header() {
                   {searchQuery && (
                     <button
                       type="button"
-                      onClick={() => setSearchQuery("")}
+                      onClick={() => {
+                        setSearchQuery("");
+                        if (pathname === "/shop") {
+                          const params = new URLSearchParams(window.location.search);
+                          params.delete("search");
+                          params.delete("page");
+                          router.replace(params.toString() ? `/shop?${params.toString()}` : "/shop", { scroll: false });
+                        }
+                      }}
                       className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-red-500"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x">
@@ -446,21 +472,11 @@ export default function Header() {
           <div className="flex items-center flex-shrink-0 gap-3 ml-4">
             {/* Mobile Search Button (shows on small screens only) */}
             <button
-              onClick={() => {
-                const nextState = !isMobileSearchOpen;
-                setIsMobileSearchOpen(nextState);
-                if (pathname !== "/shop") {
-                  router.push("/shop");
-                }
-              }}
+              onClick={() => router.push("/shop?focusSearch=true")}
               className="block md:hidden p-1 focus:outline-none cursor-pointer"
               aria-label="Search Catalog"
             >
-              {isMobileSearchOpen ? (
-                <X className="w-5 h-5 text-red-500" />
-              ) : (
-                <Search className="w-5 h-5 text-red-500" />
-              )}
+              <Search className="w-5 h-5 text-red-500" />
             </button>
 
             {/* Wishlist Button */}
@@ -554,43 +570,6 @@ export default function Header() {
           </div>
 
         </div>
-
-        {/* Expandable Mobile Search Bar */}
-        {isMobileSearchOpen && (
-          <div className="block md:hidden bg-white border-t border-gray-100 p-3 shadow-md animate-in slide-in-from-top duration-200">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (pathname !== "/shop") router.push("/shop");
-              }}
-              className="relative w-full"
-            >
-              <div className="relative flex items-center">
-                <Search className="w-4 h-4 text-gray-400 absolute left-3" />
-                <input
-                  type="text"
-                  placeholder="Search books by title, author..."
-                  value={searchQuery}
-                  onChange={(e) => {
-                    handleSearchChange(e);
-                    if (pathname !== "/shop") router.push("/shop");
-                  }}
-                  className="w-full pl-9 pr-9 py-2 border border-gray-300 rounded-xl bg-[#F0F0F0] text-xs focus:outline-none focus:ring-2 focus:ring-red-500/20 text-gray-900"
-                  autoFocus
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-3 text-gray-400 hover:text-red-500 p-1"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
-        )}
       </nav>
     </>
   );

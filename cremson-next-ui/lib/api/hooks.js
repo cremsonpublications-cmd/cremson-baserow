@@ -1,12 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "./axios";
-import { fetchAllProducts, fetchProduct } from "./products";
+import { fetchAllProducts, fetchProduct, fetchProducts } from "./products";
 
 // ── Products ──────────────────────────────────────────────
 export function useProducts(params = {}) {
   return useQuery({
     queryKey: ["products", params],
     queryFn: () => fetchAllProducts(params),
+  });
+}
+
+// Single-page backend-filtered fetch for shop listing
+export function useProductsPage(params = {}) {
+  return useQuery({
+    queryKey: ["products-page", params],
+    queryFn: () => fetchProducts(params),
   });
 }
 

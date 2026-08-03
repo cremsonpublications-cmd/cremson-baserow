@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect, Suspense } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useApp } from "../../context/AppContext";
-import { useProducts, useCategories } from "../../lib/api/hooks";
+import { useProducts, useCategories, useProductsPage } from "../../lib/api/hooks";
 import { ChevronLeft, ChevronRight, ChevronDown, Check, Search, X } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 
@@ -99,30 +99,12 @@ function CustomCheckbox({ checked, onChange, label }) {
 }
 
 function Shop() {
-  const { addToCart, toggleWishlist, wishlist, searchQuery, setSearchQuery, cart, updateQuantity, removeFromCart } = useApp();
+  const { addToCart, toggleWishlist, wishlist, cart, updateQuantity, removeFromCart } = useApp();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-  const { data: booksData = [], isLoading: dataLoading } = useProducts();
-  const { data: categoriesData } = useCategories({ size: 100 });
-  const categories = useMemo(() => {
-    const fetched = (categoriesData?.results || []).filter((c) => c.is_active !== false);
-    const hasComboCategory = fetched.some((c) => ["combos", "combo", "bundle", "bundles"].includes((c.name || "").toLowerCase()));
-    const hasCombosInBooks = booksData.some((b) => b.isCombo);
-    if (!hasComboCategory && hasCombosInBooks) {
-      return [{ id: "combos-virtual", name: "Combos" }, ...fetched];
-    }
-    return fetched;
-  }, [categoriesData, booksData]);
-
-  // Filters State
-  const [selectedCategories, setSelectedCategories] = useState([]);
-  const [selectedSubCategories, setSelectedSubCategories] = useState([]);
-  const [selectedAuthors, setSelectedAuthors] = useState([]);
-  const [selectedClasses, setSelectedClasses] = useState([]);
-  const [selectedEditions, setSelectedEditions] = useState([]);
-  const [selectedStatuses, setSelectedStatuses] = useState([]);
-  const [maxPrice, setMaxPrice] = useState(null);
-  const [sortBy, setSortBy] = useState("default");
-  const [currentPage, setCurrentPage] = useState(1);
+  // Local state only for the search input (controlled input with debounce)
+  const [searchInput, setSearchInput] = useState(() => searchParams.get("search") || "");
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // Accordion Sections State
@@ -136,6 +118,131 @@ function Shop() {
     status: true,
   });
 
+  const ITEMS_PER_PAGE = 9;
+
+  // --- Read all filter values from URL (single source of truth) ---
+  const searchVal = searchParams.get("search") || "";
+  const selectedCategories = useMemo(() => searchParams.get("categories")?.split(",").filter(Boolean) || [], [searchParams]);
+  const selectedSubCategories = useMemo(() => searchParams.get("subCategories")?.split(",").filter(Boolean) || [], [searchParams]);
+  const selectedAuthors = useMemo(() => searchParams.get("authors")?.split(",").filter(Boolean) || [], [searchParams]);
+  const selectedClasses = useMemo(() => searchParams.get("classes")?.split(",").filter(Boolean) || [], [searchParams]);
+  const selectedEditions = useMemo(() => searchParams.get("editions")?.split(",").filter(Boolean) || [], [searchParams]);
+  const selectedStatuses = useMemo(() => searchParams.get("statuses")?.split(",").filter(Boolean) || [], [searchParams]);
+  const maxPrice = searchParams.get("maxPrice") ? Number(searchParams.get("maxPrice")) : null;
+  const sortBy = searchParams.get("sortBy") || "default";
+  const currentPage = parseInt(searchParams.get("page")) || 1;
+
+  // URL update helper — reads window.location to always have the latest params
+  const updateUrl = useCallback((updates) => {
+    const params = new URLSearchParams(window.location.search);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === "" || (Array.isArray(value) && value.length === 0)) {
+        params.delete(key);
+      } else if (Array.isArray(value)) {
+        params.set(key, value.join(","));
+      } else {
+        params.set(key, String(value));
+      }
+    });
+    const qs = params.toString();
+    router.replace(qs ? `/shop?${qs}` : "/shop", { scroll: false });
+  }, [router]);
+
+  // Debounce search input → URL
+  // isTypingRef prevents the URL-sync effect from overwriting what the user is typing
+  const searchDebounceRef = useRef(null);
+  const isTypingRef = useRef(false);
+
+  const handleSearchChange = (value) => {
+    isTypingRef.current = true;
+    setSearchInput(value);
+    clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      updateUrl({ search: value || null, page: null });
+    }, 300);
+  };
+
+  // Sync searchInput from URL only when the change comes externally (e.g. header search)
+  useEffect(() => {
+    if (!isTypingRef.current) {
+      setSearchInput(searchVal);
+    }
+  }, [searchVal]);
+
+  // Fetch ALL products once for sidebar filter options (authors, editions, etc.)
+  const { data: allBooksData = [] } = useProducts({});
+  const { data: categoriesData } = useCategories({ size: 100 });
+
+  const categories = useMemo(() => {
+    const fetched = (categoriesData?.results || []).filter((c) => c.is_active !== false);
+    const hasComboCategory = fetched.some((c) => ["combos", "combo", "bundle", "bundles"].includes((c.name || "").toLowerCase()));
+    const hasCombosInBooks = allBooksData.some((b) => b.isCombo);
+    if (!hasComboCategory && hasCombosInBooks) {
+      return [{ id: "combos-virtual", name: "Combos" }, ...fetched];
+    }
+    return fetched;
+  }, [categoriesData, allBooksData]);
+
+  // Derive unique filter options from ALL products (full dataset)
+  const uniqueAuthors = useMemo(() => [...new Set(allBooksData.map((b) => b.author).filter(Boolean))].sort(), [allBooksData]);
+  const uniqueClasses = useMemo(() => [...new Set(allBooksData.flatMap((b) => b.classes).filter(Boolean))].sort(), [allBooksData]);
+  const uniqueSubCategories = useMemo(() => {
+    const fromBooks = allBooksData.flatMap((b) => b.subCategories || []).filter(Boolean);
+    const fromCats = (categoriesData?.results || [])
+      .flatMap((c) => (c.sub_categories ? c.sub_categories.split(",").map((s) => s.trim()) : []))
+      .filter(Boolean);
+    return [...new Set([...fromBooks, ...fromCats])].sort();
+  }, [allBooksData, categoriesData]);
+  const uniqueEditions = useMemo(() => [...new Set(allBooksData.map((b) => b.edition).filter(Boolean))].sort(), [allBooksData]);
+  const uniqueStatuses = useMemo(() => {
+    const map = { in_stock: "In Stock", out_of_stock: "Out of Stock", on_backorders: "On Backorders" };
+    return [...new Set(allBooksData.map((b) => b.stockStatus).filter(Boolean))].map((s) => ({ value: s, label: map[s] || s }));
+  }, [allBooksData]);
+  const priceRange = useMemo(() => {
+    if (!allBooksData.length) return { min: 0, max: 2000 };
+    const prices = allBooksData.map((b) => b.price).filter((p) => p > 0);
+    return { min: Math.floor(Math.min(...prices)), max: Math.ceil(Math.max(...prices)) };
+  }, [allBooksData]);
+
+  const effectiveMaxPrice = maxPrice ?? priceRange.max;
+
+  // Build params for backend API call from current URL state
+  const apiParams = useMemo(() => {
+    const params = { page: currentPage, size: ITEMS_PER_PAGE };
+    if (searchVal) params.search = searchVal;
+
+    const COMBO_NAMES = ["combos", "combo", "bundle", "bundles", "combo pack", "combo packs"];
+    const isComboSelected = selectedCategories.some((c) => COMBO_NAMES.includes(c.toLowerCase()));
+    const nonComboCategories = selectedCategories.filter((c) => !COMBO_NAMES.includes(c.toLowerCase()));
+    if (isComboSelected) params.is_combo = true;
+    if (nonComboCategories.length) params.category = nonComboCategories.join(",");
+
+    if (selectedAuthors.length) params.author = selectedAuthors.join(",");
+    if (selectedClasses.length) params.classes = selectedClasses.join(",");
+    if (selectedEditions.length) params.edition = selectedEditions.join(",");
+    if (selectedStatuses.length) params.stock_status = selectedStatuses.join(",");
+    if (maxPrice !== null) params.max_price = maxPrice;
+    if (sortBy !== "default") params.sort_by = sortBy;
+    return params;
+  }, [searchVal, selectedCategories, selectedAuthors, selectedClasses, selectedEditions, selectedStatuses, maxPrice, sortBy, currentPage]);
+
+  // Fetch current page of products from backend with all filters applied
+  const { data: pageData, isLoading: dataLoading } = useProductsPage(apiParams);
+  const paginatedBooks = pageData?.results || [];
+  const totalCount = pageData?.count || 0;
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE) || 1;
+
+  const searchInputRef = useRef(null);
+  useEffect(() => {
+    if (searchParams.get("focusSearch") === "true") {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+        searchInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 100);
+    }
+  }, [searchParams]);
+
   const toggleSection = (section) => {
     setOpenSections((prev) => ({
       ...prev,
@@ -143,181 +250,15 @@ function Shop() {
     }));
   };
 
-  // Derive unique filter options dynamically from product data
-  const uniqueAuthors = useMemo(() => [...new Set(booksData.map((b) => b.author).filter(Boolean))].sort(), [booksData]);
-  const uniqueClasses = useMemo(() => [...new Set(booksData.flatMap((b) => b.classes).filter(Boolean))].sort(), [booksData]);
-  const uniqueSubCategories = useMemo(() => {
-    const fromBooks = booksData.flatMap((b) => b.subCategories || []).filter(Boolean);
-    const fromCats = (categoriesData?.results || [])
-      .flatMap((c) => (c.sub_categories ? c.sub_categories.split(",").map((s) => s.trim()) : []))
-      .filter(Boolean);
-    return [...new Set([...fromBooks, ...fromCats])].sort();
-  }, [booksData, categoriesData]);
-  const uniqueEditions = useMemo(() => [...new Set(booksData.map((b) => b.edition).filter(Boolean))].sort(), [booksData]);
-  const uniqueStatuses = useMemo(() => {
-    const map = { in_stock: "In Stock", out_of_stock: "Out of Stock", on_backorders: "On Backorders" };
-    return [...new Set(booksData.map((b) => b.stockStatus).filter(Boolean))].map((s) => ({ value: s, label: map[s] || s }));
-  }, [booksData]);
-
-  const priceRange = useMemo(() => {
-    if (!booksData.length) return { min: 0, max: 2000 };
-    const prices = booksData.map((b) => b.price).filter((p) => p > 0);
-    return { min: Math.floor(Math.min(...prices)), max: Math.ceil(Math.max(...prices)) };
-  }, [booksData]);
-
-  const effectiveMaxPrice = maxPrice ?? priceRange.max;
-
-  const searchParams = useSearchParams();
-  const router = useRouter();
-
-  // Initial URL parsing to state on page load
-  const isInitialSyncRef = useRef(false);
-  useEffect(() => {
-    if (isInitialSyncRef.current) return;
-    if (!booksData.length) return; // Wait until product data is available so we have correct defaults/ranges
-
-    const params = new URLSearchParams(window.location.search);
-    const search = params.get("search") || params.get("q") || "";
-    const cats = params.get("categories") ? params.get("categories").split(",") : [];
-    const subs = params.get("subCategories") ? params.get("subCategories").split(",") : [];
-    const auths = params.get("authors") ? params.get("authors").split(",") : [];
-    const cls = params.get("classes") ? params.get("classes").split(",") : [];
-    const ed = params.get("editions") ? params.get("editions").split(",") : [];
-    const st = params.get("statuses") ? params.get("statuses").split(",") : [];
-    const price = params.get("maxPrice") ? Number(params.get("maxPrice")) : null;
-    const sort = params.get("sortBy") || "default";
-    const pg = params.get("page") ? Number(params.get("page")) : 1;
-
-    if (search) setSearchQuery(search);
-    if (cats.length) setSelectedCategories(cats);
-    if (subs.length) setSelectedSubCategories(subs);
-    if (auths.length) setSelectedAuthors(auths);
-    if (cls.length) setSelectedClasses(cls);
-    if (ed.length) setSelectedEditions(ed);
-    if (st.length) setSelectedStatuses(st);
-    if (price !== null) setMaxPrice(price);
-    if (sort !== "default") setSortBy(sort);
-    if (pg > 1) setCurrentPage(pg);
-
-    isInitialSyncRef.current = true;
-  }, [booksData, setSearchQuery]);
-
-  // Sync state to URL search parameters
-  useEffect(() => {
-    if (!isInitialSyncRef.current) return; // Don't overwrite URL before parsing it
-
-    const params = new URLSearchParams();
-    if (searchQuery) params.set("search", searchQuery);
-    if (selectedCategories.length > 0) params.set("categories", selectedCategories.join(","));
-    if (selectedSubCategories.length > 0) params.set("subCategories", selectedSubCategories.join(","));
-    if (selectedAuthors.length > 0) params.set("authors", selectedAuthors.join(","));
-    if (selectedClasses.length > 0) params.set("classes", selectedClasses.join(","));
-    if (selectedEditions.length > 0) params.set("editions", selectedEditions.join(","));
-    if (selectedStatuses.length > 0) params.set("statuses", selectedStatuses.join(","));
-    if (maxPrice !== null && maxPrice !== priceRange.max) params.set("maxPrice", maxPrice);
-    if (sortBy !== "default") params.set("sortBy", sortBy);
-    if (currentPage > 1) params.set("page", currentPage);
-
-    const qs = params.toString();
-    const dest = qs ? `/shop?${qs}` : "/shop";
-    router.replace(dest, { scroll: false });
-  }, [
-    searchQuery,
-    selectedCategories,
-    selectedSubCategories,
-    selectedAuthors,
-    selectedClasses,
-    selectedEditions,
-    selectedStatuses,
-    maxPrice,
-    sortBy,
-    currentPage,
-    router,
-    priceRange.max
-  ]);
-
-  // Filter & Sort Logic
-  const filteredBooks = useMemo(() => {
-    return booksData.filter((book) => {
-      // 1. Search
-      const q = searchQuery.toLowerCase();
-      const matchesSearch =
-        !searchQuery ||
-        book.title.toLowerCase().includes(q) ||
-        book.author.toLowerCase().includes(q) ||
-        book.class.toLowerCase().includes(q);
-
-      // 2. Categories (match against Baserow category name via mainCategory field OR combo status)
-      const matchesCategory =
-        selectedCategories.length === 0 ||
-        selectedCategories.some((cat) => {
-          const lowerCat = cat.toLowerCase();
-          if (["combos", "combo", "bundle", "bundles", "combo pack", "combo packs"].includes(lowerCat)) {
-            return book.isCombo;
-          }
-          return book.mainCategory?.toLowerCase() === lowerCat;
-        });
-
-      // 3. Sub Categories (match against subCategories array)
-      const matchesSubCategory =
-        selectedSubCategories.length === 0 ||
-        selectedSubCategories.some((sub) =>
-          book.subCategories.some((s) => s.toLowerCase() === sub.toLowerCase())
-        );
-
-      // 4. Authors
-      const matchesAuthor =
-        selectedAuthors.length === 0 ||
-        selectedAuthors.some((auth) => book.author.toLowerCase() === auth.toLowerCase());
-
-      // 5. Classes (match against full classes array)
-      const matchesClass =
-        selectedClasses.length === 0 ||
-        selectedClasses.some((cls) =>
-          book.classes.some((c) => c.toLowerCase() === cls.toLowerCase())
-        );
-
-      // 6. Edition (match actual edition field)
-      const matchesEdition =
-        selectedEditions.length === 0 ||
-        selectedEditions.includes(book.edition);
-
-      // 7. Stock Status
-      const matchesStatus =
-        selectedStatuses.length === 0 ||
-        selectedStatuses.includes(book.stockStatus);
-
-      // 8. Price Range
-      const matchesPrice = book.price <= effectiveMaxPrice;
-
-      return matchesSearch && matchesCategory && matchesSubCategory && matchesAuthor && matchesClass && matchesEdition && matchesStatus && matchesPrice;
-    }).sort((a, b) => {
-      if (sortBy === "price-asc") return a.price - b.price;
-      if (sortBy === "price-desc") return b.price - a.price;
-      if (sortBy === "rating") return b.rating - a.rating;
-      return 0;
-    });
-  }, [booksData, searchQuery, selectedCategories, selectedSubCategories, selectedAuthors, selectedClasses, selectedEditions, selectedStatuses, effectiveMaxPrice, sortBy]);
-
-  // Pagination Configuration
-  const ITEMS_PER_PAGE = 9;
-  const totalPages = Math.ceil(filteredBooks.length / ITEMS_PER_PAGE) || 1;
-  const paginatedBooks = useMemo(() => {
-    return filteredBooks.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-  }, [filteredBooks, currentPage]);
-
-  const handleToggleFilter = (list, setList, item) => {
-    setCurrentPage(1);
-    if (list.includes(item)) {
-      setList(list.filter((i) => i !== item));
-    } else {
-      setList([...list, item]);
-    }
+  const handleToggleFilter = (paramKey, currentList, item) => {
+    const newList = currentList.includes(item)
+      ? currentList.filter((i) => i !== item)
+      : [...currentList, item];
+    updateUrl({ [paramKey]: newList, page: null });
   };
 
   const handlePriceChange = (e) => {
-    setCurrentPage(1);
-    setMaxPrice(Number(e.target.value));
+    updateUrl({ maxPrice: Number(e.target.value), page: null });
   };
 
   const renderStars = (rating) => {
@@ -393,7 +334,7 @@ function Shop() {
                   <CustomCheckbox
                     key={cat.id}
                     checked={selectedCategories.some((c) => c.toLowerCase() === (cat.name || "").toLowerCase())}
-                    onChange={() => handleToggleFilter(selectedCategories, setSelectedCategories, cat.name)}
+                    onChange={() => handleToggleFilter("categories", selectedCategories, cat.name)}
                     label={cat.name}
                   />
                 ))}
@@ -438,7 +379,7 @@ function Shop() {
                   <CustomCheckbox
                     key={sub}
                     checked={selectedSubCategories.includes(sub)}
-                    onChange={() => handleToggleFilter(selectedSubCategories, setSelectedSubCategories, sub)}
+                    onChange={() => handleToggleFilter("subCategories", selectedSubCategories, sub)}
                     label={sub}
                   />
                 ))}
@@ -483,7 +424,7 @@ function Shop() {
                   <CustomCheckbox
                     key={author}
                     checked={selectedAuthors.includes(author)}
-                    onChange={() => handleToggleFilter(selectedAuthors, setSelectedAuthors, author)}
+                    onChange={() => handleToggleFilter("authors", selectedAuthors, author)}
                     label={author}
                   />
                 ))}
@@ -528,7 +469,7 @@ function Shop() {
                   <CustomCheckbox
                     key={cls}
                     checked={selectedClasses.includes(cls)}
-                    onChange={() => handleToggleFilter(selectedClasses, setSelectedClasses, cls)}
+                    onChange={() => handleToggleFilter("classes", selectedClasses, cls)}
                     label={cls}
                   />
                 ))}
@@ -573,7 +514,7 @@ function Shop() {
                   <CustomCheckbox
                     key={edition}
                     checked={selectedEditions.includes(edition)}
-                    onChange={() => handleToggleFilter(selectedEditions, setSelectedEditions, edition)}
+                    onChange={() => handleToggleFilter("editions", selectedEditions, edition)}
                     label={edition}
                   />
                 ))}
@@ -673,7 +614,7 @@ function Shop() {
                   <CustomCheckbox
                     key={value}
                     checked={selectedStatuses.includes(value)}
-                    onChange={() => handleToggleFilter(selectedStatuses, setSelectedStatuses, value)}
+                    onChange={() => handleToggleFilter("statuses", selectedStatuses, value)}
                     label={label}
                   />
                 ))}
@@ -752,7 +693,7 @@ function Shop() {
 
           {/* Mobile Drawer (sliding bottom or overlay dialog) */}
           {showMobileFilters && (
-            <div className="fixed inset-0 z-50 flex md:hidden bg-black/60 backdrop-blur-sm transition-opacity duration-300">
+            <div className="fixed inset-0 z-[1000] flex md:hidden bg-black/60 backdrop-blur-sm transition-opacity duration-300">
               <div className="w-[320px] bg-white h-full p-6 overflow-y-auto shadow-2xl relative flex flex-col">
                 <div className="flex items-center justify-between mb-6">
                   <span className="font-bold text-black text-xl">Filters</span>
@@ -775,19 +716,27 @@ function Shop() {
           <div className="flex flex-col w-full space-y-4">
             {/* Mobile On-Page Search Bar */}
             <div className="block md:hidden w-full">
-              <form onSubmit={(e) => e.preventDefault()} className="relative w-full">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  clearTimeout(searchDebounceRef.current);
+                  updateUrl({ search: searchInput || null, page: null });
+                }}
+                className="relative w-full"
+              >
                 <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
                 <input
+                  ref={searchInputRef}
                   type="text"
                   placeholder="Search books by title, author..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={searchInput}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="w-full pl-10 pr-9 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-xs focus:outline-none focus:ring-2 focus:ring-red-500/20 text-gray-900 shadow-sm"
                 />
-                {searchQuery && (
+                {searchInput && (
                   <button
                     type="button"
-                    onClick={() => setSearchQuery("")}
+                    onClick={() => handleSearchChange("")}
                     className="absolute right-3 top-2.5 text-gray-400 hover:text-red-500 p-0.5"
                   >
                     <X className="w-4 h-4" />
@@ -832,13 +781,13 @@ function Shop() {
 
               <div className="flex flex-col sm:items-center sm:flex-row gap-3">
                 <span className="text-sm md:text-base text-black/60">
-                  Showing {filteredBooks.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}-
-                  {Math.min(currentPage * ITEMS_PER_PAGE, filteredBooks.length)} of {filteredBooks.length} Products
+                  Showing {totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}-
+                  {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)} of {totalCount} Products
                 </span>
 
                 <div className="flex items-center gap-2 text-sm sm:text-base font-semibold">
                   <span className="text-black/60">Sort by:</span>
-                  <SortDropdown value={sortBy} onChange={(v) => { setSortBy(v); setCurrentPage(1); }} />
+                  <SortDropdown value={sortBy} onChange={(v) => updateUrl({ sortBy: v !== "default" ? v : null, page: null })} />
                 </div>
               </div>
             </div>
@@ -861,14 +810,8 @@ function Shop() {
                 <p className="text-gray-500 font-medium text-lg">No books found matching the selected filters.</p>
                 <button
                   onClick={() => {
-                    setSelectedCategories([]);
-                    setSelectedSubCategories([]);
-                    setSelectedAuthors([]);
-                    setSelectedClasses([]);
-                    setSelectedEditions([]);
-                    setSelectedStatuses([]);
-                    setMaxPrice(null);
-                    setSortBy("default");
+                    setSearchInput("");
+                    router.replace("/shop", { scroll: false });
                   }}
                   className="mt-4 px-5 py-2.5 bg-black text-white rounded-full font-semibold text-sm transition-all hover:bg-black/80 cursor-pointer"
                 >
@@ -876,7 +819,7 @@ function Shop() {
                 </button>
               </div>
             ) : (
-              <div className="w-full grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
+              <div className="w-full grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
                 {paginatedBooks.map((book) => {
                   const isWishlisted = wishlist.includes(book.id);
                   const cartItem = cart?.find((item) => item.product.id === book.id);
@@ -980,7 +923,7 @@ function Shop() {
                       </div>
 
                       {/* Price & Cart Actions */}
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-2.5 sm:gap-0 mt-auto">
+                      <div className="flex flex-col items-start w-full gap-3 mt-auto">
                         <div className="flex items-center space-x-[5px] xl:space-x-2.5">
                           <span className="font-bold text-black text-xl xl:text-2xl">₹{book.price}</span>
                           {book.originalPrice && (
@@ -989,9 +932,9 @@ function Shop() {
                             </span>
                           )}
                         </div>
-                        <div className="flex justify-start sm:justify-end w-full sm:w-auto">
+                        <div className="w-full">
                           {quantityInCart > 0 ? (
-                            <div className="flex items-center justify-between h-10 bg-gray-900 text-white font-semibold rounded-full px-2 w-full sm:w-[120px] transition-all duration-150 shadow-md">
+                            <div className="flex items-center justify-between h-10 bg-gray-900 text-white font-semibold rounded-full px-2 w-full transition-all duration-150 shadow-md">
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -1032,7 +975,7 @@ function Shop() {
                                 e.stopPropagation();
                                 addToCart(book);
                               }}
-                              className="w-full sm:w-auto h-10 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 rounded-full transition-all duration-150 text-sm whitespace-nowrap text-center cursor-pointer"
+                              className="w-full h-10 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 rounded-full transition-all duration-150 text-sm whitespace-nowrap text-center cursor-pointer"
                             >
                               Add to Cart
                             </button>
@@ -1050,7 +993,7 @@ function Shop() {
               <div className="flex items-center justify-center space-x-2 mt-8">
                 <button
                   disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  onClick={() => updateUrl({ page: currentPage - 1 })}
                   className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${currentPage === 1 ? "text-gray-400 cursor-not-allowed" : "text-gray-700 hover:bg-gray-100 hover:text-black cursor-pointer"
                     }`}
                 >
@@ -1063,7 +1006,7 @@ function Shop() {
                     return (
                       <button
                         key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
+                        onClick={() => updateUrl({ page: pageNum })}
                         className={`px-3 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${currentPage === pageNum
                           ? "bg-black text-white"
                           : "text-gray-700 hover:bg-gray-100 hover:text-black"
@@ -1076,7 +1019,7 @@ function Shop() {
                 </div>
                 <button
                   disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() => updateUrl({ page: currentPage + 1 })}
                   className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${currentPage === totalPages ? "text-gray-400 cursor-not-allowed" : "text-gray-700 hover:bg-gray-100 hover:text-black cursor-pointer"
                     }`}
                 >

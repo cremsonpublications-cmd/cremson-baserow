@@ -191,18 +191,25 @@ async def list_products(
     size: int = Query(100, ge=1, le=200, description="Rows per page"),
     search: str = Query(None, description="Search string"),
     category_id: Optional[int] = Query(None, description="Filter by category ID"),
+    category: Optional[str] = Query(None, description="Filter by category name (comma-separated)"),
+    author: Optional[str] = Query(None, description="Filter by author (comma-separated)"),
+    edition: Optional[str] = Query(None, description="Filter by edition (comma-separated)"),
+    stock_status: Optional[str] = Query(None, description="Filter by stock status (comma-separated)"),
+    max_price: Optional[float] = Query(None, description="Filter by max price"),
+    classes: Optional[str] = Query(None, description="Filter by class (comma-separated)"),
+    sub_category: Optional[str] = Query(None, description="Filter by sub category (comma-separated)"),
+    sort_by: Optional[str] = Query(None, description="Sort: price-asc, price-desc, rating"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     is_combo: Optional[bool] = Query(None, description="Filter by combo status"),
     order_by: Optional[str] = Query("-id", description="Order by field"),
 ):
-    """Return a paginated list of products. Optionally filter by category_id, is_active, and/or is_combo."""
+    """Return a paginated list of products with optional server-side filtering and sorting."""
     filters = {}
     if category_id is not None:
         filters["category_id"] = category_id
     if is_active is not None:
         filters["is_active"] = str(is_active).lower()
 
-    # Fetch rows from Baserow and sort descending by row ID so newest products are on Page 1
     res = await client.get_rows(
         TABLE_IDS["products"],
         page=1,
@@ -210,44 +217,82 @@ async def list_products(
         search=search,
         filters=filters if filters else None,
     )
+
     if isinstance(res, dict) and "results" in res:
         all_results = sorted([map_product_out(r) for r in res["results"]], key=lambda x: x.get("id", 0), reverse=True)
-
-        if is_combo is not None:
-            def check_combo(item):
-                return bool(
-                    item.get("is_combo") or 
-                    item.get("author") == "Cremson Bundle" or 
-                    "Combo" in str(item.get("tags") or "") or 
-                    (item.get("combo_product_ids") and str(item.get("combo_product_ids")) != "[]")
-                )
-            if is_combo:
-                all_results = [r for r in all_results if check_combo(r)]
-            else:
-                all_results = [r for r in all_results if not check_combo(r)]
-
-        start = (page - 1) * size
-        end = start + size
-        return {
-            "count": len(all_results),
-            "results": all_results[start:end],
-        }
     elif isinstance(res, list):
-        mapped = sorted([map_product_out(r) for r in res], key=lambda x: x.get("id", 0), reverse=True)
-        if is_combo is not None:
-            def check_combo(item):
-                return bool(
-                    item.get("is_combo") or 
-                    item.get("author") == "Cremson Bundle" or 
-                    "Combo" in str(item.get("tags") or "") or 
-                    (item.get("combo_product_ids") and str(item.get("combo_product_ids")) != "[]")
-                )
-            if is_combo:
-                mapped = [r for r in mapped if check_combo(r)]
-            else:
-                mapped = [r for r in mapped if not check_combo(r)]
-        return mapped
-    return {"count": 0, "results": []}
+        all_results = sorted([map_product_out(r) for r in res], key=lambda x: x.get("id", 0), reverse=True)
+    else:
+        return {"count": 0, "results": []}
+
+    def check_combo(item):
+        return bool(
+            item.get("is_combo") or
+            item.get("author") == "Cremson Bundle" or
+            "Combo" in str(item.get("tags") or "") or
+            (item.get("combo_product_ids") and str(item.get("combo_product_ids")) != "[]")
+        )
+
+    if is_combo is not None:
+        if is_combo:
+            all_results = [r for r in all_results if check_combo(r)]
+        else:
+            all_results = [r for r in all_results if not check_combo(r)]
+
+    if category:
+        cat_names = [c.strip().lower() for c in category.split(",")]
+        all_results = [r for r in all_results if (r.get("category") or "").lower() in cat_names]
+
+    if author:
+        author_names = [a.strip().lower() for a in author.split(",")]
+        all_results = [r for r in all_results if (r.get("author") or "").lower() in author_names]
+
+    if edition:
+        editions = [e.strip() for e in edition.split(",")]
+        all_results = [r for r in all_results if (r.get("edition") or "") in editions]
+
+    if stock_status:
+        statuses = [s.strip() for s in stock_status.split(",")]
+        all_results = [r for r in all_results if (r.get("stock_status") or "") in statuses]
+
+    if max_price is not None:
+        all_results = [r for r in all_results if (r.get("price") or 0) <= max_price]
+
+    if classes:
+        class_names = [c.strip().lower() for c in classes.split(",")]
+        def has_class(item):
+            cls_raw = item.get("classes") or ""
+            try:
+                cls_arr = json.loads(cls_raw) if isinstance(cls_raw, str) and cls_raw else (cls_raw or [])
+                return any(str(c).lower() in class_names for c in cls_arr)
+            except Exception:
+                return False
+        all_results = [r for r in all_results if has_class(r)]
+
+    if sub_category:
+        sub_names = [s.strip().lower() for s in sub_category.split(",")]
+        def has_sub(item):
+            sub_raw = item.get("sub_categories") or ""
+            try:
+                sub_arr = json.loads(sub_raw) if isinstance(sub_raw, str) and sub_raw else (sub_raw or [])
+                return any(str(s).lower() in sub_names for s in sub_arr)
+            except Exception:
+                return False
+        all_results = [r for r in all_results if has_sub(r)]
+
+    if sort_by == "price-asc":
+        all_results.sort(key=lambda x: x.get("price") or 0)
+    elif sort_by == "price-desc":
+        all_results.sort(key=lambda x: x.get("price") or 0, reverse=True)
+    elif sort_by == "rating":
+        all_results.sort(key=lambda x: float(x.get("rating") or 0), reverse=True)
+
+    start = (page - 1) * size
+    end = start + size
+    return {
+        "count": len(all_results),
+        "results": all_results[start:end],
+    }
 
 
 @router.get("/{row_id}", summary="Get a single product")

@@ -45,7 +45,7 @@ function WishlistSkeleton() {
           <div className="h-4 bg-gray-200 rounded mb-1 w-3/5" />
           <div className="h-4 bg-gray-200 rounded mb-3 w-2/5" />
           <div className="flex items-center gap-1 mb-3">
-            {[1,2,3,4,5].map((s) => <div key={s} className="w-3.5 h-3.5 bg-gray-200 rounded-sm" />)}
+            {[1, 2, 3, 4, 5].map((s) => <div key={s} className="w-3.5 h-3.5 bg-gray-200 rounded-sm" />)}
             <div className="h-4 bg-gray-200 rounded w-8 ml-1" />
           </div>
           <div className="flex justify-between items-center">
@@ -161,7 +161,7 @@ export default function WishlistPage() {
           </div>
         ) : (
           <>
-            <div className="w-full grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 lg:gap-5">
+            <div className="w-full grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 lg:gap-5">
               {wishlistedBooks.map((book) => (
                 <Link
                   key={book.id}
@@ -204,17 +204,17 @@ export default function WishlistPage() {
                   {(() => {
                     const cartItem = cart.find((i) => i.product.id === book.id);
                     return (
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-2.5 sm:gap-0 mt-auto">
+                      <div className="flex flex-col items-start w-full gap-3 mt-auto">
                         <div className="flex items-center space-x-[5px] xl:space-x-2.5">
                           <span className="font-bold text-black text-xl xl:text-2xl">₹{book.price}</span>
                           {book.originalPrice && (
                             <span className="font-bold text-black/40 line-through text-xl xl:text-2xl">₹{book.originalPrice}</span>
                           )}
                         </div>
-                        <div className="w-full sm:w-auto">
+                        <div className="w-full">
                           {cartItem ? (
-                             <div
-                              className="flex items-center justify-between bg-gray-900 text-white rounded-full px-3 h-10 w-full sm:w-auto sm:min-w-[105px] shadow-md"
+                            <div
+                              className="flex items-center justify-between bg-gray-900 text-white rounded-full px-3 h-10 w-full shadow-md"
                               onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                             >
                               <button
@@ -239,7 +239,7 @@ export default function WishlistPage() {
                             <button
                               type="button"
                               onClick={(e) => { e.preventDefault(); e.stopPropagation(); addToCart(book); }}
-                              className="w-full sm:w-auto h-10 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 rounded-full transition-all duration-150 text-sm whitespace-nowrap text-center"
+                              className="w-full h-10 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 rounded-full transition-all duration-150 text-sm whitespace-nowrap text-center cursor-pointer"
                             >
                               Add to Cart
                             </button>

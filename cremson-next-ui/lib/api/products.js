@@ -76,6 +76,12 @@ export function mapProduct(p) {
   };
 }
 
+export async function fetchProducts(params = {}) {
+  const { data } = await api.get("/api/products/", { params });
+  const results = (data.results || []).filter((p) => p.name).map(mapProduct);
+  return { count: data.count || 0, results };
+}
+
 export async function fetchAllProducts(params = {}) {
   let allResults = [];
   let page = 1;
