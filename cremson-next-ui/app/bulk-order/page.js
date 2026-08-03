@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Package, Plus, Trash2, CheckCircle2, ArrowRight, BookOpen, Building2, MapPin, User, Phone, Search, ChevronDown, Check } from "lucide-react";
+import { Package, Plus, Trash2, CheckCircle2, ArrowRight, BookOpen, Building2, MapPin, User, Phone, Search, ChevronDown, Check, Loader2 } from "lucide-react";
 import api from "@/lib/api/axios";
 
 export default function PublicBulkOrderPage() {
@@ -516,10 +516,17 @@ export default function PublicBulkOrderPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-4 px-8 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold rounded-2xl transition-all shadow-lg text-base cursor-pointer flex items-center justify-center gap-2"
+            className="w-full py-4 px-8 bg-purple-600 hover:bg-purple-700 disabled:opacity-75 text-white font-bold rounded-2xl transition-all shadow-lg text-base cursor-pointer flex items-center justify-center gap-2"
           >
-            {submitting ? "Submitting Request..." : "Submit Bulk Order Request"}
-            <ArrowRight className="w-5 h-5" />
+            {submitting ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" /> Submitting Request...
+              </>
+            ) : (
+              <>
+                Submit Bulk Order Request <ArrowRight className="w-5 h-5" />
+              </>
+            )}
           </button>
         </form>
       </div>
