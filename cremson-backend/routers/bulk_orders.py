@@ -251,6 +251,9 @@ async def list_bulk_orders(page: int = 1, size: int = 50, search: str = None):
         if norm.get("token"):
             normalized.append(norm)
 
+    # Sort latest orders (highest row ID / newest) first
+    normalized.sort(key=lambda x: int(x.get("id") or 0), reverse=True)
+
     return {"count": len(normalized), "results": normalized}
 
 

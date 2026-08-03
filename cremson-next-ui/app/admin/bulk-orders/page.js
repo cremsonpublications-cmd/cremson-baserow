@@ -30,7 +30,8 @@ export default function AdminBulkOrdersPage() {
     },
   });
 
-  const orders = Array.isArray(data?.results) ? data.results : Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+  const rawOrders = Array.isArray(data?.results) ? data.results : Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+  const orders = [...rawOrders].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
   const filteredOrders = orders.filter((o) => {
     if (statusFilter === "all") return true;
