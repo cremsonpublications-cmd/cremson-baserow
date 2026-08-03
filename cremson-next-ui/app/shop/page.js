@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useApp } from "../../context/AppContext";
 import { useProducts, useCategories } from "../../lib/api/hooks";
-import { ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Check, Search, X } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 
 const SORT_OPTIONS = [
@@ -772,7 +772,30 @@ function Shop() {
           )}
 
           {/* Main Products Listing Section */}
-          <div className="flex flex-col w-full space-y-5">
+          <div className="flex flex-col w-full space-y-4">
+            {/* Mobile On-Page Search Bar */}
+            <div className="block md:hidden w-full">
+              <form onSubmit={(e) => e.preventDefault()} className="relative w-full">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
+                <input
+                  type="text"
+                  placeholder="Search books by title, author..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-9 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-xs focus:outline-none focus:ring-2 focus:ring-red-500/20 text-gray-900 shadow-sm"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-2.5 text-gray-400 hover:text-red-500 p-0.5"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </form>
+            </div>
+
             {/* Header bar: title, sort, and product counts */}
             <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
               <div className="flex items-center justify-between">
@@ -820,42 +843,6 @@ function Shop() {
               </div>
             </div>
 
-            {/* Subcategories Horizontal Pill Filter Bar */}
-            {uniqueSubCategories.length > 0 && (
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1 no-scrollbar">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider shrink-0 mr-1">
-                  Subcategories:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => { setSelectedSubCategories([]); setCurrentPage(1); }}
-                  className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all shrink-0 cursor-pointer ${
-                    selectedSubCategories.length === 0
-                      ? "bg-black text-white shadow-sm font-semibold"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  All Subcategories
-                </button>
-                {uniqueSubCategories.map((sub) => {
-                  const isSelected = selectedSubCategories.includes(sub);
-                  return (
-                    <button
-                      key={sub}
-                      type="button"
-                      onClick={() => handleToggleFilter(selectedSubCategories, setSelectedSubCategories, sub)}
-                      className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all shrink-0 cursor-pointer ${
-                        isSelected
-                          ? "bg-black text-white shadow-sm font-semibold"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                    >
-                      {sub}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
 
             {/* Grid of Books */}
             {dataLoading ? (

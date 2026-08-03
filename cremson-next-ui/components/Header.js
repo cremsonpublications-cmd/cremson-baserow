@@ -5,12 +5,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useApp } from "../context/AppContext";
 import CPLogo from "./CPLogo";
 import Link from "next/link";
-import { Menu } from "lucide-react";
+import { Menu, Search, X } from "lucide-react";
 
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const profileRef = useRef(null);
 
   // Hierarchical study materials states
@@ -445,14 +446,21 @@ export default function Header() {
           <div className="flex items-center flex-shrink-0 gap-3 ml-4">
             {/* Mobile Search Button (shows on small screens only) */}
             <button
-              onClick={() => router.push("/shop")}
-              className="block md:hidden p-1 focus:outline-none"
+              onClick={() => {
+                const nextState = !isMobileSearchOpen;
+                setIsMobileSearchOpen(nextState);
+                if (pathname !== "/shop") {
+                  router.push("/shop");
+                }
+              }}
+              className="block md:hidden p-1 focus:outline-none cursor-pointer"
               aria-label="Search Catalog"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search text-red-500">
-                <circle cx="11" cy="11" r="8"></circle>
-                <path d="m21 21-4.3-4.3"></path>
-              </svg>
+              {isMobileSearchOpen ? (
+                <X className="w-5 h-5 text-red-500" />
+              ) : (
+                <Search className="w-5 h-5 text-red-500" />
+              )}
             </button>
 
             {/* Wishlist Button */}
@@ -546,6 +554,43 @@ export default function Header() {
           </div>
 
         </div>
+
+        {/* Expandable Mobile Search Bar */}
+        {isMobileSearchOpen && (
+          <div className="block md:hidden bg-white border-t border-gray-100 p-3 shadow-md animate-in slide-in-from-top duration-200">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (pathname !== "/shop") router.push("/shop");
+              }}
+              className="relative w-full"
+            >
+              <div className="relative flex items-center">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3" />
+                <input
+                  type="text"
+                  placeholder="Search books by title, author..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    handleSearchChange(e);
+                    if (pathname !== "/shop") router.push("/shop");
+                  }}
+                  className="w-full pl-9 pr-9 py-2 border border-gray-300 rounded-xl bg-[#F0F0F0] text-xs focus:outline-none focus:ring-2 focus:ring-red-500/20 text-gray-900"
+                  autoFocus
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 text-gray-400 hover:text-red-500 p-1"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+        )}
       </nav>
     </>
   );
