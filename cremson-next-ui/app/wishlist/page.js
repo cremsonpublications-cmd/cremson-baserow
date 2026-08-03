@@ -204,45 +204,47 @@ export default function WishlistPage() {
                   {(() => {
                     const cartItem = cart.find((i) => i.product.id === book.id);
                     return (
-                      <div className="flex items-center justify-between w-full mt-auto">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-2.5 sm:gap-0 mt-auto">
                         <div className="flex items-center space-x-[5px] xl:space-x-2.5">
                           <span className="font-bold text-black text-xl xl:text-2xl">₹{book.price}</span>
                           {book.originalPrice && (
                             <span className="font-bold text-black/40 line-through text-xl xl:text-2xl">₹{book.originalPrice}</span>
                           )}
                         </div>
-                        {cartItem ? (
-                           <div
-                            className="flex items-center justify-between bg-gray-900 text-white rounded-full px-3 h-10 min-w-[105px] shadow-md"
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                          >
+                        <div className="w-full sm:w-auto">
+                          {cartItem ? (
+                             <div
+                              className="flex items-center justify-between bg-gray-900 text-white rounded-full px-3 h-10 w-full sm:w-auto sm:min-w-[105px] shadow-md"
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => cartItem.quantity === 1 ? removeFromCart(book.id) : updateQuantity(book.id, -1)}
+                                className="hover:bg-white/20 rounded-full p-1 transition-all duration-200 cursor-pointer"
+                                aria-label="Decrease quantity"
+                              >
+                                <Minus className="w-3.5 h-3.5" />
+                              </button>
+                              <span className="text-sm font-semibold select-none">{cartItem.quantity}</span>
+                              <button
+                                type="button"
+                                onClick={() => updateQuantity(book.id, 1)}
+                                className="hover:bg-white/20 rounded-full p-1 transition-all duration-200 cursor-pointer"
+                                aria-label="Increase quantity"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
                             <button
                               type="button"
-                              onClick={() => cartItem.quantity === 1 ? removeFromCart(book.id) : updateQuantity(book.id, -1)}
-                              className="hover:bg-white/20 rounded-full p-1 transition-all duration-200 cursor-pointer"
-                              aria-label="Decrease quantity"
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); addToCart(book); }}
+                              className="w-full sm:w-auto h-10 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 rounded-full transition-all duration-150 text-sm whitespace-nowrap text-center"
                             >
-                              <Minus className="w-3.5 h-3.5" />
+                              Add to Cart
                             </button>
-                            <span className="text-sm font-semibold select-none">{cartItem.quantity}</span>
-                            <button
-                              type="button"
-                              onClick={() => updateQuantity(book.id, 1)}
-                              className="hover:bg-white/20 rounded-full p-1 transition-all duration-200 cursor-pointer"
-                              aria-label="Increase quantity"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); addToCart(book); }}
-                            className="h-10 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 rounded-full transition-all duration-150 text-sm whitespace-nowrap"
-                          >
-                            Add to Cart
-                          </button>
-                        )}
+                          )}
+                        </div>
                       </div>
                     );
                   })()}

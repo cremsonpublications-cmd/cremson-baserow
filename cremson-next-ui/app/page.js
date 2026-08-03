@@ -194,7 +194,7 @@ export default function Home() {
                           <span className="text-xs text-gray-500 pb-[2px]">({book.reviewsCount} reviews)</span>
                         </div>
 
-                        <div className="flex items-center justify-between w-full mt-auto">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-2.5 sm:gap-0 mt-auto">
                           <div className="flex items-center space-x-[5px] xl:space-x-2.5">
                             <span className="font-bold text-black text-xl xl:text-2xl">₹{book.price}</span>
                             {book.originalPrice && (
@@ -203,9 +203,9 @@ export default function Home() {
                               </span>
                             )}
                           </div>
-                          <div className="flex justify-end">
+                          <div className="flex justify-start sm:justify-end w-full sm:w-auto">
                             {quantityInCart > 0 ? (
-                              <div className="flex items-center justify-between h-10 bg-gray-900 text-white font-semibold rounded-full px-2 w-[120px] transition-all duration-150 shadow-md">
+                              <div className="flex items-center justify-between h-10 bg-gray-900 text-white font-semibold rounded-full px-2 w-full sm:w-[120px] transition-all duration-150 shadow-md">
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -245,7 +245,7 @@ export default function Home() {
                                   e.stopPropagation();
                                   addToCart(book);
                                 }}
-                                className="h-10 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 rounded-full transition-all duration-150 text-sm whitespace-nowrap light"
+                                className="w-full sm:w-auto h-10 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 rounded-full transition-all duration-150 text-sm whitespace-nowrap text-center"
                               >
                                 Add to Cart
                               </button>
