@@ -236,15 +236,32 @@ async def teacher_register(body: TeacherRegisterRequest):
 
     # Automatically create record in Baserow Teachers CRM table (ID 877)
     try:
+        residence_address = body.residence or ""
+        city_name = body.city or ""
+
+        if final_school_id:
+            try:
+                school_row = await b_client.get_row(TABLE_IDS["school"], final_school_id)
+                if school_row:
+                    if not residence_address and school_row.get("SchoolAddress"):
+                        residence_address = school_row.get("SchoolAddress")
+                    if not city_name:
+                        city_name = school_row.get("SchoolCity") or school_row.get("City") or ""
+            except Exception as e:
+                print("Warning: Failed to fetch school details for teacher address auto-fill:", e)
+        elif body.school_address:
+            if not residence_address:
+                residence_address = body.school_address
+
         teacher_payload = {
             "Teacher Name": body.name,
             "Email": body.email.lower().strip(),
             "Whatsapp Phone": body.phone.strip(),
             "Status": "Pending Approval",
             "IdCardUrl": body.id_card_url or "",
-            "City": body.city or "",
-            "Residence": body.residence or "",
-            "Notes": f"Website signup as {body.designation}. School: {final_school_name or 'Not specified'}",
+            "City": city_name or "",
+            "Residence": residence_address or "",
+            "Notes": "",
         }
         if final_school_id:
             teacher_payload["SchoolID"] = [final_school_id]

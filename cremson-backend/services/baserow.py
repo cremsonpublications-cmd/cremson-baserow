@@ -11,6 +11,65 @@ class BaserowClient:
             "Authorization": f"Token {BASEROW_TOKEN}",
             "Content-Type": "application/json",
         }
+        self._fields_cache = {}
+
+    async def get_table_fields(self, table_id: int) -> list[dict]:
+        """Fetch and cache table field definitions to prevent schema mismatch errors."""
+        if table_id in self._fields_cache:
+            return self._fields_cache[table_id]
+
+        url = f"{self.base_url}/api/database/fields/table/{table_id}/"
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, headers=self.headers)
+            response.raise_for_status()
+            fields = response.json()
+            self._fields_cache[table_id] = fields
+            return fields
+
+    async def sanitize_payload(self, table_id: int, payload: dict) -> dict:
+        """Sanitize payload by removing non-existent fields and handling unsupported single select options."""
+        try:
+            fields = await self.get_table_fields(table_id)
+        except Exception as e:
+            print(f"Warning: Failed to fetch schema for table {table_id}: {e}")
+            return payload
+
+        field_map = {f["name"]: f for f in fields}
+        sanitized = {}
+        notes_to_append = []
+
+        for key, value in payload.items():
+            if key not in field_map:
+                if value is not None and value != "":
+                    notes_to_append.append(f"{key}: {value}")
+                continue
+
+            field_info = field_map[key]
+            field_type = field_info.get("type")
+
+            if field_type == "single_select":
+                options = [opt["value"] for opt in field_info.get("select_options", [])]
+                if value not in options and value is not None and value != "":
+                    if key != "Status":
+                        notes_to_append.append(f"{key}: {value}")
+                    sanitized[key] = None
+                else:
+                    sanitized[key] = value
+            else:
+                sanitized[key] = value
+
+        if notes_to_append:
+            notes_key = "Notes" if "Notes" in field_map else ("Feedback/Notes" if "Feedback/Notes" in field_map else None)
+            if notes_key:
+                current_notes = sanitized.get(notes_key) or payload.get(notes_key) or ""
+                extra_notes = "; ".join(notes_to_append)
+                if current_notes:
+                    sanitized[notes_key] = f"{current_notes} | {extra_notes}"
+                else:
+                    sanitized[notes_key] = extra_notes
+
+        return sanitized
+
 
     async def get_rows(
         self,
@@ -103,10 +162,11 @@ class BaserowClient:
         Returns:
             dict representing the newly created row.
         """
+        sanitized_data = await self.sanitize_payload(table_id, data)
         url = f"{self.base_url}/api/database/rows/table/{table_id}/?user_field_names=true"
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(url, json=data, headers=self.headers)
+            response = await client.post(url, json=sanitized_data, headers=self.headers)
             response.raise_for_status()
             return response.json()
 
@@ -122,12 +182,14 @@ class BaserowClient:
         Returns:
             dict representing the updated row.
         """
+        sanitized_data = await self.sanitize_payload(table_id, data)
         url = f"{self.base_url}/api/database/rows/table/{table_id}/{row_id}/?user_field_names=true"
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.patch(url, json=data, headers=self.headers)
+            response = await client.patch(url, json=sanitized_data, headers=self.headers)
             response.raise_for_status()
             return response.json()
+
 
     async def delete_row(self, table_id: int, row_id: int) -> None:
         """

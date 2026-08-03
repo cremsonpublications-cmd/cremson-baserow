@@ -1,4 +1,5 @@
 import asyncio
+import re
 from fastapi import APIRouter, Query, HTTPException, Request
 from typing import Optional
 from pydantic import BaseModel
@@ -149,6 +150,64 @@ async def delete_school(row_id: int):
 
 
 # ------------------- TEACHER ROUTER -------------------
+async def enrich_teacher_data(teacher: dict) -> dict:
+    """Enrich teacher dict with status computed from auth_users table or Notes parsing."""
+    notes = teacher.get("Notes") or ""
+
+    # Parse and enrich IdCardUrl (from dedicated field or fallback to Notes for legacy records)
+    id_card_url = teacher.get("IdCardUrl")
+    if not id_card_url:
+        match = re.search(r"https?://[^\s;|,]+\.(?:png|jpg|jpeg|gif|webp)", notes, re.IGNORECASE) or re.search(r"IdCardUrl:\s*(https?://[^\s;|,]+)", notes, re.IGNORECASE)
+        if match:
+            id_card_url = match.group(1) if len(match.groups()) > 0 else match.group(0)
+    teacher["IdCardUrl"] = id_card_url
+
+    status_from_notes = None
+    match = re.search(r"Status:\s*([a-zA-Z\s]+)", notes)
+    if match:
+        val = match.group(1).strip()
+        if val in ["Approved", "Pending Approval", "Rejected"]:
+            status_from_notes = val
+
+    status_from_auth = None
+    is_website_signup = False
+    email = teacher.get("Email", "").lower().strip()
+
+    if email:
+        try:
+            from db.auth import get_user_by_email
+            user = await get_user_by_email(email)
+            if user:
+                is_website_signup = True
+                is_approved = user.get("is_approved")
+                is_active = user.get("is_active")
+                if is_approved == 1:
+                    status_from_auth = "Approved"
+                elif is_approved == -1 or is_active == 0:
+                    status_from_auth = "Rejected"
+                else:
+                    status_from_auth = "Pending Approval"
+        except Exception:
+            pass
+
+    # Priority: auth_users -> Notes status -> Raw status
+    raw_status = teacher.get("Status")
+    raw_status_val = raw_status.get("value") if isinstance(raw_status, dict) else raw_status
+    
+    final_status = status_from_auth or status_from_notes or raw_status_val
+    
+    # If no status is set:
+    # 1. Non-website CRM leads default to "Approved" (so they don't show Approve/Reject action buttons)
+    # 2. Website signups default to "Pending Approval"
+    if not final_status:
+        if is_website_signup:
+            final_status = "Pending Approval"
+        else:
+            final_status = "Approved"
+
+    teacher["Status"] = final_status
+    return teacher
+
 @router.get("/teachers", summary="List teachers")
 async def list_teachers(
     request: Request,
@@ -157,7 +216,7 @@ async def list_teachers(
     search: Optional[str] = Query(None),
 ):
     filters = {k: v for k, v in request.query_params.items() if k not in ["page", "size", "search"] and v}
-    return await client.get_rows(
+    res = await client.get_rows(
         TABLE_IDS["teacher"],
         page=page,
         size=size,
@@ -165,10 +224,15 @@ async def list_teachers(
         filters=filters,
         order_by="-Teacher ID",
     )
+    results = res.get("results", [])
+    if results:
+        res["results"] = await asyncio.gather(*(enrich_teacher_data(r) for r in results))
+    return res
 
 @router.get("/teachers/{row_id}", summary="Get teacher details")
 async def get_teacher(row_id: int):
-    return await client.get_row(TABLE_IDS["teacher"], row_id)
+    teacher = await client.get_row(TABLE_IDS["teacher"], row_id)
+    return await enrich_teacher_data(teacher)
 
 async def validate_teacher_schools(body: dict, row_id: Optional[int] = None):
     is_guest = body.get("Guest")
@@ -269,7 +333,7 @@ async def approve_teacher(row_id: int):
         except Exception as e:
             print("Warning: Failed to send WhatsApp approval notification:", e)
 
-    return {"message": "Teacher approved successfully", "teacher": updated_teacher}
+    return {"message": "Teacher approved successfully", "teacher": await enrich_teacher_data(updated_teacher)}
 
 
 @router.patch("/teachers/{row_id}/reject", summary="Reject teacher registration")
@@ -300,7 +364,7 @@ async def reject_teacher(row_id: int):
         except Exception as e:
             print("Warning: Failed to send WhatsApp rejection notification:", e)
 
-    return {"message": "Teacher registration rejected", "teacher": updated_teacher}
+    return {"message": "Teacher registration rejected", "teacher": await enrich_teacher_data(updated_teacher)}
 
 
 # ------------------- BOOKS ROUTER -------------------

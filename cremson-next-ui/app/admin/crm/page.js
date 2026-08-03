@@ -70,7 +70,6 @@ const FIELDS_CONFIG = {
     { key: "LastCallDate", label: "Last Call Date", type: "date" },
     { key: "NextFollow-upDate", label: "Next Follow-up Date", type: "date" },
     { key: "Status", label: "Status", type: "select", options: ["Approved", "Pending Approval", "Rejected", "Called", "Follow up", "Interested", "Ordered", "Inactive"] },
-    { key: "IdCardUrl", label: "Teacher ID Card Photo", type: "text" },
     { key: "Interest Level", label: "Interest Level", type: "select", options: ["Hot", "Warm", "Cold"] },
     { key: "DecisionPower", label: "Decision Power", type: "select", options: ["Decision Maker", "Influencer", "Assistant"], filterable: false },
     { key: "Ordered", label: "Ordered", type: "boolean" },
@@ -116,7 +115,7 @@ const FIELDS_CONFIG = {
 
 const TABLE_COLUMNS = {
   schools: ["SchoolName", "SchoolCity", "SchoolPhone", "SchoolEmail", "AffiliationCode"],
-  teachers: ["Teacher Name", "School Name", "Whatsapp Phone", "Status", "IdCardUrl", "Interest Level"],
+  teachers: ["Teacher Name", "School Name", "Whatsapp Phone", "Status", "Interest Level"],
   specimen: ["Teacheer Name", "School Name", "DeliveryStatus", "Converted", "DispatchDate"],
   books: ["BookName", "Class", "Series", "Active"],
   subjects: ["Name", "Active"]
@@ -474,6 +473,30 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
                   }
                   return updated;
                 });
+
+                if (activeTab === "teachers" && field.key === "SchoolID" && newVal) {
+                  const schoolId = Array.isArray(newVal)
+                    ? (newVal.length > 0 ? newVal[0].id : null)
+                    : newVal.id;
+
+                  if (schoolId) {
+                    api.get(`/api/crm/schools/${schoolId}`)
+                      .then(res => {
+                        const schoolData = res.data;
+                        if (schoolData) {
+                          setForm(f => ({
+                            ...f,
+                            "Residence": schoolData.SchoolAddress || f.Residence || "",
+                            "City": schoolData.SchoolCity || f.City || ""
+                          }));
+                          toast.success("Teacher address pre-filled from selected school!");
+                        }
+                      })
+                      .catch(err => {
+                        console.error("Failed to fetch school details for auto-fill:", err);
+                      });
+                  }
+                }
               };
 
               let displayField = { ...field };
@@ -664,8 +687,67 @@ export default function AdminCRMHub() {
     }
   }
 
-  function renderCellValue(val, colKey) {
+  function renderCellValue(val, colKey, row = {}) {
     if (val === null || val === undefined || val === "") return <span className="text-gray-300">—</span>;
+
+    if (colKey === "IdCardUrl") {
+      const imageUrl = String(val);
+      return (
+        <div className="mt-1">
+          <span className="text-xs font-semibold text-gray-500 block mb-1">Teacher ID Card Photo:</span>
+          <a
+            href={imageUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block border border-gray-200 rounded p-1 bg-white hover:border-blue-400 transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img src={imageUrl} alt="ID Card" className="max-w-xs max-h-48 object-contain rounded" />
+            <span className="text-xs text-blue-600 hover:text-blue-800 hover:underline block mt-1 text-center font-semibold">View Full Image</span>
+          </a>
+        </div>
+      );
+    }
+
+    if (colKey === "Notes" || colKey === "Feedback/Notes") {
+      const strVal = String(val);
+      const imgMatch = strVal.match(/https?:\/\/[^\s;|,]+\.(?:png|jpg|jpeg|gif|webp)/i) || strVal.match(/IdCardUrl:\s*(https?:\/\/[^\s;|,]+)/i);
+      const imageUrl = row.IdCardUrl || (imgMatch ? imgMatch[1] || imgMatch[0] : null);
+
+      if (imageUrl && !row.IdCardUrl) {
+        // Clean up system-generated metadata from text representation (legacy records only)
+        let cleanedVal = strVal
+          .replace(/Website signup as\s+[^.|]+/i, "")
+          .replace(/School:\s*[^|;.]+/i, "")
+          .replace(/Status:\s*[^|;.]+/i, "")
+          .replace(/IdCardUrl:\s*[^\s|;.]+/i, "")
+          .replace(/[|;.\s,-]+/g, " ")
+          .trim();
+
+        return (
+          <div className="flex flex-col gap-2">
+            {cleanedVal ? (
+              <span className="whitespace-pre-wrap">{cleanedVal}</span>
+            ) : (
+              <span className="text-gray-300">—</span>
+            )}
+            <div className="mt-1">
+              <span className="text-xs font-semibold text-gray-500 block mb-1">Teacher ID Card Photo:</span>
+              <a
+                href={imageUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block border border-gray-200 rounded p-1 bg-white hover:border-blue-400 transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <img src={imageUrl} alt="ID Card" className="max-w-xs max-h-48 object-contain rounded" />
+                <span className="text-xs text-blue-600 hover:text-blue-800 hover:underline block mt-1 text-center font-semibold">View Full Image</span>
+              </a>
+            </div>
+          </div>
+        );
+      }
+    }
 
     if (colKey === "Status") {
       const strVal = String(val);
@@ -928,12 +1010,12 @@ export default function AdminCRMHub() {
                           </td>
                           {(TABLE_COLUMNS[activeTab] || []).map((colKey) => (
                             <td key={colKey} className="px-6 py-4 text-sm text-gray-900 max-w-[240px] truncate">
-                              {renderCellValue(row[colKey], colKey)}
+                              {renderCellValue(row[colKey], colKey, row)}
                             </td>
                           ))}
                           <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex justify-end items-center space-x-2">
-                              {activeTab === "teachers" && (
+                              {activeTab === "teachers" && row.Status !== "Approved" && row.Status !== "Rejected" && (
                                 <>
                                   <button
                                     onClick={async () => {
@@ -1104,7 +1186,7 @@ export default function AdminCRMHub() {
                         </div>
                       );
                     }
-                    return renderCellValue(v, k);
+                    return renderCellValue(v, k, selectedRecord);
                   };
 
                   return (
