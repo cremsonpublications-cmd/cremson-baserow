@@ -338,7 +338,7 @@ async def handle_incoming_message(from_phone: str, message_text: str) -> None:
             "📚 Cremson Books Store\n\n"
             "🌐 Browse & Order Online:\n"
             "https://cremsonpublications.com/shop\n\n"
-            "📦 For Bulk Orders (10+ copies), reply 'Bulk' or visit:\n"
+            "📦 For Bulk Orders (10+ copies):\n"
             "https://cremsonpublications.com/bulk-order"
         )
         await send_text_message(from_phone, msg)
