@@ -1,6 +1,6 @@
 "use client";
 
-export const runtime = "edge";
+export const dynamic = "force-static";
 
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";

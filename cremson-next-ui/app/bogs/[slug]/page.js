@@ -1,6 +1,6 @@
 "use client";
 
-export const runtime = "edge";
+export const dynamic = "force-static";
 
 import BlogDetailPage from "../../blogs/[slug]/page";
 
