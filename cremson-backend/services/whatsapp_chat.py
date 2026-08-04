@@ -264,15 +264,13 @@ async def handle_incoming_message(from_phone: str, message_text: str) -> None:
             await _handle_option_teacher_registered(from_phone)
             return
         elif clean_text.lower() in ["b", "2", "2️⃣", "unregistered", "unregistered / new teacher", "no, not yet."]:
-            set_conversation_state(from_phone, "TEACHER_REG_NAME", context={})
+            set_conversation_state(from_phone, "MAIN_MENU")
             msg = (
                 "Awesome! You can register as a verified teacher on our website here:\n\n"
                 "🌐 Teacher Registration Link:\n"
                 "https://cremsonpublications.com/auth/teacher-signup\n\n"
                 "📚 Request Free Specimen Copies:\n"
-                "https://cremsonpublications.com/specimen-request\n\n"
-                "Or let's get your verification started right here in the chat!\n"
-                "First, please type and send your Full Name:"
+                "https://cremsonpublications.com/specimen-request"
             )
             await send_text_message(from_phone, msg)
             return
@@ -336,15 +334,13 @@ async def handle_incoming_message(from_phone: str, message_text: str) -> None:
         await _handle_option_teacher_registered(from_phone)
 
     elif clean_text.lower() in ["b", "unregistered", "unregistered / new teacher", "no, not yet."]:
-        set_conversation_state(from_phone, "TEACHER_REG_NAME", context={})
+        set_conversation_state(from_phone, "MAIN_MENU")
         msg = (
             "Awesome! You can register as a verified teacher on our website here:\n\n"
             "🌐 Teacher Registration Link:\n"
             "https://cremsonpublications.com/auth/teacher-signup\n\n"
             "📚 Request Free Specimen Copies:\n"
-            "https://cremsonpublications.com/specimen-request\n\n"
-            "Or let's get your verification started right here in the chat!\n"
-            "First, please type and send your Full Name:"
+            "https://cremsonpublications.com/specimen-request"
         )
         await send_text_message(from_phone, msg)
 
