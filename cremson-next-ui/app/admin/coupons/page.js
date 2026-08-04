@@ -252,7 +252,14 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
 
   let initialProducts = [];
   let initialApplyTo = "all";
-  const rawApp = coupon?.applicable_products || coupon?.product_ids;
+  let rawApp = coupon?.applicable_products || coupon?.product_ids;
+  if (!rawApp && coupon?.Notes) {
+    const notesStr = String(coupon.Notes);
+    const match = notesStr.match(/applicable_products:\s*(\[[^\]]*\])/) || notesStr.match(/product_ids:\s*(\[[^\]]*\])/);
+    if (match) {
+      rawApp = match[1];
+    }
+  }
   if (rawApp) {
     try {
       initialProducts = typeof rawApp === "string" ? JSON.parse(rawApp) : rawApp;

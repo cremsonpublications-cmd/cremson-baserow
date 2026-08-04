@@ -46,6 +46,24 @@ class CouponUpdate(BaseModel):
     product_ids: Optional[str] = None
 
 
+import re
+
+def _normalize_coupon_row(row: dict) -> dict:
+    if not isinstance(row, dict):
+        return row
+    notes = row.get("Notes") or ""
+    if notes:
+        parts = re.split(r'[;\n]', str(notes))
+        for part in parts:
+            if ":" in part:
+                k, v = part.split(":", 1)
+                k_clean = k.strip()
+                v_clean = v.strip()
+                if k_clean not in row or row[k_clean] is None or row[k_clean] == "":
+                    row[k_clean] = v_clean
+    return row
+
+
 @router.get("/", summary="List coupons")
 async def list_coupons(
     page: int = Query(1, ge=1, description="Page number"),
@@ -53,18 +71,22 @@ async def list_coupons(
     search: str = Query(None, description="Search string"),
 ):
     """Return a paginated list of coupons from Baserow."""
-    return await client.get_rows(
+    res = await client.get_rows(
         TABLE_IDS["coupons"],
         page=page,
         size=size,
         search=search,
     )
+    if isinstance(res, dict) and "results" in res:
+        res["results"] = [_normalize_coupon_row(r) for r in res["results"]]
+    return res
 
 
 @router.get("/{row_id}", summary="Get a single coupon")
 async def get_coupon(row_id: int):
     """Return a single coupon by Baserow row ID."""
-    return await client.get_row(TABLE_IDS["coupons"], row_id)
+    res = await client.get_row(TABLE_IDS["coupons"], row_id)
+    return _normalize_coupon_row(res)
 
 
 @router.post("/", summary="Create coupon")
@@ -87,7 +109,8 @@ async def create_coupon(body: CouponCreate):
     for field in ["discount_value", "discount_percentage", "minimum_order_amount", "min_order_amount"]:
         if field in data and data[field] is not None:
             data[field] = int(round(data[field]))
-    return await client.create_row(TABLE_IDS["coupons"], data)
+    res = await client.create_row(TABLE_IDS["coupons"], data)
+    return _normalize_coupon_row(res)
 
 
 @router.patch("/{row_id}", summary="Update coupon")
@@ -107,10 +130,22 @@ async def update_coupon(row_id: int, body: CouponUpdate):
         data["valid_until"] = date_val
         data["expiry_date"] = date_val
 
+    # If applicable_products or product_ids is explicitly set to empty string ""
+    if body.applicable_products == "" or body.product_ids == "":
+        try:
+            current = await client.get_row(TABLE_IDS["coupons"], row_id)
+            current_notes = current.get("Notes") or ""
+            if "applicable_products" in current_notes or "product_ids" in current_notes:
+                new_notes_parts = [p for p in re.split(r'[;\n]', current_notes) if not (p.strip().startswith("applicable_products:") or p.strip().startswith("product_ids:"))]
+                data["Notes"] = "; ".join(new_notes_parts).strip()
+        except Exception:
+            pass
+
     for field in ["discount_value", "discount_percentage", "minimum_order_amount", "min_order_amount"]:
         if field in data and data[field] is not None:
             data[field] = int(round(data[field]))
-    return await client.update_row(TABLE_IDS["coupons"], row_id, data)
+    res = await client.update_row(TABLE_IDS["coupons"], row_id, data)
+    return _normalize_coupon_row(res)
 
 
 @router.delete("/{row_id}", summary="Delete coupon")
