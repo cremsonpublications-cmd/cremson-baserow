@@ -210,6 +210,22 @@ export default function CartPage() {
   const handleRemovePromo = () => { setAppliedCoupon(null); setPromoError(""); };
 
   const handleCouponSelect = (coupon) => {
+    if (coupon.minOrder && subtotal < coupon.minOrder) {
+      setPromoError(`This coupon requires a minimum order of ₹${coupon.minOrder}`);
+      showToast(`Requires minimum order of ₹${coupon.minOrder}`, "error");
+      return;
+    }
+    if (coupon.applicableProducts && coupon.applicableProducts.length > 0) {
+      const hasEligible = cart.some((item) =>
+        coupon.applicableProducts.includes(String(item.product?.id))
+      );
+      if (!hasEligible) {
+        const bookTitles = getProductTitles(coupon.applicableProducts);
+        setPromoError(`This coupon is only valid for: "${bookTitles}". Please add the book to your cart.`);
+        showToast(`Please add "${bookTitles}" to your cart to use this coupon`, "error");
+        return;
+      }
+    }
     setPromoError("");
     setAppliedCoupon(coupon);
     setPromoInput("");
@@ -467,8 +483,8 @@ export default function CartPage() {
                         return (
                           <div
                             key={coupon.code}
-                            className={`p-3 rounded-lg border text-xs flex flex-col gap-1 transition-all ${isDisabled ? "bg-gray-50 border-gray-100 text-gray-400" : "bg-orange-50/30 border-orange-100 hover:border-orange-200 cursor-pointer"}`}
-                            onClick={() => !isDisabled && handleCouponSelect(coupon)}
+                            className={`p-3 rounded-lg border text-xs flex flex-col gap-1 transition-all ${isDisabled ? "bg-gray-50/80 border-gray-200 text-gray-400 hover:border-amber-300 cursor-pointer" : "bg-orange-50/30 border-orange-100 hover:border-orange-200 cursor-pointer"}`}
+                            onClick={() => handleCouponSelect(coupon)}
                           >
                             <div className="flex items-center justify-between font-bold">
                               <span className={isDisabled ? "text-gray-400 font-mono" : "text-orange-600 font-mono"}>{coupon.code}</span>

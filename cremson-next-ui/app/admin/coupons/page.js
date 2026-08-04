@@ -318,6 +318,10 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
       setError("Coupon Code is required.");
       return;
     }
+    if (form.apply_to === "specific" && form.selected_products.length === 0) {
+      setError("Please select at least one book for 'Selected Products Only'.");
+      return;
+    }
 
     setSaving(true);
     setError("");
