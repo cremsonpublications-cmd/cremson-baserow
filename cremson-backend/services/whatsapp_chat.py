@@ -186,7 +186,7 @@ def get_bulk_order_message() -> str:
         "https://cremsonpublications.com/shop\n"
         "__________________________________\n\n"
         "📋 OPTION 2 — Fill the Order Form\n"
-        "https://tinyurl.com/yeyhhfmf\n"
+        "https://cremsonpublications.com/bulk-order\n"
         "__________________________________\n\n"
         "💬 OPTION 3 — Order via WhatsApp\n"
         "Simply reply with:\n"
@@ -339,7 +339,7 @@ async def handle_incoming_message(from_phone: str, message_text: str) -> None:
             "🌐 Browse & Order Online:\n"
             "https://cremsonpublications.com/shop\n\n"
             "📦 For Bulk Orders (10+ copies), reply 'Bulk' or visit:\n"
-            "https://tinyurl.com/yeyhhfmf"
+            "https://cremsonpublications.com/bulk-order"
         )
         await send_text_message(from_phone, msg)
 
