@@ -14,11 +14,19 @@ export default function ContactUs() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    let val = value;
+    if (name === "phone") {
+      val = value.replace(/\D/g, "").slice(0, 10);
+    }
+    setFormData((prev) => ({ ...prev, [name]: val }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (formData.phone.length !== 10 || !/^\d{10}$/.test(formData.phone)) {
+      alert("Phone number must be exactly 10 digits.");
+      return;
+    }
     setLoading(true);
 
     const text = `Hello Cremson Publications 👋,
@@ -53,8 +61,53 @@ ${formData.message}`;
           </p>
         </div>
       </div>
-      <div className="max-w-4xl mx-auto px-4 py-8 md:py-16 pb-12">
-        <div className="bg-white rounded-2xl shadow-lg p-4 md:p-12 border border-gray-200">
+      <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
+        {/* Contact Info Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm text-center flex flex-col items-center">
+            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-3">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+            </div>
+            <h3 className="font-bold text-gray-900 text-lg mb-1">Call / WhatsApp Us</h3>
+            <p className="text-xs text-gray-500 mb-3">Mon - Sat: 9:00 AM - 6:00 PM</p>
+            <div className="space-y-1 text-sm font-medium text-blue-600">
+              <div><a href="tel:+917982645175" className="hover:underline">+91 79826 45175</a></div>
+              <div><a href="tel:+919871757937" className="hover:underline">+91 98717 57937</a></div>
+              <div><a href="tel:+918585937875" className="hover:underline">+91 85859 37875</a></div>
+              <div className="text-xs text-gray-600 pt-1">Landline: <a href="tel:011-4578594" className="text-blue-600 hover:underline">011-4578594</a></div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm text-center flex flex-col items-center">
+            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-3">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 className="font-bold text-gray-900 text-lg mb-1">Email Support</h3>
+            <p className="text-xs text-gray-500 mb-3">Drop us a line anytime</p>
+            <a href="mailto:info@cremsonpublications.com" className="text-sm font-medium text-indigo-600 hover:underline">
+              info@cremsonpublications.com
+            </a>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm text-center flex flex-col items-center">
+            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-3">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <h3 className="font-bold text-gray-900 text-lg mb-1">Visit Our Office</h3>
+            <p className="text-xs text-gray-600 leading-relaxed max-w-xs mt-1">
+              4578/15 (Basement), Aggarwal Road, Opp. Happy School, Darya Ganj, New Delhi – 110002
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-lg p-4 md:p-12 border border-gray-200 max-w-4xl mx-auto">
           <div className="text-center mb-6 md:mb-8">
             <h2 className="text-xl md:text-3xl font-bold text-gray-800 mb-2 md:mb-3">Send Us a Message</h2>
             <p className="text-sm md:text-base text-gray-600">
@@ -121,17 +174,24 @@ ${formData.message}`;
               </div>
               <div className="mb-3 md:mb-4">
                 <label className="block text-gray-700 text-xs md:text-sm font-semibold mb-1 md:mb-2">
-                  Phone Number
+                  Phone Number *
                 </label>
-                <input
-                  type="tel"
-                  name="phone"
-                  required
-                  placeholder="Enter your mobile number"
-                  className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 border-gray-300"
-                  value={formData.phone}
-                  onChange={handleChange}
-                />
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-gray-500 text-xs font-semibold pointer-events-none border-r border-gray-200 pr-2">
+                    <span>🇮🇳</span>
+                    <span>+91</span>
+                  </div>
+                  <input
+                    type="tel"
+                    name="phone"
+                    required
+                    maxLength={10}
+                    placeholder="10-digit mobile number"
+                    className="w-full pl-[70px] pr-3 md:pr-4 py-2 md:py-3 text-sm md:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 border-gray-300"
+                    value={formData.phone}
+                    onChange={handleChange}
+                  />
+                </div>
               </div>
               <div className="mb-3 md:mb-4">
                 <label className="block text-gray-700 text-xs md:text-sm font-semibold mb-1 md:mb-2">

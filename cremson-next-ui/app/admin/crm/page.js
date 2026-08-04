@@ -20,7 +20,9 @@ import {
   Eye,
   Pen,
   Trash2,
-  Plus
+  Plus,
+  History,
+  ShoppingBag
 } from "lucide-react";
 import ConfirmModal from "../components/ConfirmModal";
 import CreateSpecimenModal from "../components/CreateSpecimenModal";
@@ -607,6 +609,200 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
   );
 }
 
+function TeacherHistoryModal({ teacher, onClose }) {
+  if (!teacher) return null;
+
+  const email = teacher.Email || "";
+  const phone = teacher["Whatsapp Phone"] || "";
+  const teacherId = teacher.id;
+
+  const [specimenLimit, setSpecimenLimit] = useState(2);
+  const [savingLimit, setSavingLimit] = useState(false);
+
+  const { data: historyData, isLoading, refetch } = useQuery({
+    queryKey: ["teacher-history", teacherId, email, phone],
+    queryFn: async () => {
+      const { data } = await api.get("/api/auth/teacher-history", {
+        params: { teacher_id: teacherId, email, phone }
+      });
+      return data;
+    },
+    enabled: Boolean(teacherId || email || phone),
+  });
+
+  useEffect(() => {
+    if (historyData?.teacher?.specimen_limit !== undefined) {
+      setSpecimenLimit(historyData.teacher.specimen_limit);
+    }
+  }, [historyData]);
+
+  async function handleSaveLimit(e) {
+    e.preventDefault();
+    setSavingLimit(true);
+    try {
+      await api.post(`/api/auth/teacher-specimen-limit/${teacherId}`, {
+        limit: Number(specimenLimit)
+      });
+      toast.success(`Specimen limit set to ${specimenLimit} books for ${teacher["Teacher Name"] || 'teacher'}.`);
+      refetch();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Failed to update limit.");
+    } finally {
+      setSavingLimit(false);
+    }
+  }
+
+  const specimenRequests = historyData?.specimen_requests || [];
+  const orders = historyData?.orders || [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+      <div className="bg-white rounded-3xl border border-gray-200 shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-slate-50/50 text-left">
+          <div>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold text-slate-900">{teacher["Teacher Name"] || "Teacher History"}</h2>
+              <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-0.5 rounded-full border border-blue-200">
+                Teacher #{teacher.id}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Email: {email || "—"} • Phone: {phone || "—"}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all cursor-pointer">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content Body */}
+        <div className="p-6 overflow-y-auto flex-1 space-y-6 text-left">
+          
+          {/* Specimen Limit Setting Card */}
+          <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h4 className="text-sm font-bold text-amber-900 flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-amber-600" /> Max Specimen Books Allowed
+              </h4>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Set maximum specimen copies this teacher can order per request.
+              </p>
+            </div>
+            <form onSubmit={handleSaveLimit} className="flex items-center gap-2 w-full sm:w-auto">
+              <input
+                type="number"
+                min="1"
+                max="50"
+                value={specimenLimit}
+                onChange={(e) => setSpecimenLimit(e.target.value)}
+                className="w-20 px-3 py-1.5 border border-amber-300 rounded-xl text-xs font-bold bg-white text-center focus:ring-2 focus:ring-amber-500 outline-none"
+              />
+              <button
+                type="submit"
+                disabled={savingLimit}
+                className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all disabled:opacity-50 cursor-pointer whitespace-nowrap"
+              >
+                {savingLimit ? "Saving..." : "Save Limit"}
+              </button>
+            </form>
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12 text-slate-400">
+              <Loader2 className="w-6 h-6 animate-spin mr-2" />
+              <span className="text-xs font-semibold">Loading teacher history...</span>
+            </div>
+          ) : (
+            <>
+              {/* Specimen Requests Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-red-500" /> Specimen Requests ({specimenRequests.length})
+                  </h3>
+                </div>
+
+                {specimenRequests.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    No specimen requests placed yet.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {specimenRequests.map((req) => (
+                      <div key={req.id} className="p-4 bg-white border border-slate-200/80 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:border-slate-300 transition-all shadow-xs">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-900">Request #{req.id}</span>
+                            <span className="text-[10px] text-slate-400 font-medium">({req.RequestDate || "Date —"})</span>
+                          </div>
+                          <p className="text-xs text-slate-600 mt-1 line-clamp-1">
+                            <span className="font-semibold text-slate-700">Books:</span> {req.BooksRequested || "—"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 self-end sm:self-center">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                            req.DeliveryStatus === "Dispatched" || req.DeliveryStatus === "Delivered"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : req.DeliveryStatus === "RTO"
+                              ? "bg-rose-100 text-rose-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}>
+                            {req.DeliveryStatus || "Pending"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Standard Orders Section */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <ShoppingBag className="w-4 h-4 text-blue-500" /> Book Purchase Orders ({orders.length})
+                  </h3>
+                </div>
+
+                {orders.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    No standard purchase orders placed yet.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {orders.map((ord) => (
+                      <div key={ord.id} className="p-4 bg-white border border-slate-200/80 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:border-slate-300 transition-all shadow-xs">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-900">Order #{ord.id}</span>
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+                              ₹{ord.TotalAmount || ord.total || "0"}
+                            </span>
+                            <span className="text-[10px] text-slate-400">({ord.CreatedDate || ord.created_at || "—"})</span>
+                          </div>
+                          <p className="text-xs text-slate-600 mt-1 line-clamp-1">
+                            <span className="font-semibold text-slate-700">Items:</span> {ord.Items || ord.items_summary || "—"}
+                          </p>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 self-end sm:self-center">
+                          {ord.OrderStatus || ord.status || "Completed"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminCRMHub() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("schools");
@@ -615,6 +811,7 @@ export default function AdminCRMHub() {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [editRecord, setEditRecord] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [historyTeacher, setHistoryTeacher] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [filters, setFilters] = useState({});
   const [actionLoading, setActionLoading] = useState({});
@@ -1196,6 +1393,15 @@ export default function AdminCRMHub() {
                                   </>
                                 ) : null;
                               })()}
+                              {activeTab === "teachers" && (
+                                <button
+                                  onClick={() => setHistoryTeacher(row)}
+                                  className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Order History & Specimen Limit"
+                                >
+                                  <History className="w-4 h-4" aria-hidden="true" />
+                                </button>
+                              )}
                               <button
                                 onClick={() => setSelectedRecord(row)}
                                 className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
@@ -1266,13 +1472,25 @@ export default function AdminCRMHub() {
                 <h2 className="text-xl font-semibold text-gray-900">Record Details #{selectedRecord.id}</h2>
                 <p className="text-xs text-gray-500 capitalize mt-0.5">Table: {currentTabObj.label}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedRecord(null)}
-                className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
-              >
-                <X className="w-6 h-6" />
-              </button>
+              <div className="flex items-center gap-3">
+                {activeTab === "teachers" && (
+                  <button
+                    onClick={() => {
+                      setHistoryTeacher(selectedRecord);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                  >
+                    <History className="w-3.5 h-3.5" /> Order History & Limit
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedRecord(null)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
             </div>
             <div className="p-6 overflow-y-auto space-y-4">
               <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1382,6 +1600,14 @@ export default function AdminCRMHub() {
           onConfirm={confirmDelete}
           onCancel={() => setDeleteTarget(null)}
           loading={deleteLoading}
+        />
+      )}
+
+      {/* Teacher History & Limit Modal */}
+      {historyTeacher && (
+        <TeacherHistoryModal
+          teacher={historyTeacher}
+          onClose={() => setHistoryTeacher(null)}
         />
       )}
     </div>

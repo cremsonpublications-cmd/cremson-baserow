@@ -129,11 +129,26 @@ export default function AddressesPage() {
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
-    setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    let val = type === "checkbox" ? checked : value;
+    if (name === "pin_code") {
+      val = value.replace(/\D/g, "").slice(0, 6);
+    }
+    if (name === "phone") {
+      val = value.replace(/\D/g, "").slice(0, 10);
+    }
+    setForm((prev) => ({ ...prev, [name]: val }));
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (form.pin_code && (form.pin_code.length !== 6 || !/^\d{6}$/.test(form.pin_code))) {
+      alert("PIN code must be exactly 6 digits.");
+      return;
+    }
+    if (form.phone && (form.phone.length !== 10 || !/^\d{10}$/.test(form.phone))) {
+      alert("Phone number must be exactly 10 digits.");
+      return;
+    }
     setSaving(true);
     try {
       if (editingId) {
@@ -461,14 +476,22 @@ export default function AddressesPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Phone Number <span className="text-red-500">*</span>
                 </label>
-                <input
-                  name="phone"
-                  value={form.phone}
-                  onChange={handleChange}
-                  type="tel"
-                  required
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
-                />
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-gray-500 text-xs font-semibold pointer-events-none border-r border-gray-200 pr-2">
+                    <span>🇮🇳</span>
+                    <span>+91</span>
+                  </div>
+                  <input
+                    name="phone"
+                    value={form.phone}
+                    onChange={handleChange}
+                    type="tel"
+                    required
+                    maxLength={10}
+                    placeholder="10-digit mobile number"
+                    className="w-full pl-[70px] pr-3 border border-gray-300 rounded-lg py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                  />
+                </div>
               </div>
 
               {/* Default checkbox */}

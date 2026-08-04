@@ -181,6 +181,18 @@ async def _save_bulk_data(row_id: int, obj: dict):
 
 @router.post("/", summary="Submit a new bulk order (no auth required)")
 async def create_bulk_order(body: BulkOrderCreate, bg: BackgroundTasks):
+    if body.pincode:
+        p_str = str(body.pincode).strip()
+        if not (p_str.isdigit() and len(p_str) == 6):
+            raise HTTPException(status_code=400, detail="Pincode must be exactly 6 digits.")
+
+    if body.phone:
+        p_clean = "".join(filter(str.isdigit, str(body.phone)))
+        if len(p_clean) == 12 and p_clean.startswith("91"):
+            p_clean = p_clean[2:]
+        if len(p_clean) != 10:
+            raise HTTPException(status_code=400, detail="Phone number must be exactly 10 digits.")
+
     token = str(uuid.uuid4())
     subtotal = round(sum(item.price * item.qty for item in body.items), 2)
     items_list = [i.model_dump() for i in body.items]

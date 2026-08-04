@@ -438,6 +438,18 @@ async def admin_create_specimen_request(body: AdminCreateSpecimenRequest):
     Does not require teacher login or password.
     If dispatch_immediately is True, it triggers Shipway shipment creation immediately.
     """
+    if body.pincode:
+        p_str = str(body.pincode).strip()
+        if not (p_str.isdigit() and len(p_str) == 6):
+            raise HTTPException(status_code=400, detail="Pincode must be exactly 6 digits.")
+
+    if body.phone:
+        p_clean = "".join(filter(str.isdigit, str(body.phone)))
+        if len(p_clean) == 12 and p_clean.startswith("91"):
+            p_clean = p_clean[2:]
+        if len(p_clean) != 10:
+            raise HTTPException(status_code=400, detail="Phone number must be exactly 10 digits.")
+
     today_str = datetime.now().strftime("%Y-%m-%d")
     books_str = ", ".join(body.books_requested) if isinstance(body.books_requested, list) else str(body.books_requested)
 

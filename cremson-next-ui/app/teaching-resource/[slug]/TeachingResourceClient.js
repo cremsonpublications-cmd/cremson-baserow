@@ -3,14 +3,18 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import CPLogo from "../../../components/CPLogo";
-import api from "../../../lib/api/axios";
+import { useApp } from "../../../context/AppContext";
 
 export default function TeachingResourceDetailPage() {
   const { slug } = useParams();
+  const { user, setUser } = useApp();
 
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showIdCardModal, setShowIdCardModal] = useState(false);
+  const [uploadingIdCard, setUploadingIdCard] = useState(false);
+  const [idCardError, setIdCardError] = useState("");
+  const [pendingFile, setPendingFile] = useState(null);
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -58,6 +62,53 @@ export default function TeachingResourceDetailPage() {
       }
     } else {
       attachments = [{ name: post.pdf_name || "Attachment File", url: post.pdf_url }];
+    }
+  }
+
+  const handleDownloadClick = (e, file) => {
+    if (!user) {
+      e.preventDefault();
+      alert("Please sign in with a verified teacher account to download teaching resources.");
+      return;
+    }
+    if (user.role === "teacher" && !user.id_card_url) {
+      e.preventDefault();
+      setPendingFile(file);
+      setShowIdCardModal(true);
+      return;
+    }
+  };
+
+  async function handleIdCardUpload(fileObj) {
+    if (!fileObj) return;
+    setUploadingIdCard(true);
+    setIdCardError("");
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", fileObj);
+      uploadFormData.append("upload_preset", "unsigned_preset");
+
+      const res = await fetch("https://api.cloudinary.com/v1_1/dkxxa3xt0/image/upload", {
+        method: "POST",
+        body: uploadFormData,
+      });
+
+      if (!res.ok) throw new Error("Image upload failed");
+      const data = await res.json();
+
+      await api.post("/api/auth/update-id-card", { id_card_url: data.secure_url });
+      
+      if (setUser) {
+        setUser((prev) => ({ ...prev, id_card_url: data.secure_url }));
+      }
+      setShowIdCardModal(false);
+      if (pendingFile) {
+        window.open(pendingFile.url, "_blank");
+      }
+    } catch (err) {
+      setIdCardError(err?.message || "Failed to upload ID Card photo. Please try again.");
+    } finally {
+      setUploadingIdCard(false);
     }
   }
 
@@ -113,6 +164,7 @@ export default function TeachingResourceDetailPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                       download={file.name || "download.pdf"}
+                      onClick={(e) => handleDownloadClick(e, file)}
                       className="w-full sm:w-auto px-4 py-2 bg-primary text-white rounded-xl hover:opacity-95 active:scale-95 transition-all text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer shadow-md"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -169,6 +221,63 @@ export default function TeachingResourceDetailPage() {
             Copyright 2026 © Cremson Publications - All Rights Reserved.
           </p>
         </div>
+
+        {showIdCardModal && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 text-center shadow-2xl border border-gray-100">
+              <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-extrabold text-gray-900 mb-2">Teacher ID Card Required</h3>
+              <p className="text-xs text-gray-600 leading-relaxed mb-6">
+                To download teacher resource files, please upload a photo of your Teacher ID Card or School ID for verification.
+              </p>
+
+              {idCardError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
+                  {idCardError}
+                </div>
+              )}
+
+              <label className="block w-full cursor-pointer">
+                <div className="w-full py-8 border-2 border-dashed border-gray-300 hover:border-indigo-500 rounded-2xl bg-gray-50 flex flex-col items-center justify-center transition-all mb-4">
+                  {uploadingIdCard ? (
+                    <div className="flex items-center gap-2 text-xs font-bold text-gray-600">
+                      Uploading ID Card...
+                    </div>
+                  ) : (
+                    <>
+                      <span className="text-xs font-bold text-indigo-600">Click to Select ID Card Photo</span>
+                      <span className="text-[10px] text-gray-400 mt-1">Supports JPG, PNG or WEBP</span>
+                    </>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploadingIdCard}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleIdCardUpload(e.target.files[0]);
+                    }
+                  }}
+                  className="hidden"
+                />
+              </label>
+
+              <button
+                type="button"
+                disabled={uploadingIdCard}
+                onClick={() => setShowIdCardModal(false)}
+                className="w-full py-2 text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

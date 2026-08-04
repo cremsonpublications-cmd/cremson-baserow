@@ -92,6 +92,14 @@ export default function CreateSpecimenModal({ onClose, onSuccess }) {
       toast.error("Teacher Name, Phone Number, and Address are required.");
       return;
     }
+    if (form.phone.replace(/\D/g, "").length !== 10) {
+      toast.error("Phone number must be exactly 10 digits.");
+      return;
+    }
+    if (form.pincode && (form.pincode.length !== 6 || !/^\d{6}$/.test(form.pincode))) {
+      toast.error("Pincode must be exactly 6 digits.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -231,14 +239,20 @@ export default function CreateSpecimenModal({ onClose, onSuccess }) {
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                 WhatsApp Phone <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                required
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="e.g. 9876543210"
-                className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:border-red-500 outline-none"
-              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500 flex items-center gap-1 select-none border-r border-slate-200 pr-2">
+                  🇮🇳 +91
+                </span>
+                <input
+                  type="text"
+                  required
+                  maxLength={10}
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+                  placeholder="9876543210"
+                  className="w-full pl-[70px] pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:border-red-500 outline-none"
+                />
+              </div>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
@@ -279,8 +293,9 @@ export default function CreateSpecimenModal({ onClose, onSuccess }) {
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Pincode</label>
               <input
                 type="text"
+                maxLength={6}
                 value={form.pincode}
-                onChange={(e) => setForm({ ...form, pincode: e.target.value })}
+                onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })}
                 placeholder="6-digit Pincode"
                 className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:border-red-500 outline-none"
               />

@@ -117,6 +117,12 @@ def validate_school_fields(body: dict):
         if phone_str and not (phone_str.isdigit() and len(phone_str) == 10):
             raise HTTPException(status_code=400, detail="Phone number must be exactly 10 digits.")
 
+    pin_code = body.get("Pincode") or body.get("Pin Code") or body.get("pincode")
+    if pin_code is not None:
+        pin_code_str = str(pin_code).strip()
+        if pin_code_str and not (pin_code_str.isdigit() and len(pin_code_str) == 6):
+            raise HTTPException(status_code=400, detail="Pincode must be exactly 6 digits.")
+
 @router.post("/schools", summary="Create school")
 async def create_school(body: dict):
     validate_school_fields(body)
@@ -344,6 +350,14 @@ async def approve_teacher(row_id: int):
         except Exception as e:
             print("Warning: Failed to send WhatsApp approval notification:", e)
 
+    # Send Email Approval Message (awaited)
+    if email:
+        try:
+            from services.email import send_teacher_approved_email
+            await send_teacher_approved_email(email, teacher_name)
+        except Exception as e:
+            print("Warning: Failed to send Email approval notification:", e)
+
     return {"message": "Teacher approved successfully", "teacher": await enrich_teacher_data(updated_teacher)}
 
 
@@ -385,6 +399,14 @@ async def reject_teacher(row_id: int):
             await send_teacher_rejected_notification(phone, teacher_name)
         except Exception as e:
             print("Warning: Failed to send WhatsApp rejection notification:", e)
+
+    # Send Email Rejection Message (awaited)
+    if email:
+        try:
+            from services.email import send_teacher_rejected_email
+            await send_teacher_rejected_email(email, teacher_name)
+        except Exception as e:
+            print("Warning: Failed to send Email rejection notification:", e)
 
     return {"message": "Teacher registration rejected", "teacher": await enrich_teacher_data(updated_teacher)}
 

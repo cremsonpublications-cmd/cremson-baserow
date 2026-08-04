@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Lock,
+  Upload,
 } from "lucide-react";
 
 const STEPS = ["Select Books", "Your Details", "Confirm"];
@@ -111,9 +112,12 @@ function BookCard({ book, selected, onToggle }) {
 }
 
 function SpecimenContent() {
-  const { user, authLogout } = useApp();
+  const { user, setUser, authLogout } = useApp();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const specimenLimit = user?.specimen_limit || 2;
+  const hasIdCard = Boolean(user?.id_card_url);
 
   // Read step from URL (default to 0)
   const stepParam = searchParams.get("step");
@@ -146,6 +150,9 @@ function SpecimenContent() {
     comments: "",
   });
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showIdCardModal, setShowIdCardModal] = useState(false);
+  const [uploadingIdCard, setUploadingIdCard] = useState(false);
+  const [idCardError, setIdCardError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
@@ -192,7 +199,6 @@ function SpecimenContent() {
 
   const eligibleIds = new Set(specimenConfig?.product_ids ?? []);
   const allProductsList = (productsData?.results ?? []).filter((p) => p.name);
-  // If admin has configured eligible books, show only those; otherwise show all active products
   const products = eligibleIds.size > 0
     ? allProductsList.filter((p) => eligibleIds.has(p.id))
     : allProductsList.filter((p) => p.is_active !== false);
@@ -202,11 +208,60 @@ function SpecimenContent() {
       setShowAuthModal(true);
       return;
     }
+    const isCurrentlySelected = selectedBooks.some((b) => b.id === book.id);
+    if (!isCurrentlySelected && selectedBooks.length >= specimenLimit) {
+      setError(`Notice: Your account is allowed to order up to ${specimenLimit} specimen book(s) per request. Contact admin if you require additional copies.`);
+      return;
+    }
+    setError("");
     setSelectedBooks((prev) =>
-      prev.some((b) => b.id === book.id)
+      isCurrentlySelected
         ? prev.filter((b) => b.id !== book.id)
         : [...prev, book]
     );
+  }
+
+  const handleContinue = () => {
+    if (!isApprovedTeacher) {
+      setShowAuthModal(true);
+      return;
+    }
+    if (!hasIdCard) {
+      setShowIdCardModal(true);
+      return;
+    }
+    setStep(1);
+  };
+
+  async function handleIdCardUpload(file) {
+    if (!file) return;
+    setUploadingIdCard(true);
+    setIdCardError("");
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", file);
+      uploadFormData.append("upload_preset", "unsigned_preset");
+
+      const res = await fetch("https://api.cloudinary.com/v1_1/dkxxa3xt0/image/upload", {
+        method: "POST",
+        body: uploadFormData,
+      });
+
+      if (!res.ok) throw new Error("Image upload failed");
+      const data = await res.json();
+
+      await api.post("/api/auth/update-id-card", { id_card_url: data.secure_url });
+      
+      if (setUser) {
+        setUser((prev) => ({ ...prev, id_card_url: data.secure_url }));
+      }
+      setShowIdCardModal(false);
+      setStep(1);
+    } catch (err) {
+      setIdCardError(err?.message || "Failed to upload ID Card photo. Please try again.");
+    } finally {
+      setUploadingIdCard(false);
+    }
   }
 
   function handleChange(e) {
@@ -369,7 +424,7 @@ function SpecimenContent() {
                 )}
               </div>
               <button
-                onClick={() => setStep(1)}
+                onClick={handleContinue}
                 disabled={selectedBooks.length === 0 || !isApprovedTeacher}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-sm rounded-2xl shadow-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
                 title={!isApprovedTeacher ? "Teacher approval required to continue" : ""}
@@ -381,6 +436,62 @@ function SpecimenContent() {
         )}
 
         <TeacherAuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+
+        {showIdCardModal && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 text-center shadow-2xl border border-gray-100">
+              <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Upload className="w-7 h-7" />
+              </div>
+              <h3 className="text-xl font-extrabold text-gray-900 mb-2">ID Card Required</h3>
+              <p className="text-xs text-gray-600 leading-relaxed mb-6">
+                To request specimen copies, please upload a photo of your Teacher ID Card or School ID. This is a one-time verification.
+              </p>
+
+              {idCardError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
+                  {idCardError}
+                </div>
+              )}
+
+              <label className="block w-full cursor-pointer">
+                <div className="w-full py-8 border-2 border-dashed border-gray-300 hover:border-red-500 rounded-2xl bg-gray-50 flex flex-col items-center justify-center transition-all mb-4">
+                  {uploadingIdCard ? (
+                    <div className="flex items-center gap-2 text-xs font-bold text-gray-600">
+                      <Loader2 className="w-5 h-5 animate-spin text-red-600" /> Uploading ID Card...
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                      <span className="text-xs font-bold text-red-600">Click to Select ID Card Photo</span>
+                      <span className="text-[10px] text-gray-400 mt-1">Supports JPG, PNG or WEBP</span>
+                    </>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploadingIdCard}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleIdCardUpload(e.target.files[0]);
+                    }
+                  }}
+                  className="hidden"
+                />
+              </label>
+
+              <button
+                type="button"
+                disabled={uploadingIdCard}
+                onClick={() => setShowIdCardModal(false)}
+                className="w-full py-2 text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

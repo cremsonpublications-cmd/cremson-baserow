@@ -24,6 +24,25 @@ import {
   X,
 } from "lucide-react";
 
+function getPasswordStrength(password) {
+  if (!password) return { score: 0, label: "", color: "bg-gray-200", text: "", valid: false, hasMinLen: false, hasUpper: false, hasLower: false, hasNum: false, hasSpecial: false };
+  const hasMinLen = password.length >= 8;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNum = /[0-9]/.test(password);
+  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+
+  const totalMet = [hasMinLen, hasUpper, hasLower, hasNum, hasSpecial].filter(Boolean).length;
+
+  if (totalMet < 3) {
+    return { score: 1, label: "Weak", color: "bg-red-500", text: "text-red-500", valid: false, hasMinLen, hasUpper, hasLower, hasNum, hasSpecial };
+  } else if (totalMet < 5) {
+    return { score: 2, label: "Medium", color: "bg-amber-500", text: "text-amber-500", valid: false, hasMinLen, hasUpper, hasLower, hasNum, hasSpecial };
+  } else {
+    return { score: 3, label: "Strong", color: "bg-emerald-500", text: "text-emerald-500", valid: true, hasMinLen, hasUpper, hasLower, hasNum, hasSpecial };
+  }
+}
+
 function SignupFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -85,8 +104,9 @@ function SignupFormContent() {
       setStudentError("Passwords do not match");
       return;
     }
-    if (studentForm.password.length < 8) {
-      setStudentError("Password must be at least 8 characters");
+    const pwdStrength = getPasswordStrength(studentForm.password);
+    if (!pwdStrength.valid) {
+      setStudentError("Password must be at least 8 characters long and contain uppercase, lowercase, a number, and a special character.");
       return;
     }
 
@@ -272,6 +292,10 @@ function SignupFormContent() {
       alert("Please provide required details: School Name, City, Address, and Pincode.");
       return;
     }
+    if (!/^\d{6}$/.test(newSchoolData.pincode.trim())) {
+      alert("Pincode must be exactly 6 digits.");
+      return;
+    }
 
     const createdSchool = {
       id: null,
@@ -346,16 +370,13 @@ function SignupFormContent() {
       setTeacherError(teacherPhoneStatus.reason || "This phone number is already registered.");
       return;
     }
-    if (teacherForm.password.length < 8) {
-      setTeacherError("Password must be at least 8 characters long.");
+    const teacherPwdInfo = getPasswordStrength(teacherForm.password);
+    if (!teacherPwdInfo.valid) {
+      setTeacherError("Password must be at least 8 characters long and contain uppercase, lowercase, a number, and a special character.");
       return;
     }
     if (teacherForm.password !== teacherForm.confirmPassword) {
       setTeacherError("Passwords do not match.");
-      return;
-    }
-    if (!teacherForm.idCardUrl) {
-      setTeacherError("Please upload your Teacher / School ID Card photo for verification.");
       return;
     }
     if (!teacherForm.schoolId && !teacherForm.customSchoolName && !schoolSearch) {
@@ -582,7 +603,7 @@ function SignupFormContent() {
                     required
                     value={studentForm.password}
                     onChange={(e) => setStudentForm((f) => ({ ...f, password: e.target.value }))}
-                    placeholder="Min. 8 characters"
+                    placeholder="Min 8 chars (e.g. Cremson@2025)"
                     className="w-full px-4 py-3 pr-10 rounded-xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
                   />
                   <button
@@ -593,6 +614,37 @@ function SignupFormContent() {
                     {studentShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                {(() => {
+                  const pInfo = getPasswordStrength(studentForm.password);
+                  if (!studentForm.password) return null;
+                  return (
+                    <div className="mt-2 space-y-1.5 bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                      <div className="flex items-center justify-between text-xs font-semibold">
+                        <span className="text-gray-500">Password Strength:</span>
+                        <span className={pInfo.text}>{pInfo.label}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden flex gap-1">
+                        <div className={`h-full flex-1 transition-all ${pInfo.score >= 1 ? pInfo.color : "bg-gray-200"}`} />
+                        <div className={`h-full flex-1 transition-all ${pInfo.score >= 2 ? pInfo.color : "bg-gray-200"}`} />
+                        <div className={`h-full flex-1 transition-all ${pInfo.score >= 3 ? pInfo.color : "bg-gray-200"}`} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] pt-1">
+                        <span className={pInfo.hasMinLen ? "text-emerald-600 font-medium flex items-center gap-1" : "text-gray-400 flex items-center gap-1"}>
+                          <span>{pInfo.hasMinLen ? "✓" : "○"}</span> 8+ Characters
+                        </span>
+                        <span className={pInfo.hasUpper && pInfo.hasLower ? "text-emerald-600 font-medium flex items-center gap-1" : "text-gray-400 flex items-center gap-1"}>
+                          <span>{pInfo.hasUpper && pInfo.hasLower ? "✓" : "○"}</span> Upper & Lowercase
+                        </span>
+                        <span className={pInfo.hasNum ? "text-emerald-600 font-medium flex items-center gap-1" : "text-gray-400 flex items-center gap-1"}>
+                          <span>{pInfo.hasNum ? "✓" : "○"}</span> Number (0-9)
+                        </span>
+                        <span className={pInfo.hasSpecial ? "text-emerald-600 font-medium flex items-center gap-1" : "text-gray-400 flex items-center gap-1"}>
+                          <span>{pInfo.hasSpecial ? "✓" : "○"}</span> Special (!@#$)
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div>
@@ -834,7 +886,7 @@ function SignupFormContent() {
               {/* ID Card Upload */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Upload ID Card / School Photo *
+                  Upload ID Card / School Photo (Optional)
                 </label>
                 <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
 
@@ -880,7 +932,7 @@ function SignupFormContent() {
                       required
                       value={teacherForm.password}
                       onChange={handleTeacherChange}
-                      placeholder="Min 8 chars"
+                      placeholder="Min 8 chars (e.g. Cremson@2025)"
                       className="w-full pl-10 pr-9 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
                     />
                     <button
@@ -891,6 +943,37 @@ function SignupFormContent() {
                       {teacherShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                  {(() => {
+                    const tpInfo = getPasswordStrength(teacherForm.password);
+                    if (!teacherForm.password) return null;
+                    return (
+                      <div className="mt-2 space-y-1.5 bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                        <div className="flex items-center justify-between text-xs font-semibold">
+                          <span className="text-gray-500">Password Strength:</span>
+                          <span className={tpInfo.text}>{tpInfo.label}</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden flex gap-1">
+                          <div className={`h-full flex-1 transition-all ${tpInfo.score >= 1 ? tpInfo.color : "bg-gray-200"}`} />
+                          <div className={`h-full flex-1 transition-all ${tpInfo.score >= 2 ? tpInfo.color : "bg-gray-200"}`} />
+                          <div className={`h-full flex-1 transition-all ${tpInfo.score >= 3 ? tpInfo.color : "bg-gray-200"}`} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] pt-1">
+                          <span className={tpInfo.hasMinLen ? "text-emerald-600 font-medium flex items-center gap-1" : "text-gray-400 flex items-center gap-1"}>
+                            <span>{tpInfo.hasMinLen ? "✓" : "○"}</span> 8+ Characters
+                          </span>
+                          <span className={tpInfo.hasUpper && tpInfo.hasLower ? "text-emerald-600 font-medium flex items-center gap-1" : "text-gray-400 flex items-center gap-1"}>
+                            <span>{tpInfo.hasUpper && tpInfo.hasLower ? "✓" : "○"}</span> Upper & Lowercase
+                          </span>
+                          <span className={tpInfo.hasNum ? "text-emerald-600 font-medium flex items-center gap-1" : "text-gray-400 flex items-center gap-1"}>
+                            <span>{tpInfo.hasNum ? "✓" : "○"}</span> Number (0-9)
+                          </span>
+                          <span className={tpInfo.hasSpecial ? "text-emerald-600 font-medium flex items-center gap-1" : "text-gray-400 flex items-center gap-1"}>
+                            <span>{tpInfo.hasSpecial ? "✓" : "○"}</span> Special (!@#$)
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div>
@@ -1013,9 +1096,10 @@ function SignupFormContent() {
                   <input
                     type="text"
                     required
+                    maxLength={6}
                     value={newSchoolData.pincode}
-                    onChange={(e) => setNewSchoolData((prev) => ({ ...prev, pincode: e.target.value }))}
-                    placeholder="Pincode"
+                    onChange={(e) => setNewSchoolData((prev) => ({ ...prev, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
+                    placeholder="6-digit Pincode"
                     className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
                   />
                 </div>

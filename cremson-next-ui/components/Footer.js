@@ -60,14 +60,20 @@ export default function Footer() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 md:gap-4 mb-2 md:mb-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-smartphone w-5 h-5 md:w-6 md:h-6 text-blue-600 flex-shrink-0">
+                  <div className="flex items-start gap-3 md:gap-4 mb-2 md:mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-smartphone w-5 h-5 md:w-6 md:h-6 text-blue-600 flex-shrink-0 mt-1">
                       <rect width="14" height="20" x="5" y="2" rx="2" ry="2"></rect>
                       <path d="M12 18h.01"></path>
                     </svg>
                     <div>
-                      <span className="text-xs md:text-lg font-semibold text-gray-900">Mobile: </span>
-                      <a href="tel:+917982645175" className="text-blue-600 hover:text-blue-800 font-medium transition-colors text-xs md:text-base">+91 79826 45175</a>
+                      <span className="text-xs md:text-lg font-semibold text-gray-900 block mb-1">Mobile: </span>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs md:text-base">
+                        <a href="tel:+917982645175" className="text-blue-600 hover:text-blue-800 font-medium transition-colors">+91 79826 45175</a>
+                        <span className="text-gray-300">•</span>
+                        <a href="tel:+919871757937" className="text-blue-600 hover:text-blue-800 font-medium transition-colors">+91 98717 57937</a>
+                        <span className="text-gray-300">•</span>
+                        <a href="tel:+918585937875" className="text-blue-600 hover:text-blue-800 font-medium transition-colors">+91 85859 37875</a>
+                      </div>
                     </div>
                   </div>
                 </div>

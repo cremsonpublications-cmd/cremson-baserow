@@ -207,6 +207,14 @@ export default function CheckoutPage() {
       setFormError("Please fill in all required fields.");
       return;
     }
+    if (pincode.length !== 6 || !/^\d{6}$/.test(pincode)) {
+      setFormError("PIN code must be exactly 6 digits.");
+      return;
+    }
+    if (phone.length !== 10 || !/^\d{10}$/.test(phone)) {
+      setFormError("Phone number must be exactly 10 digits.");
+      return;
+    }
 
     setIsLoading(true);
 
@@ -708,26 +716,32 @@ export default function CheckoutPage() {
                           name="pincode"
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black/20 text-black bg-white"
                           required
-                          placeholder="PIN Code"
+                          placeholder="6-digit PIN Code"
                           maxLength={6}
                           value={pincode}
-                          onChange={(e) => setPincode(e.target.value.replace(/\D/g, ""))}
+                          onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black/20 text-black bg-white"
-                        required
-                        placeholder="Phone number"
-                        maxLength={10}
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                      />
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                      <div className="relative">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-gray-500 text-xs font-semibold pointer-events-none border-r border-gray-200 pr-2">
+                          <span>🇮🇳</span>
+                          <span>+91</span>
+                        </div>
+                        <input
+                          type="tel"
+                          name="phone"
+                          className="w-full pl-[70px] pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black/20 text-black bg-white text-sm"
+                          required
+                          placeholder="10-digit mobile number"
+                          maxLength={10}
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                        />
+                      </div>
                     </div>
 
                     {authToken && (

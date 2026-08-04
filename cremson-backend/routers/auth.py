@@ -1,4 +1,5 @@
 import os
+import re
 import random
 import string
 import asyncio
@@ -134,13 +135,31 @@ async def current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)):
     return user
 
 
+def validate_password_strength(password: str):
+    if not password or len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
+    if not re.search(r"[A-Z]", password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one uppercase letter (A-Z).")
+    if not re.search(r"[a-z]", password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one lowercase letter (a-z).")
+    if not re.search(r"[0-9]", password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one number (0-9).")
+    if not re.search(r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>\/?]", password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one special character (!@#$%^&* etc.).")
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 @router.post("/register", status_code=201)
 async def register(body: RegisterRequest):
-    if len(body.password) < 8:
-        raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
+    validate_password_strength(body.password)
 
     if body.phone:
+        p_clean = "".join(filter(str.isdigit, str(body.phone)))
+        if len(p_clean) == 12 and p_clean.startswith("91"):
+            p_clean = p_clean[2:]
+        if len(p_clean) != 10:
+            raise HTTPException(status_code=400, detail="Phone number must be exactly 10 digits.")
+
         existing_phone = await get_user_by_phone(body.phone)
         if existing_phone:
             if existing_phone.get("is_approved") == -1 or existing_phone.get("is_active") == 0:
@@ -188,8 +207,19 @@ async def check_phone(phone: str):
 
 @router.post("/teacher-register", status_code=201)
 async def teacher_register(body: TeacherRegisterRequest):
-    if len(body.password) < 8:
-        raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
+    validate_password_strength(body.password)
+
+    if body.pincode:
+        p_str = str(body.pincode).strip()
+        if not (p_str.isdigit() and len(p_str) == 6):
+            raise HTTPException(status_code=400, detail="Pincode must be exactly 6 digits.")
+
+    if body.phone:
+        p_clean = "".join(filter(str.isdigit, str(body.phone)))
+        if len(p_clean) == 12 and p_clean.startswith("91"):
+            p_clean = p_clean[2:]
+        if len(p_clean) != 10:
+            raise HTTPException(status_code=400, detail="Phone number must be exactly 10 digits.")
 
     existing_email = await get_user_by_email(body.email)
     if existing_email:
@@ -296,6 +326,13 @@ async def teacher_register(body: TeacherRegisterRequest):
     except Exception as e:
         print("Warning: Failed to send WhatsApp signup confirmation:", e)
 
+    # Send Email Confirmation Message to Teacher
+    try:
+        from services.email import send_teacher_signup_email
+        await send_teacher_signup_email(body.email, body.name)
+    except Exception as e:
+        print("Warning: Failed to send Email signup confirmation:", e)
+
     return {
         "message": "Teacher account created successfully. Your account is pending admin approval.",
         "email": body.email,
@@ -347,7 +384,7 @@ async def resend_otp(body: ResendOTPRequest):
     return {"message": "New OTP sent to your email"}
 
 
-async def get_teacher_school_name(email: str) -> str:
+async def get_teacher_details(email: str) -> dict:
     try:
         b_client = BaserowClient()
         res = await b_client.get_rows(TABLE_IDS["teacher"], filters={"Email": email.lower().strip()})
@@ -355,11 +392,35 @@ async def get_teacher_school_name(email: str) -> str:
         if results:
             t_row = results[0]
             school_name_list = t_row.get("School Name", []) or t_row.get("SchoolID", [])
-            if school_name_list:
-                return school_name_list[0].get("value", "")
+            s_name = ""
+            if school_name_list and isinstance(school_name_list, list) and len(school_name_list) > 0:
+                item = school_name_list[0]
+                s_name = item.get("value", "") if isinstance(item, dict) else str(item)
+            
+            id_card_url = t_row.get("IdCardUrl") or ""
+            notes = t_row.get("Notes") or ""
+            
+            limit = 2
+            if "specimen_limit:" in notes.lower():
+                import re
+                m = re.search(r'specimen_limit:\s*(\d+)', notes, re.IGNORECASE)
+                if m:
+                    limit = int(m.group(1))
+
+            return {
+                "teacher_row_id": t_row.get("id"),
+                "school_name": s_name,
+                "id_card_url": id_card_url,
+                "specimen_limit": limit,
+            }
     except Exception as e:
-        print("Warning: Failed to fetch teacher school name:", e)
-    return ""
+        print("Warning: Failed to fetch teacher details:", e)
+    return {"teacher_row_id": None, "school_name": "", "id_card_url": "", "specimen_limit": 2}
+
+
+async def get_teacher_school_name(email: str) -> str:
+    details = await get_teacher_details(email)
+    return details.get("school_name", "")
 
 
 @router.post("/login")
@@ -384,12 +445,12 @@ async def login(body: LoginRequest):
 
     role = user.get("role", "customer")
     is_approved = int(user.get("is_approved") or (0 if role == "teacher" else 1))
-    school_name = ""
+    t_details = {"school_name": "", "id_card_url": "", "specimen_limit": 2}
 
     # If teacher account, verify approval status
     if role == "teacher":
         if is_approved == 1:
-            school_name = await get_teacher_school_name(user["email"])
+            t_details = await get_teacher_details(user["email"])
         elif is_approved == -1:
             raise HTTPException(
                 status_code=403,
@@ -412,7 +473,9 @@ async def login(body: LoginRequest):
             "phone": user.get("phone", ""),
             "role": role,
             "is_approved": is_approved,
-            "school_name": school_name,
+            "school_name": t_details.get("school_name", ""),
+            "id_card_url": t_details.get("id_card_url", ""),
+            "specimen_limit": t_details.get("specimen_limit", 2),
             "designation": user.get("designation", "Teacher"),
         },
     }
@@ -421,9 +484,9 @@ async def login(body: LoginRequest):
 @router.get("/me")
 async def me(user: dict = Depends(current_user)):
     role = user.get("role", "customer")
-    school_name = ""
+    t_details = {"school_name": "", "id_card_url": "", "specimen_limit": 2}
     if role == "teacher":
-        school_name = await get_teacher_school_name(user["email"])
+        t_details = await get_teacher_details(user["email"])
         
     return {
         "id": user["id"],
@@ -433,9 +496,99 @@ async def me(user: dict = Depends(current_user)):
         "role": role,
         "is_approved": int(user.get("is_approved") or (0 if role == "teacher" else 1)),
         "created_at": user.get("created_at", ""),
-        "school_name": school_name,
+        "school_name": t_details.get("school_name", ""),
+        "id_card_url": t_details.get("id_card_url", ""),
+        "specimen_limit": t_details.get("specimen_limit", 2),
         "designation": user.get("designation", "Teacher"),
     }
+
+
+class UpdateIdCardRequest(BaseModel):
+    id_card_url: str
+
+
+@router.post("/update-id-card")
+async def update_id_card(body: UpdateIdCardRequest, user: dict = Depends(current_user)):
+    """Endpoint for teachers to upload/update their Teacher ID Card URL."""
+    if not body.id_card_url:
+        raise HTTPException(status_code=400, detail="id_card_url is required")
+        
+    b_client = BaserowClient()
+    res = await b_client.get_rows(TABLE_IDS["teacher"], filters={"Email": user["email"].lower().strip()})
+    results = res.get("results", [])
+    if not results:
+        await b_client.create_row(TABLE_IDS["teacher"], {
+            "Teacher Name": user["name"],
+            "Email": user["email"].lower().strip(),
+            "Whatsapp Phone": user.get("phone", ""),
+            "IdCardUrl": body.id_card_url,
+            "Status": "Approved" if user.get("is_approved") == 1 else "Pending Approval"
+        })
+    else:
+        teacher_id = results[0]["id"]
+        await b_client.update_row(TABLE_IDS["teacher"], teacher_id, {"IdCardUrl": body.id_card_url})
+        
+    return {"message": "ID Card updated successfully", "id_card_url": body.id_card_url}
+
+
+class UpdateSpecimenLimitRequest(BaseModel):
+    specimen_limit: int
+
+
+@router.post("/teacher-specimen-limit/{teacher_id}")
+async def update_teacher_specimen_limit(teacher_id: int, body: UpdateSpecimenLimitRequest):
+    """Admin endpoint to set max allowed specimen books for a teacher."""
+    if body.specimen_limit < 1:
+        raise HTTPException(status_code=400, detail="specimen_limit must be at least 1")
+
+    b_client = BaserowClient()
+    t_row = await b_client.get_row(TABLE_IDS["teacher"], teacher_id)
+    notes = t_row.get("Notes") or ""
+    
+    import re
+    if "specimen_limit:" in notes.lower():
+        notes = re.sub(r'specimen_limit:\s*\d+', f'specimen_limit: {body.specimen_limit}', notes, flags=re.IGNORECASE)
+    else:
+        notes = (notes.strip() + f"; specimen_limit: {body.specimen_limit}").strip("; ")
+        
+    await b_client.update_row(TABLE_IDS["teacher"], teacher_id, {"Notes": notes})
+    return {"message": "Specimen limit updated successfully", "teacher_id": teacher_id, "specimen_limit": body.specimen_limit}
+
+
+@router.get("/teacher-history")
+async def get_teacher_history(email: Optional[str] = None, phone: Optional[str] = None):
+    """Fetch all specimen requests and standard orders for a teacher by email or phone."""
+    b_client = BaserowClient()
+    specimen_history = []
+    order_history = []
+    
+    if email:
+        try:
+            res_spec = await b_client.get_rows(TABLE_IDS["specimen_requests"], filters={"Email": email.lower().strip()})
+            specimen_history.extend(res_spec.get("results", []))
+        except Exception as e:
+            print("Warning: Error fetching specimen history by email:", e)
+            
+    if phone and not specimen_history:
+        try:
+            res_spec = await b_client.get_rows(TABLE_IDS["specimen_requests"], search=phone)
+            specimen_history.extend(res_spec.get("results", []))
+        except Exception as e:
+            print("Warning: Error fetching specimen history by phone:", e)
+
+    search_query = email or phone
+    if search_query:
+        try:
+            res_orders = await b_client.get_rows(TABLE_IDS["orders"], search=search_query)
+            order_history.extend(res_orders.get("results", []))
+        except Exception as e:
+            print("Warning: Error fetching orders history:", e)
+        
+    return {
+        "specimen_requests": specimen_history,
+        "orders": order_history
+    }
+
 
 
 @router.post("/forgot-password")

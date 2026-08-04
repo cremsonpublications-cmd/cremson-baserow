@@ -110,6 +110,14 @@ export default function PublicBulkOrderPage() {
       setError("Please fill in all required contact details.");
       return;
     }
+    if (form.phone.length !== 10 || !/^\d{10}$/.test(form.phone.trim())) {
+      setError("Phone number must be exactly 10 digits.");
+      return;
+    }
+    if (form.pincode.length !== 6 || !/^\d{6}$/.test(form.pincode.trim())) {
+      setError("Pincode must be exactly 6 digits.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -469,9 +477,10 @@ export default function PublicBulkOrderPage() {
                 <input
                   type="text"
                   required
+                  maxLength={6}
                   value={form.pincode}
-                  onChange={(e) => setForm({ ...form, pincode: e.target.value })}
-                  placeholder="e.g. 110001"
+                  onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })}
+                  placeholder="6-digit Pincode"
                   className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                 />
               </div>
