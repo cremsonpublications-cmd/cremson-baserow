@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp } from "../../context/AppContext";
 import { getEffectiveUnitPrice, getItemTotalPrice } from "../../lib/utils/pricing";
-import { useCoupons } from "../../lib/api/hooks";
+import { useCoupons, useProducts } from "../../lib/api/hooks";
 import { ChevronDown, ChevronUp, Minus, Plus, Tag, Check, AlertCircle } from "lucide-react";
 
 function CartSkeleton() {
@@ -56,8 +56,27 @@ export default function CartPage() {
   const [showCoupons, setShowCoupons] = useState(false);
   const [promoError, setPromoError] = useState("");
 
-  // Fetch coupons from backend API
+  // Fetch coupons & products from backend API
   const { data: couponsData } = useCoupons();
+  const { data: productsData } = useProducts();
+
+  const allProducts = useMemo(() => {
+    return Array.isArray(productsData) ? productsData : (productsData?.results ?? productsData?.items ?? []);
+  }, [productsData]);
+
+  const getProductTitles = useMemo(() => {
+    return (productIds) => {
+      if (!Array.isArray(productIds) || productIds.length === 0) return "";
+      const titles = productIds.map((id) => {
+        const cartItem = cart.find((item) => String(item.product?.id) === String(id));
+        if (cartItem?.product?.title) return cartItem.product.title;
+        const prodItem = allProducts.find((p) => String(p.id) === String(id));
+        return prodItem?.title || prodItem?.name || `Book #${id}`;
+      });
+      return titles.join(", ");
+    };
+  }, [cart, allProducts]);
+
   const availableCoupons = useMemo(() => {
     const apiCoupons = (couponsData?.results ?? couponsData?.items ?? []).map((c) => {
       const rawApp = c.applicable_products || c.product_ids;
@@ -177,7 +196,8 @@ export default function CartPage() {
         coupon.applicableProducts.includes(String(item.product.id))
       );
       if (!hasEligible) {
-        setPromoError("This coupon code is only valid for specific products.");
+        const bookTitles = getProductTitles(coupon.applicableProducts);
+        setPromoError(`This coupon is only valid for: "${bookTitles}". Please add the book to your cart.`);
         return;
       }
     }
@@ -376,11 +396,18 @@ export default function CartPage() {
               <div className="space-y-4">
                 <div className="flex space-x-3">
                   {appliedCoupon ? (
-                    <div className="flex items-center justify-between w-full bg-green-50 text-green-800 px-4 py-2.5 rounded-full border border-green-200">
-                      <span className="text-sm font-semibold flex items-center gap-1.5">
-                        <Tag className="w-4 h-4 text-green-600" />
-                        {appliedCoupon.code} Applied
-                      </span>
+                    <div className="flex items-center justify-between w-full bg-green-50 text-green-800 px-4 py-2.5 rounded-2xl border border-green-200">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold flex items-center gap-1.5">
+                          <Tag className="w-4 h-4 text-green-600" />
+                          {appliedCoupon.code} Applied
+                        </span>
+                        {appliedCoupon.applicableProducts?.length > 0 && (
+                          <span className="text-[10px] text-green-700 font-medium">
+                            Valid on: {getProductTitles(appliedCoupon.applicableProducts)}
+                          </span>
+                        )}
+                      </div>
                       <button onClick={handleRemovePromo} className="text-xs font-bold text-red-600 hover:text-red-800 uppercase cursor-pointer">
                         Remove
                       </button>
@@ -450,7 +477,7 @@ export default function CartPage() {
                             <p className={isDisabled ? "text-gray-400" : "text-gray-600"}>{coupon.description}</p>
                             {hasProductRestriction && (
                               <p className={`text-[10px] font-medium ${!hasEligibleInCart ? "text-amber-600 font-semibold" : "text-amber-700"}`}>
-                                📦 Valid for specific book(s) only{!hasEligibleInCart ? " (add assigned book to cart)" : ""}
+                                📦 Valid only for: <span className="font-bold underline">{getProductTitles(coupon.applicableProducts)}</span>{!hasEligibleInCart ? " (add to cart to apply)" : ""}
                               </p>
                             )}
                             {coupon.minOrder && (
