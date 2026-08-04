@@ -259,14 +259,25 @@ async def handle_incoming_message(from_phone: str, message_text: str) -> None:
         await send_text_message(from_phone, rec_msg)
         return
 
-    # --- STATE MACHINE HANDLERS ---
-
-    if current_state == "WAITING_FOR_ORDER_ID":
-        await _process_track_order_id_input(from_phone, clean_text)
-        return
-    elif current_state == "WAITING_FOR_ORDER_SELECTION":
-        await _process_order_selection_input(from_phone, clean_text, context)
-        return
+    elif current_state == "WAITING_TEACHER_PROMPT":
+        if clean_text.lower() in ["a", "1", "1️⃣", "registered", "yes, registered!"]:
+            await _handle_option_teacher_registered(from_phone)
+            return
+        elif clean_text.lower() in ["b", "2", "2️⃣", "unregistered", "unregistered / new teacher", "no, not yet."]:
+            set_conversation_state(from_phone, "TEACHER_REG_NAME", context={})
+            msg = (
+                "Awesome! You can register as a verified teacher on our website here:\n\n"
+                "🌐 Teacher Registration Link:\n"
+                "https://cremsonpublications.com/auth/teacher-signup\n\n"
+                "📚 Request Free Specimen Copies:\n"
+                "https://cremsonpublications.com/specimen-request\n\n"
+                "Or let's get your verification started right here in the chat!\n"
+                "First, please type and send your Full Name:"
+            )
+            await send_text_message(from_phone, msg)
+            return
+        else:
+            set_conversation_state(from_phone, "MAIN_MENU")
 
     # Multi-step Teacher Registration Flow
     elif current_state == "TEACHER_REG_NAME":
@@ -310,14 +321,14 @@ async def handle_incoming_message(from_phone: str, message_text: str) -> None:
     # --- MENU OPTION SELECTIONS ---
 
     if clean_text in ["1", "teachers section", "teacher"]:
-        set_conversation_state(from_phone, "MAIN_MENU")
+        set_conversation_state(from_phone, "WAITING_TEACHER_PROMPT")
         msg = (
             "Great to have you here, Educator! 🎓\n"
             "We provide answer keys, lesson plans, and free specimen copies to verified teachers.\n\n"
             "Are you currently registered with Cremson Publications?\n\n"
             "Reply:\n"
-            "A) Registered\n"
-            "B) Unregistered / New Teacher"
+            "1️⃣ Registered (or reply A)\n"
+            "2️⃣ Unregistered / New Teacher (or reply B)"
         )
         await send_text_message(from_phone, msg)
 
@@ -326,11 +337,16 @@ async def handle_incoming_message(from_phone: str, message_text: str) -> None:
 
     elif clean_text.lower() in ["b", "unregistered", "unregistered / new teacher", "no, not yet."]:
         set_conversation_state(from_phone, "TEACHER_REG_NAME", context={})
-        await send_text_message(
-            from_phone,
-            "Awesome! Let's get your teacher verification started right here in the chat.\n\n"
+        msg = (
+            "Awesome! You can register as a verified teacher on our website here:\n\n"
+            "🌐 Teacher Registration Link:\n"
+            "https://cremsonpublications.com/auth/teacher-signup\n\n"
+            "📚 Request Free Specimen Copies:\n"
+            "https://cremsonpublications.com/specimen-request\n\n"
+            "Or let's get your verification started right here in the chat!\n"
             "First, please type and send your Full Name:"
         )
+        await send_text_message(from_phone, msg)
 
     elif clean_text in ["2", "buy books", "shop"]:
         set_conversation_state(from_phone, "MAIN_MENU")
@@ -347,13 +363,13 @@ async def handle_incoming_message(from_phone: str, message_text: str) -> None:
         await _handle_option_my_orders(from_phone)
 
     elif clean_text in ["4", "request specimen", "specimen"]:
-        set_conversation_state(from_phone, "MAIN_MENU")
+        set_conversation_state(from_phone, "WAITING_TEACHER_PROMPT")
         msg = (
             "We provide free specimen copies to school teachers for evaluation purposes. 📚\n\n"
             "Are you currently registered with Cremson Publications?\n\n"
             "Reply:\n"
-            "A) Registered\n"
-            "B) Unregistered"
+            "1️⃣ Registered (or reply A)\n"
+            "2️⃣ Unregistered / New Teacher (or reply B)"
         )
         await send_text_message(from_phone, msg)
 
