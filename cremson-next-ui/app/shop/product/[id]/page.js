@@ -1,4 +1,6 @@
-export const runtime = "edge";
+export async function generateStaticParams() {
+  return [{ id: '1' }];
+}
 
 import ProductDetailClient from "./ProductDetailClient";
 import { fetchProduct } from "../../../../lib/api/products";
