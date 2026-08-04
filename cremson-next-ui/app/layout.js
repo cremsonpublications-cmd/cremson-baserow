@@ -7,6 +7,7 @@ import Footer from "../components/Footer";
 import CartDrawer from "../components/CartDrawer";
 import WishlistDrawer from "../components/WishlistDrawer";
 import MobileMenuDrawer from "../components/MobileMenuDrawer";
+import WhatsAppChatWidget from "../components/WhatsAppChatWidget";
 import QueryProvider from "../lib/providers/QueryProvider";
 
 export const metadata = {
@@ -94,6 +95,7 @@ export default function RootLayout({ children }) {
             <CartDrawer />
             <WishlistDrawer />
             <MobileMenuDrawer />
+            <WhatsAppChatWidget />
             <Toaster
               position="bottom-right"
               richColors

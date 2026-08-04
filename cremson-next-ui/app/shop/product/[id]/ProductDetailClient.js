@@ -309,7 +309,7 @@ export default function ProductDetailClient({ initialBook, bookId }) {
                       onMouseLeave={handleMouseLeave}
                     >
                       <img
-                        src={book.image}
+                        src={book.image || null}
                         alt={`${book.title} - Main Image`}
                         className="max-w-full max-h-full object-contain transition-transform duration-300 hover:scale-[2]"
                         draggable="false"
@@ -341,9 +341,11 @@ export default function ProductDetailClient({ initialBook, bookId }) {
 
                 {/* Product thumbnails */}
                 <div className="flex space-x-3 w-full items-center justify-start overflow-x-auto py-2">
-                  <button type="button" className="bg-[#F0EEED] rounded-[8px] w-[80px] h-[80px] flex-shrink-0 overflow-hidden p-1 border-2 transition-all border-gray-600">
-                    <img src={book.image} className="w-full h-full object-contain hover:scale-105 transition-all duration-500" alt={book.title} />
-                  </button>
+                  {book.image && (
+                    <button type="button" className="bg-[#F0EEED] rounded-[8px] w-[80px] h-[80px] flex-shrink-0 overflow-hidden p-1 border-2 transition-all border-gray-600">
+                      <img src={book.image || null} className="w-full h-full object-contain hover:scale-105 transition-all duration-500" alt={book.title} />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -698,7 +700,7 @@ export default function ProductDetailClient({ initialBook, bookId }) {
                                 : "border-blue-500 ring-2 sm:ring-4 ring-blue-100 transform scale-105"
                               : "border-gray-200 opacity-60 hover:opacity-100 hover:border-blue-300 hover:shadow-lg"
                           }`}>
-                            <img src={candidate.image} alt={candidate.title} className="max-w-full max-h-full object-contain" />
+                            <img src={candidate.image || null} alt={candidate.title} className="max-w-full max-h-full object-contain" />
                           </div>
 
                           {/* Selector Badges */}
@@ -934,7 +936,7 @@ export default function ProductDetailClient({ initialBook, bookId }) {
                           {/* Image Container */}
                           <div className="bg-[#F0EEED] rounded-[13px] lg:rounded-[20px] w-full aspect-square mb-2.5 xl:mb-4 overflow-hidden relative p-4 flex items-center justify-center">
                             <Link href={`/shop/product/${recBook.id}`} className="w-full h-full flex items-center justify-center">
-                              <img src={recBook.image} className="max-w-full max-h-full object-contain hover:scale-105 transition-transform duration-300 ease-in-out" alt={recBook.title} />
+                              <img src={recBook.image || null} className="max-w-full max-h-full object-contain hover:scale-105 transition-transform duration-300 ease-in-out" alt={recBook.title} />
                             </Link>
 
                             {/* Wishlist Heart Overlay */}

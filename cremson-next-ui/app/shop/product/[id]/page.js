@@ -1,14 +1,26 @@
-export async function generateStaticParams() {
-  return [{ id: '1' }];
-}
-
 import ProductDetailClient from "./ProductDetailClient";
-import { fetchProduct } from "../../../../lib/api/products";
+import { fetchProduct, fetchAllProducts } from "../../../../lib/api/products";
+
+export async function generateStaticParams() {
+  try {
+    const products = await fetchAllProducts();
+    if (products && products.length > 0) {
+      const idSet = new Set(products.map((p) => String(p.id)));
+      for (let i = 1; i <= 200; i++) {
+        idSet.add(String(i));
+      }
+      return Array.from(idSet).map((id) => ({ id }));
+    }
+  } catch (error) {
+    console.error("Error fetching products for generateStaticParams:", error);
+  }
+  return Array.from({ length: 200 }, (_, i) => ({ id: String(i + 1) }));
+}
 
 export async function generateMetadata({ params }) {
   const resolvedParams = await params;
   const id = parseInt(resolvedParams.id, 10);
-  
+
   try {
     const book = await fetchProduct(id);
     if (!book) {
@@ -17,10 +29,10 @@ export async function generateMetadata({ params }) {
         description: "The requested book could not be found.",
       };
     }
-    
+
     const title = `${book.title} by ${book.author} | Class ${book.class || "All"} Book`;
     const description = book.shortDescription || book.description || `Buy ${book.title} by ${book.author} online. High quality educational books by Cremson Publications.`;
-    
+
     return {
       title,
       description,
@@ -38,7 +50,6 @@ export async function generateMetadata({ params }) {
       },
     };
   } catch (error) {
-    console.error("Error generating metadata for product page:", error);
     return {
       title: "Book Details | Cremson Publications",
       description: "Buy quality educational books online from Cremson Publications.",
@@ -49,10 +60,10 @@ export async function generateMetadata({ params }) {
 export default async function ProductPage({ params }) {
   const resolvedParams = await params;
   const id = parseInt(resolvedParams.id, 10);
-  
+
   let book = null;
   let jsonLd = null;
-  
+
   try {
     book = await fetchProduct(id);
     if (book) {
@@ -80,9 +91,9 @@ export default async function ProductPage({ params }) {
       };
     }
   } catch (error) {
-    console.error("Error fetching product on server:", error);
+    // Server fetch fallback
   }
-  
+
   return (
     <>
       {jsonLd && (

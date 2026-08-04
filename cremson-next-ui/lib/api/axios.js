@@ -24,38 +24,39 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => {
-    // Auto-show success toast when API returns a message on mutations
-    const method = response.config?.method?.toLowerCase();
-    if (["post", "put", "patch", "delete"].includes(method)) {
-      const msg = response.data?.message;
-      if (msg) toast.success(msg);
+    // Auto-show success toast when API returns a message on mutations (client side only)
+    if (typeof window !== "undefined") {
+      const method = response.config?.method?.toLowerCase();
+      if (["post", "put", "patch", "delete"].includes(method)) {
+        const msg = response.data?.message;
+        if (msg) toast.success(msg);
+      }
     }
     return response;
   },
   (error) => {
+    let msg = "Something went wrong. Please try again.";
     if (error.code === "ECONNABORTED") {
-      const msg = "Request timed out. Please try again.";
+      msg = "Request timed out. Please try again.";
       error.response = { data: { detail: msg } };
-      toast.error(msg);
     } else if (!error.response) {
-      const msg = "Cannot connect to server. Please check your connection.";
+      msg = "Cannot connect to server. Please check your connection.";
       error.response = { data: { detail: msg } };
-      toast.error(msg);
     } else {
       const raw = error.response.data?.detail;
-      let msg;
-      if (!raw) {
-        msg = "Something went wrong. Please try again.";
-      } else if (typeof raw === "string") {
+      if (typeof raw === "string") {
         msg = raw;
       } else if (Array.isArray(raw)) {
-        // Pydantic v2 validation errors: [{loc, msg, type, ...}]
         msg = raw.map(e => `${e.loc?.slice(-1)[0] || "field"}: ${e.msg}`).join("; ");
-      } else {
+      } else if (raw) {
         msg = JSON.stringify(raw);
       }
+    }
+
+    if (typeof window !== "undefined") {
       toast.error(msg);
     }
+
     return Promise.reject(error);
   }
 );
