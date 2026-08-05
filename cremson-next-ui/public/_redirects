@@ -1,0 +1,4 @@
+# Rewrite dynamic bulk-order token routes to pre-rendered placeholder
+# so useParams() can read the real token client-side at runtime
+/bulk-order/:token/pay/:studentToken  /bulk-order/placeholder/pay/placeholder/index.html  200
+/bulk-order/:token                    /bulk-order/placeholder/index.html                   200
