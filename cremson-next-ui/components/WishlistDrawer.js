@@ -68,7 +68,7 @@ export default function WishlistDrawer() {
                   >
                     <div className="w-20 h-20 bg-white rounded-lg p-1.5 flex items-center justify-center flex-shrink-0 border border-gray-100">
                       <img
-                        src={product.image}
+                        src={product.image || null}
                         alt={product.title}
                         className="max-h-full max-w-full object-contain"
                       />

@@ -143,7 +143,7 @@ export default function BlogsPage() {
                   <img
                     alt={post.title}
                     className="object-cover w-full h-full hover:scale-105 transition-transform duration-500"
-                    src={post.image}
+                    src={post.image || null}
                     loading="lazy"
                   />
                 </div>

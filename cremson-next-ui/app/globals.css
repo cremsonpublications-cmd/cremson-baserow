@@ -33,9 +33,9 @@
 }
 
 @theme {
-  --font-sans: var(--font-satoshi), sans-serif;
-  --font-integral: 'IntegralCF', sans-serif;
-  --font-integralCF: 'IntegralCF', sans-serif;
+  --font-sans: 'Satoshi', sans-serif;
+  --font-integral: 'Satoshi', sans-serif;
+  --font-integralCF: 'Satoshi', sans-serif;
   --font-satoshi: 'Satoshi', sans-serif;
   
   --background: 0 0% 100%;
@@ -62,7 +62,7 @@
 }
 
 :root {
-  --font-integralCF: 'IntegralCF', sans-serif;
+  --font-integralCF: 'Satoshi', sans-serif;
   --font-satoshi: 'Satoshi', sans-serif;
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
@@ -79,9 +79,11 @@
 
 @layer base {
   * {
+    font-family: 'Satoshi', sans-serif;
     border-color: hsl(var(--border));
   }
   body {
+    font-family: 'Satoshi', sans-serif;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     -webkit-font-smoothing: antialiased;

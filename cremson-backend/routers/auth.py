@@ -128,10 +128,10 @@ async def current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)):
         payload = jwt.decode(creds.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id = int(payload["sub"])
     except (JWTError, KeyError, ValueError):
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+        raise HTTPException(status_code=401, detail="Session expired. Please sign in again.")
     user = await get_user_by_id(user_id)
     if not user or not int(user.get("is_active") or 0):
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(status_code=401, detail="User account not found or deactivated. Please sign in again.")
     return user
 
 
@@ -556,39 +556,128 @@ async def update_teacher_specimen_limit(teacher_id: int, body: UpdateSpecimenLim
 
 
 @router.get("/teacher-history")
-async def get_teacher_history(email: Optional[str] = None, phone: Optional[str] = None):
-    """Fetch all specimen requests and standard orders for a teacher by email or phone."""
+async def get_teacher_history(teacher_id: Optional[int] = None, email: Optional[str] = None, phone: Optional[str] = None):
+    """Fetch all specimen requests, limit, and standard orders for a teacher by teacher_id, email or phone."""
+    import re
     b_client = BaserowClient()
     specimen_history = []
     order_history = []
-    
-    if email:
-        try:
-            res_spec = await b_client.get_rows(TABLE_IDS["specimen_requests"], filters={"Email": email.lower().strip()})
-            specimen_history.extend(res_spec.get("results", []))
-        except Exception as e:
-            print("Warning: Error fetching specimen history by email:", e)
-            
-    if phone and not specimen_history:
-        try:
-            res_spec = await b_client.get_rows(TABLE_IDS["specimen_requests"], search=phone)
-            specimen_history.extend(res_spec.get("results", []))
-        except Exception as e:
-            print("Warning: Error fetching specimen history by phone:", e)
+    specimen_limit = 2
 
-    search_query = email or phone
-    if search_query:
+    # 1. Fetch teacher details if teacher_id is provided
+    if teacher_id:
+        try:
+            t_row = await b_client.get_row(TABLE_IDS["teacher"], teacher_id)
+            if t_row:
+                if not email:
+                    email = t_row.get("Email") or ""
+                if not phone:
+                    phone = t_row.get("Whatsapp Phone") or t_row.get("Phone") or ""
+                notes = t_row.get("Notes") or ""
+                if "specimen_limit:" in notes.lower():
+                    m = re.search(r'specimen_limit:\s*(\d+)', notes, re.IGNORECASE)
+                    if m:
+                        specimen_limit = int(m.group(1))
+        except Exception as e:
+            print("Warning: Error fetching teacher row:", e)
+
+    # Normalise lookup values for matching
+    email_lower = (email or "").lower().strip()
+    phone_clean = (phone or "").strip()
+    teacher_id_str = str(teacher_id) if teacher_id else ""
+
+    def _extract_link_ids(field_val):
+        """Return list of string IDs from a Baserow link-row field (array of dicts)."""
+        if not isinstance(field_val, list):
+            return []
+        return [str(item.get("id", "")) for item in field_val if isinstance(item, dict)]
+
+    def _extract_lookup_values(field_val):
+        """Return list of string values from a Baserow lookup field (array of dicts)."""
+        if not isinstance(field_val, list):
+            return []
+        return [str(item.get("value", "")).lower().strip() for item in field_val if isinstance(item, dict)]
+
+    # 2. Fetch ALL specimen requests and match in Python
+    # NOTE: TeacherID and Email are link/lookup fields — Baserow filter API cannot filter them.
+    # We must fetch all rows and match on the Python side.
+    seen_spec_ids = set()
+    try:
+        page = 1
+        while True:
+            res_spec = await b_client.get_rows(TABLE_IDS["specimen_requests"], page=page, size=200)
+            rows = res_spec.get("results", [])
+            for r in rows:
+                if r["id"] in seen_spec_ids:
+                    continue
+
+                t_ids_in_row = _extract_link_ids(r.get("TeacherID", []))
+                emails_in_row = _extract_lookup_values(r.get("Email", []))
+                phones_in_row = _extract_lookup_values(r.get("Phone", []))
+
+                matched = False
+                if teacher_id_str and teacher_id_str in t_ids_in_row:
+                    matched = True
+                if email_lower and any(email_lower in v for v in emails_in_row):
+                    matched = True
+                if phone_clean and any(phone_clean in v or v in phone_clean for v in phones_in_row if v):
+                    matched = True
+
+                if matched:
+                    seen_spec_ids.add(r["id"])
+                    specimen_history.append(r)
+
+            # Stop if this is the last page
+            total = res_spec.get("count", 0)
+            if page * 200 >= total:
+                break
+            page += 1
+    except Exception as e:
+        print("Warning: Error fetching specimen history:", e)
+
+    # 3. Fetch standard orders using full-text search
+    for search_query in filter(None, [email_lower or None, phone_clean or None]):
         try:
             res_orders = await b_client.get_rows(TABLE_IDS["orders"], search=search_query)
-            order_history.extend(res_orders.get("results", []))
+            seen_order_ids = {o["id"] for o in order_history}
+            for o in res_orders.get("results", []):
+                if o["id"] not in seen_order_ids:
+                    seen_order_ids.add(o["id"])
+                    order_history.append(o)
         except Exception as e:
             print("Warning: Error fetching orders history:", e)
-        
+        break  # one search is enough (email preferred)
+
+    # 4. Calculate statistics — handle DeliveryStatus as both string and dict
+    total_books_requested = 0
+    total_books_approved = 0
+
+    for req in specimen_history:
+        b_str = req.get("BooksRequested") or ""
+        b_list = [b.strip() for b in b_str.split(",") if b.strip()]
+        b_count = len(b_list)
+        total_books_requested += b_count
+
+        status_raw = req.get("DeliveryStatus")
+        status_val = status_raw.get("value") if isinstance(status_raw, dict) else str(status_raw or "")
+        if status_val in ["Dispatched", "Delivered", "Approved"]:
+            total_books_approved += b_count
+
     return {
+        "teacher": {
+            "id": teacher_id,
+            "email": email,
+            "phone": phone,
+            "specimen_limit": specimen_limit,
+        },
+        "summary": {
+            "total_requests": len(specimen_history),
+            "total_books_requested": total_books_requested,
+            "total_books_approved": total_books_approved,
+        },
         "specimen_requests": specimen_history,
         "orders": order_history
     }
-
 
 
 @router.post("/forgot-password")

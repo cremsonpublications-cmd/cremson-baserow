@@ -127,7 +127,7 @@ export default function TeachingResourceDetailPage() {
         {/* Hero image */}
         <div className="mx-5 max-w-4xl md:mx-auto my-10 mt-6">
           <div className="relative aspect-video w-full rounded-3xl overflow-hidden shadow-md bg-gray-50 border border-gray-100">
-            <img alt={post.title} className="object-cover w-full h-full" src={post.image} />
+            <img alt={post.title} className="object-cover w-full h-full" src={post.image || null} />
           </div>
         </div>
 

@@ -684,10 +684,10 @@ function TeacherHistoryModal({ teacher, onClose }) {
           <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h4 className="text-sm font-bold text-amber-900 flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-amber-600" /> Max Specimen Books Allowed
+                <BookOpen className="w-4 h-4 text-amber-600" /> Max Specimen Books Allowed Per Request
               </h4>
               <p className="text-xs text-amber-700 mt-0.5">
-                Set maximum specimen copies this teacher can order per request.
+                Teacher can select and order up to this maximum limit on the website.
               </p>
             </div>
             <form onSubmit={handleSaveLimit} className="flex items-center gap-2 w-full sm:w-auto">
@@ -716,11 +716,33 @@ function TeacherHistoryModal({ teacher, onClose }) {
             </div>
           ) : (
             <>
+              {/* Summary Stats Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-3.5 flex flex-col">
+                  <span className="text-[11px] font-semibold text-blue-600 uppercase tracking-wider">Total Requests</span>
+                  <span className="text-xl font-bold text-blue-900 mt-1">
+                    {historyData?.summary?.total_requests ?? specimenRequests.length}
+                  </span>
+                </div>
+                <div className="bg-purple-50/60 border border-purple-100 rounded-2xl p-3.5 flex flex-col">
+                  <span className="text-[11px] font-semibold text-purple-600 uppercase tracking-wider">Books Requested</span>
+                  <span className="text-xl font-bold text-purple-900 mt-1">
+                    {historyData?.summary?.total_books_requested ?? 0}
+                  </span>
+                </div>
+                <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-3.5 flex flex-col">
+                  <span className="text-[11px] font-semibold text-emerald-600 uppercase tracking-wider">Approved / Dispatched</span>
+                  <span className="text-xl font-bold text-emerald-900 mt-1">
+                    {historyData?.summary?.total_books_approved ?? 0}
+                  </span>
+                </div>
+              </div>
+
               {/* Specimen Requests Section */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-red-500" /> Specimen Requests ({specimenRequests.length})
+                    <FileText className="w-4 h-4 text-red-500" /> Specimen Requests History ({specimenRequests.length})
                   </h3>
                 </div>
 
@@ -730,30 +752,49 @@ function TeacherHistoryModal({ teacher, onClose }) {
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {specimenRequests.map((req) => (
-                      <div key={req.id} className="p-4 bg-white border border-slate-200/80 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:border-slate-300 transition-all shadow-xs">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-900">Request #{req.id}</span>
-                            <span className="text-[10px] text-slate-400 font-medium">({req.RequestDate || "Date —"})</span>
+                    {specimenRequests.map((req) => {
+                      const booksArray = (req.BooksRequested || "")
+                        .split(",")
+                        .map((b) => b.trim())
+                        .filter(Boolean);
+                      const booksCount = booksArray.length;
+
+                      // DeliveryStatus comes from Baserow as {id, value, color} or plain string
+                      const statusVal = typeof req.DeliveryStatus === "object" && req.DeliveryStatus !== null
+                        ? (req.DeliveryStatus.value || "")
+                        : String(req.DeliveryStatus || "");
+
+                      const isApproved = ["Dispatched", "Delivered", "Approved"].includes(statusVal);
+                      const isRejected = ["RTO", "Rejected"].includes(statusVal);
+
+                      return (
+                        <div key={req.id} className="p-4 bg-white border border-slate-200/80 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:border-slate-300 transition-all shadow-xs">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-bold text-slate-900">Request #{req.id}</span>
+                              <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md">
+                                {booksCount} Book{booksCount === 1 ? "" : "s"}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-medium">({req.RequestDate || "Date —"})</span>
+                            </div>
+                            <p className="text-xs text-slate-600 mt-1 line-clamp-2">
+                              <span className="font-semibold text-slate-700">Requested:</span> {req.BooksRequested || "—"}
+                            </p>
                           </div>
-                          <p className="text-xs text-slate-600 mt-1 line-clamp-1">
-                            <span className="font-semibold text-slate-700">Books:</span> {req.BooksRequested || "—"}
-                          </p>
+                          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                              isApproved
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                : isRejected
+                                ? "bg-rose-100 text-rose-800 border border-rose-200"
+                                : "bg-amber-100 text-amber-800 border border-amber-200"
+                            }`}>
+                              {statusVal || "Not dispatched"}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 self-end sm:self-center">
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                            req.DeliveryStatus === "Dispatched" || req.DeliveryStatus === "Delivered"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : req.DeliveryStatus === "RTO"
-                              ? "bg-rose-100 text-rose-800"
-                              : "bg-amber-100 text-amber-800"
-                          }`}>
-                            {req.DeliveryStatus || "Pending"}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

@@ -258,7 +258,7 @@ function SpecimenContent() {
       setShowIdCardModal(false);
       setStep(1);
     } catch (err) {
-      setIdCardError(err?.message || "Failed to upload ID Card photo. Please try again.");
+      setIdCardError(err?.response?.data?.detail || err?.message || "Failed to upload ID Card photo. Please try again.");
     } finally {
       setUploadingIdCard(false);
     }

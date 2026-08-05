@@ -226,6 +226,9 @@ export function AppProvider({ children }) {
     setCart([]);
     setWishlist([]);
     backendLoaded.current = false;
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
   };
 
   const triggerCartToast = (product, quantity, action) => {
@@ -234,7 +237,7 @@ export function AppProvider({ children }) {
     toast.custom((t) => (
       <div className="flex items-center gap-3.5 bg-white border border-gray-100 rounded-2xl p-3 sm:p-4 shadow-[0_10px_30px_rgba(0,0,0,0.08)] max-w-sm w-full border-l-4 border-l-orange-500 pointer-events-auto">
         <div className="relative w-12 h-16 bg-gray-50 flex-shrink-0 flex items-center justify-center rounded-lg border border-gray-100 overflow-hidden">
-          <img src={product.image} alt={product.title} className="max-w-full max-h-full object-contain" />
+          <img src={product.image || null} alt={product.title} className="max-w-full max-h-full object-contain" />
         </div>
         <div className="flex-1 min-w-0 text-left">
           <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">

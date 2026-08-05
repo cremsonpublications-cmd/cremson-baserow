@@ -342,17 +342,6 @@ export default function WhatsAppChatWidget() {
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => openExternalWhatsApp("Hi")}
-                className="text-xs bg-emerald-700/80 hover:bg-emerald-800 text-white font-medium px-2.5 py-1 rounded-full transition-colors flex items-center gap-1 cursor-pointer"
-                title="Open WhatsApp Application"
-              >
-                <span>App</span>
-                <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z" />
-                </svg>
-              </button>
-              <button
-                type="button"
                 onClick={() => setIsOpen(false)}
                 className="p-1.5 text-emerald-100 hover:text-white hover:bg-emerald-700/50 rounded-full transition-colors cursor-pointer"
                 aria-label="Close WhatsApp Chat"
