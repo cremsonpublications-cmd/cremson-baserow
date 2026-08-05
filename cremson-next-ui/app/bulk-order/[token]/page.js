@@ -1,5 +1,7 @@
+export const dynamicParams = false;
+
 export async function generateStaticParams() {
-  return [{ token: 'default' }];
+  return [{ token: 'placeholder' }];
 }
 
 import BulkOrderDetailClient from "./BulkOrderDetailClient";

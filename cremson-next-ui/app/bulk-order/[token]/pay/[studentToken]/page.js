@@ -1,5 +1,7 @@
+export const dynamicParams = false;
+
 export async function generateStaticParams() {
-  return [{ token: 'default', studentToken: 'default' }];
+  return [{ token: 'placeholder', studentToken: 'placeholder' }];
 }
 
 import StudentPayClient from "./StudentPayClient";
