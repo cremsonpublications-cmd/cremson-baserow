@@ -83,7 +83,7 @@ export default function AdminLoginPage() {
           >
             <BookOpen className="w-5 h-5" style={{ color: "#c41e3a" }} />
           </div>
-          <span className="text-white font-black text-xl tracking-widest uppercase">Cremson <span style={{ color: "#c41e3a" }}>Publications</span></span>
+          <span className="text-white font-black text-xl tracking-widest uppercase">Cremson Publications</span>
         </div>
 
         {/* Heading */}
