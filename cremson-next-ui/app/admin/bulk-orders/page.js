@@ -67,7 +67,7 @@ export default function AdminBulkOrdersPage() {
       setSelectedOrder(null);
     } catch (err) {
       alert(err?.response?.data?.detail || "Failed to approve bulk order.");
-    } fontFinally: {
+    } finally {
       setActionLoading(false);
     }
   };
