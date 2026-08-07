@@ -42,7 +42,6 @@ const adminLinks = [
   { href: "/admin/coupons", label: "Coupons", Icon: Ticket },
   { href: "/admin/products", label: "Products", Icon: Package },
   { href: "/admin/settings", label: "General Settings", Icon: Settings },
-  { href: "/admin/shipping-settings", label: "Shipping Settings", Icon: Settings },
 ];
 
 const uploadLinks = [
