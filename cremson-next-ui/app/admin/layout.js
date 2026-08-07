@@ -21,29 +21,40 @@ import {
   Users,
   BookOpen,
   Newspaper,
+  ChevronDown,
+  ChevronRight,
+  UploadCloud,
+  Shield,
 } from "lucide-react";
 
-const navLinks = [
+const coreLinks = [
   { href: "/admin", label: "Dashboard", Icon: LayoutDashboard },
   { href: "/admin/crm?tab=schools", label: "CRM Database Hub", Icon: Database },
-  { href: "/admin/categories", label: "Categories", Icon: FolderOpen },
-  { href: "/admin/products", label: "Products", Icon: Package },
-  { href: "/admin/coupons", label: "Coupons", Icon: Ticket },
   { href: "/admin/orders", label: "Orders", Icon: ShoppingCart },
   { href: "/admin/bulk-orders", label: "Bulk Orders", Icon: Package },
-  { href: "/admin/users", label: "Users", Icon: Users },
   { href: "/admin/specimen-requests", label: "Specimen Requests", Icon: FileText },
   { href: "/admin/specimen-books", label: "Specimen Books", Icon: BookOpen },
-  { href: "/admin/reviews", label: "Reviews", Icon: MessageSquare },
+];
+
+const adminLinks = [
+  { href: "/admin/categories", label: "Categories", Icon: FolderOpen },
+  { href: "/admin/users", label: "Users", Icon: Users },
+  { href: "/admin/coupons", label: "Coupons", Icon: Ticket },
+  { href: "/admin/products", label: "Products", Icon: Package },
+  { href: "/admin/settings", label: "General Settings", Icon: Settings },
+  { href: "/admin/shipping-settings", label: "Shipping Settings", Icon: Settings },
+];
+
+const uploadLinks = [
   { href: "/admin/blogs", label: "Blogs Dashboard", Icon: LayoutDashboard },
   { href: "/admin/addBlog", label: "Add Blog", Icon: Newspaper },
   { href: "/admin/listBlog", label: "Blog List", Icon: FileText },
   { href: "/admin/comments", label: "Blog Comments", Icon: MessageSquare },
-  { href: "/admin/study-materials", label: "Study Materials", Icon: BookOpen },
-  { href: "/admin/study-material-posts", label: "Study Material Pages", Icon: FileText },
   { href: "/admin/teaching-resources", label: "Teaching Resources", Icon: BookOpen },
   { href: "/admin/teaching-resource-posts", label: "Teaching Resource Pages", Icon: FileText },
-  { href: "/admin/settings", label: "Settings", Icon: Settings },
+  { href: "/admin/study-materials", label: "Study Materials", Icon: BookOpen },
+  { href: "/admin/study-material-posts", label: "Study Material Pages", Icon: FileText },
+  { href: "/admin/reviews", label: "Reviews", Icon: MessageSquare },
 ];
 
 export default function AdminLayout({ children }) {
@@ -51,6 +62,8 @@ export default function AdminLayout({ children }) {
   const router = useRouter();
   const [checked, setChecked] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [adminExpanded, setAdminExpanded] = useState(false);
+  const [uploadExpanded, setUploadExpanded] = useState(false);
 
   const isLoginPage = pathname === "/admin/login";
 
@@ -70,6 +83,15 @@ export default function AdminLayout({ children }) {
     if (cleanHref === "/admin") return pathname === "/admin";
     return pathname.startsWith(cleanHref);
   }
+
+  useEffect(() => {
+    if (adminLinks.some(link => isActive(link.href))) {
+      setAdminExpanded(true);
+    }
+    if (uploadLinks.some(link => isActive(link.href))) {
+      setUploadExpanded(true);
+    }
+  }, [pathname]);
 
   if (isLoginPage) return <>{children}</>;
 
@@ -114,7 +136,8 @@ export default function AdminLayout({ children }) {
         {/* Nav */}
         <nav className="flex-1 p-4 overflow-y-auto">
           <ul className="space-y-1">
-            {navLinks.map(({ href, label, Icon }) => {
+            {/* Core Links */}
+            {coreLinks.map(({ href, label, Icon }) => {
               const active = isActive(href);
               return (
                 <li key={href}>
@@ -133,6 +156,88 @@ export default function AdminLayout({ children }) {
                 </li>
               );
             })}
+
+            {/* Admin collapsible section */}
+            <li>
+              <button
+                onClick={() => setAdminExpanded(!adminExpanded)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left text-sm font-semibold transition-colors
+                  ${adminLinks.some(link => isActive(link.href))
+                    ? "text-purple-700 bg-purple-50/50"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <Shield size={20} className={adminLinks.some(link => isActive(link.href)) ? "text-purple-700" : "text-gray-500"} />
+                  <span>Admin</span>
+                </div>
+                {adminExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </button>
+              {adminExpanded && (
+                <ul className="ml-6 pl-3 border-l border-gray-200 space-y-1 mt-1">
+                  {adminLinks.map(({ href, label, Icon }) => {
+                    const active = isActive(href);
+                    return (
+                      <li key={href}>
+                        <Link
+                          href={href}
+                          onClick={() => setSidebarOpen(false)}
+                          className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors text-sm
+                            ${active
+                              ? "bg-purple-50 text-purple-700 font-semibold"
+                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium"
+                            }`}
+                        >
+                          <Icon size={16} aria-hidden="true" />
+                          <span>{label}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </li>
+
+            {/* Upload collapsible section */}
+            <li>
+              <button
+                onClick={() => setUploadExpanded(!uploadExpanded)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left text-sm font-semibold transition-colors
+                  ${uploadLinks.some(link => isActive(link.href))
+                    ? "text-purple-700 bg-purple-50/50"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <UploadCloud size={20} className={uploadLinks.some(link => isActive(link.href)) ? "text-purple-700" : "text-gray-500"} />
+                  <span>Upload</span>
+                </div>
+                {uploadExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </button>
+              {uploadExpanded && (
+                <ul className="ml-6 pl-3 border-l border-gray-200 space-y-1 mt-1">
+                  {uploadLinks.map(({ href, label, Icon }) => {
+                    const active = isActive(href);
+                    return (
+                      <li key={href}>
+                        <Link
+                          href={href}
+                          onClick={() => setSidebarOpen(false)}
+                          className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors text-sm
+                            ${active
+                              ? "bg-purple-50 text-purple-700 font-semibold"
+                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium"
+                            }`}
+                        >
+                          <Icon size={16} aria-hidden="true" />
+                          <span>{label}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </li>
           </ul>
         </nav>
 
