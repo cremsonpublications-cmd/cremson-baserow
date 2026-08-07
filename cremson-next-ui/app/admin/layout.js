@@ -29,11 +29,11 @@ import {
 
 const coreLinks = [
   { href: "/admin", label: "Dashboard", Icon: LayoutDashboard },
-  { href: "/admin/crm?tab=schools", label: "CRM Database Hub", Icon: Database },
   { href: "/admin/orders", label: "Orders", Icon: ShoppingCart },
   { href: "/admin/bulk-orders", label: "Bulk Orders", Icon: Package },
   { href: "/admin/specimen-requests", label: "Specimen Requests", Icon: FileText },
   { href: "/admin/specimen-books", label: "Specimen Books", Icon: BookOpen },
+  { href: "/admin/crm?tab=schools", label: "CRM Database Hub", Icon: Database },
 ];
 
 const adminLinks = [
