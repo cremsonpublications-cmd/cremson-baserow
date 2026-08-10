@@ -568,7 +568,11 @@ function SignupFormContent() {
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g, "").slice(0, 10);
                       setStudentForm((f) => ({ ...f, phone: val }));
-                      if (val.length < 10) setStudentPhoneStatus({ checking: false, available: null, reason: "" });
+                      if (val.length < 10) {
+                        setStudentPhoneStatus({ checking: false, available: null, reason: "" });
+                      } else {
+                        checkStudentPhone(val);
+                      }
                     }}
                     onBlur={() => checkStudentPhone(studentForm.phone)}
                     placeholder="10-digit mobile number"
