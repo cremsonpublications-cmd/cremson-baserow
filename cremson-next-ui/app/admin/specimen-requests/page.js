@@ -663,20 +663,12 @@ export default function AdminSpecimenRequests() {
                       const approvingKey = `${req.id}-approve`;
                       const rejectingKey = `${req.id}-reject`;
                       return (
-                        <div key={req.id} className={`p-4 hover:bg-gray-50 transition-colors ${selectedIds.includes(req.id) ? "bg-purple-50/60" : ""}`}>
+                        <div key={req.id} className="p-4 hover:bg-gray-50 transition-colors">
                           <div className="flex items-start justify-between mb-2">
-                            <div className="flex items-start gap-2.5 flex-1 min-w-0 pr-2">
-                              <input
-                                type="checkbox"
-                                checked={selectedIds.includes(req.id)}
-                                onChange={() => toggleSelectRow(req.id)}
-                                className="w-4 h-4 mt-0.5 text-purple-600 rounded border-gray-300 focus:ring-purple-500 cursor-pointer"
-                              />
-                              <div>
-                                <p className="text-xs font-bold text-gray-900">#{req.id} · {getTeacherName(req)}</p>
-                                <p className="text-xs text-gray-500 truncate">{getSchoolName(req)}</p>
-                                <p className="text-xs text-gray-400 mt-0.5">{formatDate(req["RequestDate"])}</p>
-                              </div>
+                            <div className="flex-1 min-w-0 pr-2">
+                              <p className="text-xs font-bold text-gray-900">#{req.id} · {getTeacherName(req)}</p>
+                              <p className="text-xs text-gray-500 truncate">{getSchoolName(req)}</p>
+                              <p className="text-xs text-gray-400 mt-0.5">{formatDate(req["RequestDate"])}</p>
                             </div>
                             <DeliveryStatusBadge status={req["DeliveryStatus"]} />
                           </div>
