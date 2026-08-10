@@ -5,27 +5,41 @@ import { ChevronLeft, ChevronRight, Star, Heart, MapPin, Phone, Smartphone, Mail
 import { useApp } from "../context/AppContext";
 import { BANNER_SLIDES } from "../data/books";
 import { useProducts } from "../lib/api/hooks";
+import api from "../lib/api/axios";
 import Link from "next/link";
 
 export default function Home() {
   const { addToCart, toggleWishlist, wishlist, setSearchQuery, cart, updateQuantity, removeFromCart } = useApp();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [slides, setSlides] = useState(BANNER_SLIDES);
   const { data: books = [], isLoading: booksLoading } = useProducts();
+
+  // Fetch banners from API (fallback to static data)
+  useEffect(() => {
+    api.get("/api/banners/?active_only=true")
+      .then((res) => {
+        const data = res.data;
+        if (Array.isArray(data) && data.length > 0) {
+          setSlides(data.map((b) => ({ id: b.id, image: b.image_url, title: b.title })));
+        }
+      })
+      .catch(() => {}); // silently fall back to static slides
+  }, []);
 
   // Auto transition for banner carousel
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % BANNER_SLIDES.length);
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, []);
+  }, [slides.length]);
 
   const handlePrevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + BANNER_SLIDES.length) % BANNER_SLIDES.length);
+    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
   };
 
   const handleNextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % BANNER_SLIDES.length);
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
   };
 
   return (
@@ -37,7 +51,7 @@ export default function Home() {
           className="h-full flex transition-transform duration-700 ease-in-out"
           style={{ transform: `translateX(-${currentSlide * 100}%)` }}
         >
-          {BANNER_SLIDES.map((slide) => (
+          {slides.map((slide) => (
             <div key={slide.id} className="w-full h-full flex-shrink-0 relative">
               <div className="absolute inset-0">
                 <img
@@ -69,7 +83,7 @@ export default function Home() {
 
         {/* Indicators */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-          {BANNER_SLIDES.map((_, index) => (
+          {slides.map((_, index) => (
             <button
               key={index}
               onClick={() => setCurrentSlide(index)}
@@ -108,10 +122,10 @@ export default function Home() {
                   return (
                     <div key={book.id} className="w-full">
                       <Link className="flex flex-col items-start aspect-auto group min-h-[367px] sm:min-h-0 text-left" href={`/shop/product/${book.id}`}>
-                        <div className="bg-[#F0EEED] rounded-[13px] lg:rounded-[20px] w-full lg:max-w-[295px] aspect-square mb-2.5 xl:mb-4 overflow-hidden relative p-4 flex items-center justify-center">
+                        <div className="bg-[#F0EEED] rounded-[13px] lg:rounded-[20px] w-full lg:max-w-[295px] aspect-square mb-2.5 xl:mb-4 overflow-hidden relative">
                           <img
                             src={book.image || null}
-                            className="max-h-full max-w-full object-contain hover:scale-105 transition-transform duration-300 ease-in-out"
+                            className="w-full h-full object-fill hover:scale-105 transition-transform duration-300 ease-in-out"
                             alt={book.title}
                           />
                           <div className="absolute top-3 left-3 flex flex-col gap-2">

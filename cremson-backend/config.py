@@ -12,6 +12,12 @@ WHATSAPP_TEMPLATE_NAME = os.getenv("WHATSAPP_TEMPLATE_NAME", "hello_world")
 WHATSAPP_TEMPLATE_LANGUAGE = os.getenv("WHATSAPP_TEMPLATE_LANGUAGE", "en")
 WHATSAPP_MAIN_PHONE = os.getenv("WHATSAPP_MAIN_PHONE", "919205153617")
 
+# 2Factor SMS Gateway Config
+TWOFACTOR_API_KEY = os.getenv("TWOFACTOR_API_KEY", "")
+TWOFACTOR_SENDER_ID = os.getenv("TWOFACTOR_SENDER_ID", "CREMSN")
+TWOFACTOR_OTP_TEMPLATE = os.getenv("TWOFACTOR_OTP_TEMPLATE", "{otp} is your verification OTP for Cremson Publications. Please do not share this with anyone.")
+TWOFACTOR_OTP_TEMPLATE_NAME = os.getenv("TWOFACTOR_OTP_TEMPLATE_NAME", "CremsonOTP")
+
 # Shipway
 SHIPWAY_USERNAME = os.getenv("SHIPWAY_USERNAME", "")
 SHIPWAY_LICENSE_KEY = os.getenv("SHIPWAY_LICENSE_KEY", "")
@@ -40,4 +46,5 @@ TABLE_IDS = {
     "wishlist_items": int(os.getenv("TABLE_WISHLIST_ITEMS", "773")),
     "shipment_history": int(os.getenv("TABLE_SHIPMENT_HISTORY", "774")),
     "bulk_orders": int(os.getenv("TABLE_BULK_ORDERS", "767")),
+    "banner_images": int(os.getenv("TABLE_BANNER_IMAGES", "0")),
 }

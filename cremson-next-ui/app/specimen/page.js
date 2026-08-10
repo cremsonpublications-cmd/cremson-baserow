@@ -116,7 +116,6 @@ function SpecimenContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const specimenLimit = user?.specimen_limit || 2;
   const hasIdCard = Boolean(user?.id_card_url);
 
   // Read step from URL (default to 0)
@@ -209,10 +208,6 @@ function SpecimenContent() {
       return;
     }
     const isCurrentlySelected = selectedBooks.some((b) => b.id === book.id);
-    if (!isCurrentlySelected && selectedBooks.length >= specimenLimit) {
-      setError(`Notice: Your account is allowed to order up to ${specimenLimit} specimen book(s) per request. Contact admin if you require additional copies.`);
-      return;
-    }
     setError("");
     setSelectedBooks((prev) =>
       isCurrentlySelected

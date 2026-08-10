@@ -41,6 +41,7 @@ const adminLinks = [
   { href: "/admin/users", label: "Users", Icon: Users },
   { href: "/admin/coupons", label: "Coupons", Icon: Ticket },
   { href: "/admin/products", label: "Products", Icon: Package },
+  { href: "/admin/banners", label: "Banner Images", Icon: LayoutDashboard },
   { href: "/admin/settings", label: "General Settings", Icon: Settings },
 ];
 

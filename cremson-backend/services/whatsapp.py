@@ -126,23 +126,13 @@ async def _send_text_message(phone: str, text: str, log_tag: str = "") -> None:
 
 
 async def send_teacher_signup_confirmation(phone: str, teacher_name: str):
-    """Notification sent to teacher upon successful registration."""
-    await _send_template(
-        phone,
-        "teacher_signup_confirm",
-        [_txt(teacher_name)],
-        log_tag=f"teacher_signup_confirm name={teacher_name}",
-    )
+    """Notification sent to teacher upon successful registration. (Disabled)"""
+    return None
 
 
 async def send_teacher_approved_notification(phone: str, teacher_name: str, signin_url: str = "http://localhost:3000/auth/signin"):
-    """Notification sent to teacher upon admin approval."""
-    await _send_template(
-        phone,
-        "teacher_approved",
-        [_txt(teacher_name), _txt(signin_url)],
-        log_tag=f"teacher_approved name={teacher_name}",
-    )
+    """Notification sent to teacher upon admin approval. (Disabled)"""
+    return None
 
 
 async def send_teacher_rejected_notification(phone: str, teacher_name: str):

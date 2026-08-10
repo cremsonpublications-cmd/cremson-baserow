@@ -28,6 +28,7 @@ from db.auth import (
 from services.baserow import BaserowClient
 from config import TABLE_IDS
 from services.email import send_verification_email
+from services.sms import send_sms_otp
 
 router = APIRouter()
 
@@ -174,10 +175,8 @@ async def register(body: RegisterRequest):
         else:
             otp = make_otp()
             await save_otp(body.email, otp, otp_expires_at())
-            try:
-                await send_verification_email(body.email, existing["name"], otp)
-            except Exception:
-                pass
+            if existing.get("phone"):
+                await send_sms_otp(existing["phone"], otp)
             return {"message": "otp_resent", "email": body.email}
 
     loop = asyncio.get_event_loop()
@@ -187,12 +186,10 @@ async def register(body: RegisterRequest):
     otp = make_otp()
     await save_otp(body.email, otp, otp_expires_at())
 
-    try:
-        await send_verification_email(body.email, body.name, otp)
-    except Exception:
-        pass
+    if body.phone:
+        await send_sms_otp(body.phone, otp)
 
-    return {"message": "Account created. Check your email for the 6-digit verification code."}
+    return {"message": "Account created. Check your mobile number for the 6-digit verification code."}
 
 
 @router.get("/check-phone")
@@ -272,8 +269,8 @@ async def teacher_register(body: TeacherRegisterRequest):
         password_hash=pw_hash,
         phone=body.phone,
         role="teacher",
-        is_approved=0,
-        is_verified=1,
+        is_approved=1,
+        is_verified=0,
         designation=body.designation,
     )
 
@@ -300,7 +297,7 @@ async def teacher_register(body: TeacherRegisterRequest):
             "Teacher Name": body.name,
             "Email": body.email.lower().strip(),
             "Whatsapp Phone": normalize_phone(body.phone),
-            "Status": "Pending Approval",
+            "Status": "Approved",
             "IdCardUrl": body.id_card_url or "",
             "City": city_name or "",
             "Residence": residence_address or "",
@@ -319,24 +316,17 @@ async def teacher_register(body: TeacherRegisterRequest):
     except Exception as e:
         print("Warning: Failed to create Baserow teacher record:", e)
 
-    # Send WhatsApp Confirmation Message to Teacher
-    try:
-        from services.whatsapp import send_teacher_signup_confirmation
-        await send_teacher_signup_confirmation(body.phone, body.name)
-    except Exception as e:
-        print("Warning: Failed to send WhatsApp signup confirmation:", e)
-
-    # Send Email Confirmation Message to Teacher
-    try:
-        from services.email import send_teacher_signup_email
-        await send_teacher_signup_email(body.email, body.name)
-    except Exception as e:
-        print("Warning: Failed to send Email signup confirmation:", e)
+    # Send SMS verification code (OTP) to the teacher
+    otp = make_otp()
+    await save_otp(body.email, otp, otp_expires_at())
+    if body.phone:
+        await send_sms_otp(body.phone, otp)
 
     return {
-        "message": "Teacher account created successfully. Your account is pending admin approval.",
+        "message": "Account created. Check your mobile number for the 6-digit verification code.",
         "email": body.email,
     }
+
 
 
 @router.post("/verify-email")
@@ -349,6 +339,21 @@ async def verify_email(body: VerifyRequest):
     await mark_user_verified(body.email)
 
     user = await get_user_by_email(body.email)
+    
+    # If teacher account, send approval notifications
+    if user.get("role") == "teacher" and int(user.get("is_approved") or 0) == 1:
+        try:
+            from services.whatsapp import send_teacher_approved_notification
+            await send_teacher_approved_notification(user.get("phone"), user.get("name"))
+        except Exception as e:
+            print("Warning: Failed to send WhatsApp approval notification:", e)
+
+        try:
+            from services.email import send_teacher_approved_email
+            await send_teacher_approved_email(user["email"], user["name"])
+        except Exception as e:
+            print("Warning: Failed to send Email approval notification:", e)
+
     token = make_token(user)
     return {
         "message": "Email verified successfully",
@@ -376,12 +381,10 @@ async def resend_otp(body: ResendOTPRequest):
     otp = make_otp()
     await save_otp(body.email, otp, otp_expires_at())
 
-    try:
-        await send_verification_email(body.email, user["name"], otp)
-    except Exception:
-        raise HTTPException(status_code=500, detail="Failed to send email. Try again later.")
+    if user.get("phone"):
+        await send_sms_otp(user["phone"], otp)
 
-    return {"message": "New OTP sent to your email"}
+    return {"message": "New OTP sent to your mobile number"}
 
 
 async def get_teacher_details(email: str) -> dict:

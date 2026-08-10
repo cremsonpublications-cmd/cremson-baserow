@@ -832,11 +832,11 @@ function Shop() {
                       href={`/shop/product/${book.id}`}
                     >
                       {/* Image container */}
-                      <div className="bg-[#F0EEED] rounded-[13px] lg:rounded-[20px] w-full lg:max-w-[295px] aspect-square mb-2.5 xl:mb-4 overflow-hidden relative p-4 flex items-center justify-center">
+                      <div className="bg-[#F0EEED] rounded-[13px] lg:rounded-[20px] w-full lg:max-w-[295px] aspect-square mb-2.5 xl:mb-4 overflow-hidden relative">
                         {book.image ? (
                           <img
                             src={book.image}
-                            className="w-full h-full object-contain hover:scale-105 transition-transform duration-300 ease-in-out"
+                            className="w-full h-full object-fill hover:scale-105 transition-transform duration-300 ease-in-out"
                             alt={book.title}
                           />
                         ) : (

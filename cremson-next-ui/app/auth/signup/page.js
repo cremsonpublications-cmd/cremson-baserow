@@ -118,7 +118,7 @@ function SignupFormContent() {
         phone: studentForm.phone,
         password: studentForm.password,
       });
-      router.push(`/auth/verify-email?email=${encodeURIComponent(studentForm.email)}`);
+      router.push(`/auth/verify-email?email=${encodeURIComponent(studentForm.email)}&phone=${encodeURIComponent(studentForm.phone)}`);
     } catch (err) {
       setStudentError(err?.response?.data?.detail || "Registration failed. Please try again.");
     } finally {
@@ -418,42 +418,12 @@ function SignupFormContent() {
         city: selectedSchool?.City || teacherForm.city || "",
       });
 
-      setTeacherSubmitted(true);
+      router.push(`/auth/verify-email?email=${encodeURIComponent(teacherForm.email)}&phone=${encodeURIComponent(teacherForm.phone)}`);
     } catch (err) {
       setTeacherError(err?.response?.data?.detail || "Registration failed. Please try again.");
     } finally {
       setTeacherSubmitting(false);
     }
-  }
-
-  if (roleTab === "teacher" && teacherSubmitted) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-red-50/40 via-white to-gray-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-3xl border border-gray-100 shadow-2xl p-8 text-center">
-          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 className="w-10 h-10 stroke-[2.5]" />
-          </div>
-          <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Registration Submitted!</h2>
-          <p className="text-sm text-gray-600 leading-relaxed mb-4">
-            Thank you, <strong className="text-gray-800">{teacherForm.name}</strong>.
-          </p>
-
-          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-left mb-6 text-xs text-emerald-800 space-y-1.5">
-            <p className="font-bold flex items-center gap-1.5 text-emerald-900">
-              💬 WhatsApp Confirmation Sent
-            </p>
-            <p>We will review your ID card and verify your teacher account within <strong>24 hours</strong>. Once approved, you will receive an instant WhatsApp approval message with your sign-in link.</p>
-          </div>
-
-          <Link
-            href="/auth/signin"
-            className="inline-flex items-center justify-center gap-2 w-full py-3.5 bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm uppercase tracking-wider rounded-2xl shadow-lg transition-all"
-          >
-            Go to Sign In
-          </Link>
-        </div>
-      </div>
-    );
   }
 
   return (

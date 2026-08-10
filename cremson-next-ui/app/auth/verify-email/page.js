@@ -11,6 +11,7 @@ function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
+  const phone = searchParams.get("phone") || "";
   const { authLogin } = useApp();
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -71,7 +72,7 @@ function VerifyEmailContent() {
     setError("");
     try {
       await resendOTP({ email });
-      setSuccess("New OTP sent to your email!");
+      setSuccess("New OTP sent to your phone!");
       setCountdown(60);
       setOtp(["", "", "", "", "", ""]);
       inputs.current[0]?.focus();
@@ -93,13 +94,13 @@ function VerifyEmailContent() {
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 text-center">
           <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>
           </div>
 
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Check your email</h1>
-          <p className="text-sm text-gray-500 mb-1">We sent a 6-digit code to</p>
-          <p className="text-sm font-semibold text-gray-800 mb-6 break-all">{email}</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Check your phone</h1>
+          <p className="text-sm text-gray-500 mb-1">We sent a 6-digit OTP code to</p>
+          <p className="text-sm font-semibold text-gray-800 mb-6 break-all">{phone || email}</p>
 
           {error && (
             <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 text-left">
@@ -135,7 +136,7 @@ function VerifyEmailContent() {
               disabled={loading}
               className="w-full py-3.5 bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-sm uppercase tracking-wider rounded-xl shadow-md transition-all"
             >
-              {loading ? "Verifying…" : "Verify Email"}
+              {loading ? "Verifying…" : "Verify OTP"}
             </button>
           </form>
 
@@ -151,7 +152,7 @@ function VerifyEmailContent() {
           </div>
 
           <p className="text-xs text-gray-400 mt-4">
-            Wrong email?{" "}
+            Wrong details?{" "}
             <Link href="/auth/signup" className="text-red-600 hover:underline font-medium">Go back</Link>
           </p>
         </div>
