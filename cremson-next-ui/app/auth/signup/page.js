@@ -72,6 +72,7 @@ function SignupFormContent() {
   const [studentLoading, setStudentLoading] = useState(false);
   const [studentError, setStudentError] = useState("");
   const [studentShowPassword, setStudentShowPassword] = useState(false);
+  const [studentShowConfirmPassword, setStudentShowConfirmPassword] = useState(false);
 
   async function checkStudentPhone(phoneNum) {
     const clean = phoneNum.replace(/\D/g, "");
@@ -649,15 +650,24 @@ function SignupFormContent() {
 
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Confirm Password *</label>
-                <input
-                  type={studentShowPassword ? "text" : "password"}
-                  name="confirm"
-                  required
-                  value={studentForm.confirm}
-                  onChange={(e) => setStudentForm((f) => ({ ...f, confirm: e.target.value }))}
-                  placeholder="Re-enter password"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
-                />
+                <div className="relative">
+                  <input
+                    type={studentShowConfirmPassword ? "text" : "password"}
+                    name="confirm"
+                    required
+                    value={studentForm.confirm}
+                    onChange={(e) => setStudentForm((f) => ({ ...f, confirm: e.target.value }))}
+                    placeholder="Re-enter password"
+                    className="w-full px-4 py-3 pr-10 rounded-xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setStudentShowConfirmPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {studentShowConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <button
