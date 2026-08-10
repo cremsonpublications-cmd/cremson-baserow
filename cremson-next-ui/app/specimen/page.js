@@ -119,26 +119,6 @@ function SpecimenContent() {
 
   const hasIdCard = Boolean(user?.id_card_url);
 
-  // Read step from URL (default to 0)
-  const stepParam = searchParams.get("step");
-  let step = 0;
-  if (stepParam === "2") {
-    step = 1;
-  } else if (stepParam === "3") {
-    step = 2;
-  }
-
-  // Update step by routing
-  const setStep = (newStep) => {
-    const params = new URLSearchParams(window.location.search);
-    if (newStep === 0) {
-      params.delete("step");
-    } else {
-      params.set("step", String(newStep + 1));
-    }
-    router.push(`${window.location.pathname}?${params.toString()}`);
-  };
-
   const [selectedBooks, setSelectedBooks] = useState([]);
   const [formData, setFormData] = useState({
     fullName: user?.name || "",
@@ -158,17 +138,37 @@ function SpecimenContent() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
-  // Safety redirect: if step > 0 but selectedBooks is empty (e.g. page reload or returning to /specimen), reset to step 0
-  useEffect(() => {
-    if (step > 0 && selectedBooks.length === 0 && !submitting) {
-      setSubmitted(false);
-      const params = new URLSearchParams(window.location.search);
-      if (params.has("step")) {
-        params.delete("step");
-        router.replace(`${window.location.pathname}`);
-      }
+  // Read step from URL — ONLY if books are selected or request was submitted, otherwise ALWAYS default to step 0 (First Page)
+  const stepParam = searchParams.get("step");
+  let step = 0;
+  if (selectedBooks.length > 0 || submitted) {
+    if (stepParam === "2") {
+      step = 1;
+    } else if (stepParam === "3") {
+      step = 2;
     }
-  }, [step, selectedBooks.length, submitting, router]);
+  }
+
+  // Silently clean step URL param if visiting specimen page fresh with no selected books
+  useEffect(() => {
+    if (selectedBooks.length === 0 && !submitted && searchParams.has("step")) {
+      const params = new URLSearchParams(window.location.search);
+      params.delete("step");
+      const newUrl = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
+      window.history.replaceState(null, "", newUrl);
+    }
+  }, [selectedBooks.length, submitted, searchParams]);
+
+  // Update step by routing
+  const setStep = (newStep) => {
+    const params = new URLSearchParams(window.location.search);
+    if (newStep === 0) {
+      params.delete("step");
+    } else {
+      params.set("step", String(newStep + 1));
+    }
+    router.push(`${window.location.pathname}?${params.toString()}`);
+  };
 
   const isApprovedTeacher = user && (user.role === "teacher" || user.is_admin);
 
