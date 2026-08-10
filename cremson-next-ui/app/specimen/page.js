@@ -136,6 +136,7 @@ function SpecimenContent() {
   const [idCardError, setIdCardError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedBooks, setSubmittedBooks] = useState([]);
   const [error, setError] = useState("");
 
   // Read step from URL — ONLY if books are selected or request was submitted, otherwise ALWAYS default to step 0 (First Page)
@@ -294,8 +295,12 @@ function SpecimenContent() {
       }
       await api.post("/api/specimen-requests/", payload);
 
+      setSubmittedBooks([...selectedBooks]);
       setSubmitted(true);
-      setStep(2);
+
+      const params = new URLSearchParams(window.location.search);
+      params.set("step", "3");
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
     } catch (err) {
       setError(err?.response?.data?.detail || "Failed to submit. Please try again.");
     } finally {
@@ -331,6 +336,60 @@ function SpecimenContent() {
       ))}
     </div>
   );
+
+  // ── Step 2 / Submitted: Success Screen ────────────────────
+  if (submitted) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-24 text-center">
+        <div className="flex flex-col items-center gap-4">
+          <CheckCircle2 className="w-16 h-16 text-green-500" />
+          <h1 className="text-2xl font-extrabold text-gray-900">Request Submitted!</h1>
+          <p className="text-sm text-gray-500 max-w-sm leading-relaxed">
+            Your specimen request for <strong>{submittedBooks.length} book{submittedBooks.length > 1 ? "s" : ""}</strong> has been received.
+            Our team will review it and contact you shortly.
+          </p>
+          <div className="bg-gray-50 rounded-2xl border border-gray-100 p-4 w-full text-left mt-2">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Books Requested</p>
+            <ul className="space-y-1">
+              {submittedBooks.map((b) => (
+                <li key={b.id || b.name} className="text-sm font-semibold text-gray-800 flex items-start gap-2">
+                  <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  {b.name}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setSubmitted(false);
+                setSubmittedBooks([]);
+                setSelectedBooks([]);
+                const params = new URLSearchParams(window.location.search);
+                params.delete("step");
+                router.push(`${window.location.pathname}`);
+              }}
+              className="w-full sm:w-auto px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow transition-all cursor-pointer"
+            >
+              Submit Another Request
+            </button>
+            <Link
+              href="/"
+              onClick={() => {
+                setSubmitted(false);
+                setSubmittedBooks([]);
+                setSelectedBooks([]);
+              }}
+              className="w-full sm:w-auto px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer text-center"
+            >
+              Return to Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── Step 0: Book Selection ──────────────────────────────────
   if (step === 0) {
