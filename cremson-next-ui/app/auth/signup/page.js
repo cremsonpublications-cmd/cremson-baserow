@@ -89,6 +89,18 @@ function SignupFormContent() {
     }
   }
 
+  const [lastCheckedStudentPhone, setLastCheckedStudentPhone] = useState("");
+
+  useEffect(() => {
+    const clean = studentForm.phone.replace(/\D/g, "");
+    if (clean.length === 10 && clean !== lastCheckedStudentPhone) {
+      setLastCheckedStudentPhone(clean);
+      checkStudentPhone(clean);
+    } else if (clean.length < 10) {
+      setLastCheckedStudentPhone("");
+    }
+  }, [studentForm.phone, lastCheckedStudentPhone]);
+
   const handleStudentSubmit = async (e) => {
     e.preventDefault();
     setStudentError("");
@@ -270,6 +282,18 @@ function SignupFormContent() {
       setTeacherPhoneStatus({ checking: false, available: true, reason: "" });
     }
   }
+
+  const [lastCheckedTeacherPhone, setLastCheckedTeacherPhone] = useState("");
+
+  useEffect(() => {
+    const clean = teacherForm.phone.replace(/\D/g, "");
+    if (clean.length === 10 && clean !== lastCheckedTeacherPhone) {
+      setLastCheckedTeacherPhone(clean);
+      checkTeacherPhone(clean);
+    } else if (clean.length < 10) {
+      setLastCheckedTeacherPhone("");
+    }
+  }, [teacherForm.phone, lastCheckedTeacherPhone]);
 
   function handleTeacherChange(e) {
     const { name, value } = e.target;
