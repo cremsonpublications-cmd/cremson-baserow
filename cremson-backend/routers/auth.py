@@ -102,6 +102,24 @@ def make_otp() -> str:
     return "".join(random.choices(string.digits, k=6))
 
 
+async def send_otp_to_user(email: str, name: str, phone: str, otp: str):
+    # 1. Send via WhatsApp (using the template)
+    if phone:
+        try:
+            from services.whatsapp import send_whatsapp_otp
+            await send_whatsapp_otp(phone, otp)
+            print(f"WhatsApp OTP sent successfully to {phone}")
+        except Exception as e:
+            print(f"Warning: Failed to send WhatsApp OTP to {phone}: {e}")
+
+    # 2. Send via Email (as backup)
+    try:
+        await send_verification_email(email, name, otp)
+        print(f"Email OTP sent successfully to {email}")
+    except Exception as e:
+        print(f"Warning: Failed to send Email OTP to {email}: {e}")
+
+
 def make_token(user: dict) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=TOKEN_EXPIRE)
     return jwt.encode(
@@ -174,10 +192,7 @@ async def register(body: RegisterRequest):
         else:
             otp = make_otp()
             await save_otp(body.email, otp, otp_expires_at())
-            try:
-                await send_verification_email(body.email, existing["name"], otp)
-            except Exception:
-                pass
+            await send_otp_to_user(body.email, existing["name"], existing.get("phone", ""), otp)
             return {"message": "otp_resent", "email": body.email}
 
     loop = asyncio.get_event_loop()
@@ -187,12 +202,9 @@ async def register(body: RegisterRequest):
     otp = make_otp()
     await save_otp(body.email, otp, otp_expires_at())
 
-    try:
-        await send_verification_email(body.email, body.name, otp)
-    except Exception:
-        pass
+    await send_otp_to_user(body.email, body.name, body.phone, otp)
 
-    return {"message": "Account created. Check your email for the 6-digit verification code."}
+    return {"message": "Account created. Check your WhatsApp for the 6-digit verification code."}
 
 
 @router.get("/check-phone")
@@ -319,18 +331,14 @@ async def teacher_register(body: TeacherRegisterRequest):
     except Exception as e:
         print("Warning: Failed to create Baserow teacher record:", e)
 
-    # Generate OTP for email verification
+    # Generate OTP for verification
     otp = make_otp()
     await save_otp(body.email, otp, otp_expires_at())
 
-    # Send email OTP to the teacher
-    try:
-        await send_verification_email(body.email, body.name, otp)
-    except Exception:
-        pass
+    await send_otp_to_user(body.email, body.name, body.phone, otp)
 
     return {
-        "message": "Account created. Check your email for the 6-digit verification code.",
+        "message": "Account created. Check your WhatsApp for the 6-digit verification code.",
         "email": body.email,
     }
 
@@ -390,12 +398,9 @@ async def resend_otp(body: ResendOTPRequest):
     otp = make_otp()
     await save_otp(body.email, otp, otp_expires_at())
 
-    try:
-        await send_verification_email(body.email, user["name"], otp)
-    except Exception:
-        raise HTTPException(status_code=500, detail="Failed to send email. Try again later.")
+    await send_otp_to_user(body.email, user["name"], user.get("phone", ""), otp)
 
-    return {"message": "New OTP sent to your email"}
+    return {"message": "New OTP sent to your WhatsApp"}
 
 
 async def get_teacher_details(email: str) -> dict:
@@ -703,12 +708,9 @@ async def forgot_password(body: ForgotPasswordRequest):
     otp = make_otp()
     await save_otp(body.email, otp, otp_expires_at())
 
-    try:
-        await send_verification_email(body.email, user["name"], otp)
-    except Exception:
-        raise HTTPException(status_code=500, detail="Failed to send reset email. Try again later.")
+    await send_otp_to_user(body.email, user["name"], user.get("phone", ""), otp)
 
-    return {"message": "Password reset code sent to your email."}
+    return {"message": "Password reset code sent to your WhatsApp."}
 
 
 @router.post("/reset-password")
@@ -741,12 +743,9 @@ async def send_change_password_otp(user: dict = Depends(current_user)):
     otp = make_otp()
     await save_otp(user["email"], otp, otp_expires_at())
 
-    try:
-        await send_verification_email(user["email"], user["name"], otp)
-    except Exception:
-        raise HTTPException(status_code=500, detail="Failed to send verification email. Try again later.")
+    await send_otp_to_user(user["email"], user["name"], user.get("phone", ""), otp)
 
-    return {"message": "Verification OTP sent to your email."}
+    return {"message": "Verification OTP sent to your WhatsApp."}
 
 
 @router.post("/change-password")

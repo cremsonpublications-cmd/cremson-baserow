@@ -466,3 +466,17 @@ async def send_bulk_order_shipped(phone: str, name: str, school: str, awb: str, 
     )
     await _send_text_message(phone, msg, log_tag=f"bulk_order_shipped name={name}")
 
+
+async def send_whatsapp_otp(phone: str, otp: str):
+    """Sends a 6-digit verification code to the user via WhatsApp template."""
+    import os
+    template_name = os.getenv("WHATSAPP_OTP_TEMPLATE_NAME", "cremson_otp")
+    await _send_template(
+        phone=phone,
+        template_name=template_name,
+        parameters=[
+            _txt(otp)
+        ],
+        log_tag=f"whatsapp_otp code={otp}"
+    )
+
