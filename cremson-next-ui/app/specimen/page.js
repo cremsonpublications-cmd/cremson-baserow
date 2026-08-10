@@ -163,7 +163,7 @@ function SpecimenContent() {
     }
   }, [step, selectedBooks.length, submitted]);
 
-  const isApprovedTeacher = user && user.role === "teacher" && user.is_approved === 1;
+  const isApprovedTeacher = user && (user.role === "teacher" || user.is_admin);
 
   useEffect(() => {
     if (user) {
