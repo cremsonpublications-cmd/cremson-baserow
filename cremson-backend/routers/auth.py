@@ -273,7 +273,7 @@ async def teacher_register(body: TeacherRegisterRequest):
         phone=body.phone,
         role="teacher",
         is_approved=0,
-        is_verified=1,
+        is_verified=0,
         designation=body.designation,
     )
 
@@ -319,22 +319,18 @@ async def teacher_register(body: TeacherRegisterRequest):
     except Exception as e:
         print("Warning: Failed to create Baserow teacher record:", e)
 
-    # Send WhatsApp Confirmation Message to Teacher
-    try:
-        from services.whatsapp import send_teacher_signup_confirmation
-        await send_teacher_signup_confirmation(body.phone, body.name)
-    except Exception as e:
-        print("Warning: Failed to send WhatsApp signup confirmation:", e)
+    # Generate OTP for email verification
+    otp = make_otp()
+    await save_otp(body.email, otp, otp_expires_at())
 
-    # Send Email Confirmation Message to Teacher
+    # Send email OTP to the teacher
     try:
-        from services.email import send_teacher_signup_email
-        await send_teacher_signup_email(body.email, body.name)
-    except Exception as e:
-        print("Warning: Failed to send Email signup confirmation:", e)
+        await send_verification_email(body.email, body.name, otp)
+    except Exception:
+        pass
 
     return {
-        "message": "Teacher account created successfully. Your account is pending admin approval.",
+        "message": "Account created. Check your email for the 6-digit verification code.",
         "email": body.email,
     }
 
@@ -350,6 +346,22 @@ async def verify_email(body: VerifyRequest):
     await mark_user_verified(body.email)
 
     user = await get_user_by_email(body.email)
+
+    # If teacher account, send registration confirmation notifications (now that email is verified)
+    if user.get("role") == "teacher" and int(user.get("is_approved") or 0) == 0:
+        # Send WhatsApp Confirmation Message to Teacher
+        try:
+            from services.whatsapp import send_teacher_signup_confirmation
+            await send_teacher_signup_confirmation(user.get("phone"), user.get("name"))
+        except Exception as e:
+            print("Warning: Failed to send WhatsApp signup confirmation:", e)
+
+        # Send Email Confirmation Message to Teacher
+        try:
+            from services.email import send_teacher_signup_email
+            await send_teacher_signup_email(user["email"], user["name"])
+        except Exception as e:
+            print("Warning: Failed to send Email signup confirmation:", e)
     
     token = make_token(user)
     return {

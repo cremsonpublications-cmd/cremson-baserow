@@ -181,7 +181,8 @@ function SignupFormContent() {
   const [idCardPreview, setIdCardPreview] = useState("");
   const [uploadingIdCard, setUploadingIdCard] = useState(false);
   const [teacherSubmitting, setTeacherSubmitting] = useState(false);
-  const [teacherSubmitted, setTeacherSubmitted] = useState(false);
+  const [teacherSubmitted, setTeacherSubmitted] = useState(searchParams.get("teacherSubmitted") === "true");
+  const queryTeacherName = searchParams.get("name") || "";
   const [teacherError, setTeacherError] = useState("");
 
   // Debounce search input
@@ -419,7 +420,7 @@ function SignupFormContent() {
         city: selectedSchool?.City || teacherForm.city || "",
       });
 
-      setTeacherSubmitted(true);
+      router.push(`/auth/verify-email?email=${encodeURIComponent(teacherForm.email)}&role=teacher&name=${encodeURIComponent(teacherForm.name)}`);
     } catch (err) {
       setTeacherError(err?.response?.data?.detail || "Registration failed. Please try again.");
     } finally {
@@ -436,7 +437,7 @@ function SignupFormContent() {
           </div>
           <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Registration Submitted!</h2>
           <p className="text-sm text-gray-600 leading-relaxed mb-4">
-            Thank you, <strong className="text-gray-800">{teacherForm.name}</strong>.
+            Thank you, <strong className="text-gray-800">{teacherForm.name || queryTeacherName}</strong>.
           </p>
 
           <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-left mb-6 text-xs text-emerald-800 space-y-1.5">

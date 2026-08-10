@@ -11,6 +11,8 @@ function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
+  const role = searchParams.get("role") || "";
+  const name = searchParams.get("name") || "";
   const { authLogin } = useApp();
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -56,8 +58,12 @@ function VerifyEmailContent() {
     setLoading(true);
     try {
       const data = await verifyEmail({ email, otp: code });
-      authLogin(data.access_token, data.user);
-      router.push("/");
+      if (role === "teacher") {
+        router.push(`/auth/signup?teacherSubmitted=true&name=${encodeURIComponent(name || data.user?.name || "")}`);
+      } else {
+        authLogin(data.access_token, data.user);
+        router.push("/");
+      }
     } catch (err) {
       setError(err?.response?.data?.detail || "Verification failed. Check the code and try again.");
     } finally {
