@@ -50,19 +50,19 @@ async def _send_template(
     parameters: List[dict],
     log_tag: str = "",
     components: Optional[List[dict]] = None,
-) -> None:
+) -> bool:
     """
     Core sender: posts one template message to the Meta Graph API.
-    All public send_* functions delegate here.
+    All public send_* functions delegate here. Returns True if successfully sent.
     """
     if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
         logger.warning("[WhatsApp] Credentials not set — skipping")
-        return
+        return False
 
     formatted = _format_phone(phone)
     if not formatted:
         logger.warning(f"[WhatsApp] Invalid phone — skipping {log_tag}")
-        return
+        return False
 
     if components is None:
         components = [{"type": "body", "parameters": parameters}]
@@ -84,12 +84,15 @@ async def _send_template(
             resp = await client.post(_GRAPH_URL, headers=_HEADERS, json=payload)
             if resp.status_code == 200:
                 logger.info(f"[WhatsApp] ✓ {log_tag} sent to {formatted}")
+                return True
             else:
                 logger.error(
                     f"[WhatsApp] ✗ {log_tag} HTTP {resp.status_code}: {resp.text}"
                 )
+                return False
     except Exception as exc:
         logger.error(f"[WhatsApp] Error sending {log_tag}: {exc}")
+        return False
 
 
 def _txt(value: str) -> dict:
@@ -511,12 +514,22 @@ async def send_specimen_received_whatsapp(phone: str, name: str, book_count: str
 
 
 async def send_specimen_rejected_whatsapp(phone: str, name: str, books_requested: str = ""):
-    """Sends a WhatsApp template notification (specimen_rejected_v1) to teacher when a specimen request is rejected."""
+    """Sends a WhatsApp template notification (specimen_rejected_v1) to teacher when a specimen request is rejected. Falls back to text message if template is pending approval."""
     b_desc = books_requested if books_requested else "Requested Specimen Copy"
-    await _send_template(
+    sent = await _send_template(
         phone=phone,
         template_name="specimen_rejected_v1",
         parameters=[_txt(name), _txt(b_desc)],
         log_tag=f"specimen_rejected name={name}",
     )
+    if not sent:
+        msg = (
+            f"Hello {name},\n\n"
+            f"Thank you for contacting Cremson Publications.\n\n"
+            f"Regarding your specimen copy request ({b_desc}): Our team reviewed your request, but unfortunately, we are unable to approve or dispatch this specimen copy request at this time.\n\n"
+            f"If you have any questions or need evaluation copies for your school, please contact our support team.\n\n"
+            f"Thank you,\n"
+            f"Cremson Publications Team"
+        )
+        await _send_text_message(phone, msg, log_tag=f"specimen_rejected_fallback name={name}")
 
