@@ -534,7 +534,7 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal }) {
                 )}
 
                 {/* Mark Packed and Request Pickup Action */}
-                {["ready_to_pack", "confirmed"].includes(currentStatusLower) && (
+                {["ready_to_pack", "ready to pack"].includes(currentStatusLower) && (
                   <div className="bg-amber-50/60 border border-amber-100/50 rounded-2xl p-4 space-y-3 text-left">
                     <div className="flex gap-2">
                       <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0 animate-pulse" />
@@ -700,11 +700,11 @@ export default function AdminOrders() {
     const selectedOrders = orders.filter((o) => selectedOrderIds.includes(o.id));
     const eligibleOrders = selectedOrders.filter((o) => {
       const st = (o.order_status ?? o.status ?? "").toLowerCase();
-      return ["ready_to_pack", "confirmed", "pending"].includes(st);
+      return ["ready_to_pack", "ready to pack"].includes(st);
     });
 
     if (eligibleOrders.length === 0) {
-      toast.error("None of the selected orders are eligible for pickup request (must be Confirmed or Ready to Pack).");
+      toast.error("None of the selected orders are eligible for pickup request (must be in 'Ready to Pack' status).");
       return;
     }
 
@@ -1105,7 +1105,7 @@ export default function AdminOrders() {
                             <td className="px-6 py-4 text-right whitespace-nowrap">
                               <div className="flex items-center justify-end space-x-2 text-purple-600">
                                 {/* Orange Packed & Request Pickup Button */}
-                                {["ready_to_pack", "ready to pack", "confirmed", "pending"].includes(deliveryStatusRaw) && (
+                                {["ready_to_pack", "ready to pack"].includes(deliveryStatusRaw) && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1217,7 +1217,7 @@ export default function AdminOrders() {
                             <span className="text-xs text-gray-400">{dateFormatted}</span>
                           </div>
                           <div className="flex items-center justify-between pt-1">
-                            {["ready_to_pack", "ready to pack", "confirmed", "pending"].includes(deliveryStatusRaw) && (
+                            {["ready_to_pack", "ready to pack"].includes(deliveryStatusRaw) && (
                               <button
                                 onClick={() => handleSingleReadyForPickup(order)}
                                 disabled={loadingPickupId === order.id}
