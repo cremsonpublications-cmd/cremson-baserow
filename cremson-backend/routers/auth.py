@@ -358,7 +358,7 @@ async def verify_email(body: VerifyRequest):
     
     token = make_token(user)
     return {
-        "message": "Email verified successfully",
+        "message": "Phone number verified successfully",
         "access_token": token,
         "token_type": "bearer",
         "user": {

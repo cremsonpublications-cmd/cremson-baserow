@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { verifyEmail, resendOTP } from "../../../lib/api/auth";
 import { useApp } from "../../../context/AppContext";
 import CPLogo from "../../../components/CPLogo";
+import { toast } from "sonner";
 
 function VerifyEmailContent() {
   const router = useRouter();
@@ -71,10 +72,12 @@ function VerifyEmailContent() {
     try {
       const data = await verifyEmail({ email, otp: code });
       sessionStorage.removeItem("verify_email");
+      toast.success("Phone number verified successfully!");
+      authLogin(data.access_token, data.user);
+
       if (role === "teacher") {
         router.push(`/auth/signup?teacherSubmitted=true&name=${encodeURIComponent(name || data.user?.name || "")}`);
       } else {
-        authLogin(data.access_token, data.user);
         router.push("/");
       }
     } catch (err) {
