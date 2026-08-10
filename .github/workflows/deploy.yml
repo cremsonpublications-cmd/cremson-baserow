@@ -19,13 +19,17 @@ jobs:
             echo "Checking out tagged version ${{ github.ref_name }}..."
             cd /opt/cremson-baserow
             git fetch --all --tags --force
-            git checkout ${{ github.ref_name }}
+            git checkout -f ${{ github.ref_name }}
+            git reset --hard ${{ github.ref_name }}
             
             echo "Installing backend dependencies..."
             cd cremson-backend
+            if [ ! -d "venv" ]; then
+              python3 -m venv venv
+            fi
             source venv/bin/activate
             pip install -r requirements.txt
             
             echo "Restarting FastAPI service..."
-            systemctl restart cremson-backend
+            sudo systemctl restart cremson-backend || systemctl restart cremson-backend
             echo "Deployment completed successfully!"

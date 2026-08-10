@@ -111,8 +111,8 @@ function DetailModal({ request, onClose, onAction }) {
     setRejecting(true);
     try {
       await adminRejectSpecimen(request.id);
-      toast.success("Specimen request rejected — marked as RTO.");
-      onAction(request.id, "RTO");
+      toast.success("Specimen request rejected — marked as Rejected.");
+      onAction(request.id, "Rejected");
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Failed to reject request.");
     } finally {
@@ -224,12 +224,22 @@ function DetailModal({ request, onClose, onAction }) {
             </div>
           )}
 
-          {isRTO && (
+          {statusRaw === "rejected" && (
             <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-center gap-3">
               <XCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
               <div>
-                <p className="text-sm font-bold text-rose-800">Rejected (RTO)</p>
-                <p className="text-xs text-rose-700 mt-0.5">This request was rejected and marked as returned.</p>
+                <p className="text-sm font-bold text-rose-800">Request Rejected</p>
+                <p className="text-xs text-rose-700 mt-0.5">This specimen request has been rejected.</p>
+              </div>
+            </div>
+          )}
+
+          {statusRaw === "rto" && (
+            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-center gap-3">
+              <XCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-rose-800">Returned to Origin (RTO)</p>
+                <p className="text-xs text-rose-700 mt-0.5">This request was marked as returned to origin.</p>
               </div>
             </div>
           )}
@@ -416,7 +426,7 @@ export default function AdminSpecimenRequests() {
         toast.success(`Specimen #${req.id} approved & dispatched.`);
       } else {
         await adminRejectSpecimen(req.id);
-        toast.error(`Specimen #${req.id} rejected (RTO).`);
+        toast.success(`Specimen #${req.id} marked as rejected.`);
       }
       queryClient.invalidateQueries({ queryKey: ["admin-specimen-requests"] });
     } catch (err) {

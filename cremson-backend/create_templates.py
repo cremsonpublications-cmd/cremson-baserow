@@ -243,6 +243,50 @@ templates = [
                 }
             }
         ]
+    },
+    {
+        "name": "specimen_received_v1",
+        "category": "UTILITY",
+        "language": "en",
+        "components": [
+            {
+                "type": "BODY",
+                "text": (
+                    "Hello {{1}},\n\n"
+                    "Thank you for requesting specimen copies from Cremson Publications.\n\n"
+                    "We have received your request for *{{2}}* book(s). Our team is reviewing it and will process it shortly.\n\n"
+                    "Thank you!"
+                ),
+                "example": {
+                    "body_text": [
+                        ["Teacher Name", "2"]
+                    ]
+                }
+            }
+        ]
+    },
+    {
+        "name": "specimen_rejected_v1",
+        "category": "UTILITY",
+        "language": "en",
+        "components": [
+            {
+                "type": "BODY",
+                "text": (
+                    "Hello {{1}},\n\n"
+                    "Thank you for contacting Cremson Publications.\n\n"
+                    "Regarding your specimen copy request ({{2}}): Our team reviewed your request, but unfortunately, we are unable to approve or dispatch this specimen copy request at this time.\n\n"
+                    "If you have any questions or need evaluation copies, please contact our support team.\n\n"
+                    "Thank you,\n"
+                    "Cremson Publications Team"
+                ),
+                "example": {
+                    "body_text": [
+                        ["Teacher Name", "Physical Education Class 12"]
+                    ]
+                }
+            }
+        ]
     }
 ]
 
