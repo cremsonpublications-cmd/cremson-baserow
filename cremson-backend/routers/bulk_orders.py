@@ -131,8 +131,11 @@ def _normalize_bulk_row(row: dict) -> dict:
         try: student_payments = json.loads(student_payments)
         except: student_payments = []
 
+    bulk_id = data.get("order_id") or f"CPS{26000 + int(row.get('id', 1))}"
+
     return {
         "id": row.get("id"),
+        "order_id": bulk_id,
         "token": token,
         "contact_name": contact_name,
         "school_name": school_name,
@@ -217,6 +220,31 @@ async def create_bulk_order(body: BulkOrderCreate, bg: BackgroundTasks):
         "student_payments": [],
         "order_date": datetime.utcnow().isoformat(),
     }
+
+    # Generate sequential Bulk Order ID (CPS26001, CPS26002...)
+    start_seq = 26001
+    try:
+        cps_res = await client.get_rows(TABLE_IDS["bulk_orders"], search="CPS26", size=200)
+        cps_results = cps_res.get("results", [])
+        max_num = start_seq - 1
+        import re
+        pattern = re.compile(r"^CPS(\d+)$", re.IGNORECASE)
+        for r in cps_results:
+            notes_raw = r.get("Notes") or ""
+            oid = ""
+            if isinstance(notes_raw, str) and "CPS" in notes_raw:
+                m_note = pattern.search(notes_raw)
+                if m_note:
+                    oid = m_note.group(0)
+            m = pattern.match(oid)
+            if m:
+                num = int(m.group(1))
+                if num > max_num:
+                    max_num = num
+        obj["order_id"] = f"CPS{max_num + 1}"
+    except Exception as e:
+        logger.warning(f"Error generating CPS bulk order_id: {e}")
+        obj["order_id"] = f"CPS{start_seq}"
 
     row = await client.create_row(TABLE_IDS["bulk_orders"], {
         "Name": token,
@@ -423,7 +451,7 @@ async def _auto_ship_bulk_order(row_id: int):
             "city": norm.get("city", "Chennai"),
             "state": norm.get("state", "Tamil Nadu"),
             "pincode": norm.get("pincode", ""),
-            "order_id": f"BULK-{row_id}",
+            "order_id": norm.get("order_id") or f"CPS{26000 + row_id}",
             "items_description": f"{norm.get('school_name', 'Bulk')} - {item_count} items",
             "item_count": item_count,
             "total_amount": float(norm.get("final_amount", 0)),
@@ -546,7 +574,7 @@ async def ship_bulk_order(row_id: int, bg: BackgroundTasks):
         "city": norm.get("city", "Chennai"),
         "state": norm.get("state", "Tamil Nadu"),
         "pincode": norm.get("pincode", ""),
-        "order_id": f"BULK-{row_id}",
+        "order_id": norm.get("order_id") or f"CPS{26000 + row_id}",
         "items_description": f"{norm.get('school_name', 'Bulk')} - {item_count} items",
         "item_count": item_count,
         "total_amount": float(norm.get("final_amount", 0)),

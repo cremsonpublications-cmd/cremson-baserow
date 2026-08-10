@@ -250,10 +250,25 @@ async def verify_payment(body: VerifyPaymentRequest, background_tasks: Backgroun
     try:
         baserow_client = BaserowClient()
 
-        # ── Step 2: Generate sequential order ID and save to Baserow ─────────
-        existing = await baserow_client.get_rows(TABLE_IDS["orders"], page=1, size=1)
-        next_number = (existing.get("count") or 0) + 1
-        order_id = f"BOOK{next_number}"
+        # ── Step 2: Generate sequential order ID (CP26001, CP26002...) and save to Baserow ─────────
+        start_seq = 26001
+        try:
+            cp_res = await baserow_client.get_rows(TABLE_IDS["orders"], search="CP26", size=200)
+            cp_results = cp_res.get("results", [])
+            max_num = start_seq - 1
+            import re
+            pattern = re.compile(r"^CP(\d+)$", re.IGNORECASE)
+            for r in cp_results:
+                oid = str(r.get("order_id") or "").strip()
+                m = pattern.match(oid)
+                if m:
+                    num = int(m.group(1))
+                    if num > max_num:
+                        max_num = num
+            order_id = f"CP{max_num + 1}"
+        except Exception as e:
+            logger.warning(f"Error generating CP order_id: {e}")
+            order_id = f"CP{start_seq}"
         order_date = body.order_date
         if not order_date or len(order_date) <= 10:
             order_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
