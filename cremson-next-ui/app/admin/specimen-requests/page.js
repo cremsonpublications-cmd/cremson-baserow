@@ -306,8 +306,8 @@ export default function AdminSpecimenRequests() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [confirmBulkAction, setConfirmBulkAction] = useState(null);
 
   const debouncedSearch = useDebounce(search, 400);
   useEffect(() => { setPage(1); }, [debouncedSearch, statusFilter]);
@@ -328,78 +328,46 @@ export default function AdminSpecimenRequests() {
   const count = data?.count ?? data?.total ?? 0;
   const totalPages = Math.ceil(count / PAGE_SIZE) || 1;
 
-  // Multi-select bulk logic
-  const pageRequestIds = requests.map((r) => r.id);
-  const allCurrentSelected = pageRequestIds.length > 0 && pageRequestIds.every((id) => selectedIds.includes(id));
-  const someCurrentSelected = pageRequestIds.some((id) => selectedIds.includes(id));
+  // Filter pending requests on current list
+  const pendingRequests = requests.filter((req) => {
+    const statusRaw = getStatusRaw(req["DeliveryStatus"]).toLowerCase();
+    const isOldData = Number(req.id) <= 363;
+    return !isOldData && statusRaw !== "dispatched" && statusRaw !== "rto";
+  });
+  const pendingCount = pendingRequests.length;
 
-  function toggleSelectAll() {
-    if (allCurrentSelected) {
-      setSelectedIds((prev) => prev.filter((id) => !pageRequestIds.includes(id)));
+  async function executeBulkAction(actionType) {
+    if (pendingRequests.length === 0) return;
+    setBulkActionLoading(true);
+    setConfirmBulkAction(null);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const req of pendingRequests) {
+      try {
+        if (actionType === "approve") {
+          await adminApproveSpecimen(req.id);
+        } else {
+          await adminRejectSpecimen(req.id);
+        }
+        successCount++;
+      } catch (err) {
+        failCount++;
+        console.error(`Failed to ${actionType} specimen #${req.id}:`, err);
+      }
+    }
+
+    if (actionType === "approve") {
+      if (successCount > 0) toast.success(`Approved & dispatched ${successCount} specimen request(s).`);
     } else {
-      setSelectedIds((prev) => Array.from(new Set([...prev, ...pageRequestIds])));
-    }
-  }
-
-  function toggleSelectRow(reqId) {
-    setSelectedIds((prev) =>
-      prev.includes(reqId) ? prev.filter((id) => id !== reqId) : [...prev, reqId]
-    );
-  }
-
-  async function handleBulkApprove() {
-    if (selectedIds.length === 0) return;
-    setBulkProcessing(true);
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const reqId of selectedIds) {
-      try {
-        await adminApproveSpecimen(reqId);
-        successCount++;
-      } catch (err) {
-        failCount++;
-        console.error(`Failed to approve specimen #${reqId}:`, err);
-      }
-    }
-
-    if (successCount > 0) {
-      toast.success(`Successfully approved ${successCount} specimen request(s).`);
+      if (successCount > 0) toast.error(`Rejected ${successCount} specimen request(s).`);
     }
     if (failCount > 0) {
-      toast.error(`Failed to approve ${failCount} request(s).`);
+      toast.error(`Failed to ${actionType} ${failCount} request(s).`);
     }
 
-    setSelectedIds([]);
-    setBulkProcessing(false);
-    queryClient.invalidateQueries({ queryKey: ["admin-specimen-requests"] });
-  }
-
-  async function handleBulkReject() {
-    if (selectedIds.length === 0) return;
-    setBulkProcessing(true);
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const reqId of selectedIds) {
-      try {
-        await adminRejectSpecimen(reqId);
-        successCount++;
-      } catch (err) {
-        failCount++;
-        console.error(`Failed to reject specimen #${reqId}:`, err);
-      }
-    }
-
-    if (successCount > 0) {
-      toast.error(`Rejected ${successCount} specimen request(s).`);
-    }
-    if (failCount > 0) {
-      toast.error(`Failed to reject ${failCount} request(s).`);
-    }
-
-    setSelectedIds([]);
-    setBulkProcessing(false);
+    setBulkActionLoading(false);
     queryClient.invalidateQueries({ queryKey: ["admin-specimen-requests"] });
   }
 
@@ -498,7 +466,31 @@ export default function AdminSpecimenRequests() {
                         className="pl-8 md:pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none w-full sm:w-80"
                       />
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                      {pendingCount > 0 && (
+                        <>
+                          <button
+                            onClick={() => setConfirmBulkAction({ type: "approve" })}
+                            disabled={bulkActionLoading}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                            title="Approve all pending specimen requests"
+                          >
+                            {bulkActionLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />}
+                            Approve All Pending ({pendingCount})
+                          </button>
+
+                          <button
+                            onClick={() => setConfirmBulkAction({ type: "reject" })}
+                            disabled={bulkActionLoading}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-rose-800 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                            title="Reject all pending specimen requests"
+                          >
+                            {bulkActionLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5 text-rose-600" />}
+                            Reject All Pending ({pendingCount})
+                          </button>
+                        </>
+                      )}
+
                       <button
                         onClick={() => setShowCreateModal(true)}
                         className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 rounded-xl shadow-md transition-all cursor-pointer"
@@ -506,7 +498,7 @@ export default function AdminSpecimenRequests() {
                         <Plus className="w-4 h-4" />
                         Create Specimen Request
                       </button>
-                      <div className="text-sm text-gray-600">Total: {count} requests</div>
+                      <div className="text-sm text-gray-600 font-medium">Total: {count}</div>
                     </div>
                   </div>
 
@@ -543,55 +535,6 @@ export default function AdminSpecimenRequests() {
                 </div>
               </div>
 
-              {/* Bulk Actions Banner Bar */}
-              {selectedIds.length > 0 && (
-                <div className="bg-slate-900 text-white p-3 md:px-6 md:py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                  <div className="flex items-center gap-3">
-                    <span className="bg-purple-600 text-white font-bold text-xs px-2.5 py-1 rounded-full">
-                      {selectedIds.length} Selected
-                    </span>
-                    <span className="text-xs text-slate-300 font-medium hidden sm:inline">
-                      Choose bulk action for checked specimen requests:
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleBulkApprove}
-                      disabled={bulkProcessing}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl disabled:opacity-50 transition-all cursor-pointer shadow-sm"
-                    >
-                      {bulkProcessing ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <CheckCircle className="w-3.5 h-3.5" />
-                      )}
-                      Approve Selected ({selectedIds.length})
-                    </button>
-
-                    <button
-                      onClick={handleBulkReject}
-                      disabled={bulkProcessing}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 rounded-xl disabled:opacity-50 transition-all cursor-pointer shadow-sm"
-                    >
-                      {bulkProcessing ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <XCircle className="w-3.5 h-3.5" />
-                      )}
-                      Reject Selected ({selectedIds.length})
-                    </button>
-
-                    <button
-                      onClick={() => setSelectedIds([])}
-                      disabled={bulkProcessing}
-                      className="px-2.5 py-1.5 text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
-                    >
-                      Deselect All
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Table */}
               <div className="flex-1 overflow-auto min-h-0">
                 {isLoading ? (
@@ -610,18 +553,7 @@ export default function AdminSpecimenRequests() {
                   <table className="hidden md:table w-full text-left border-collapse">
                     <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                       <tr>
-                        <th className="px-4 py-4 w-12 text-center">
-                          <input
-                            type="checkbox"
-                            checked={allCurrentSelected}
-                            ref={(el) => {
-                              if (el) el.indeterminate = !allCurrentSelected && someCurrentSelected;
-                            }}
-                            onChange={toggleSelectAll}
-                            className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500 cursor-pointer"
-                          />
-                        </th>
-                        <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Teacher</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">School</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Request Date</th>
@@ -637,19 +569,10 @@ export default function AdminSpecimenRequests() {
                         const isPending = !isOldData && statusRaw !== "dispatched" && statusRaw !== "rto";
                         const approvingKey = `${req.id}-approve`;
                         const rejectingKey = `${req.id}-reject`;
-                        const isSelectedRow = selectedIds.includes(req.id);
 
                         return (
-                          <tr key={req.id} className={`hover:bg-gray-50 transition-colors ${isSelectedRow ? "bg-purple-50/60" : ""}`}>
-                            <td className="px-4 py-4 w-12 text-center" onClick={(e) => e.stopPropagation()}>
-                              <input
-                                type="checkbox"
-                                checked={isSelectedRow}
-                                onChange={() => toggleSelectRow(req.id)}
-                                className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500 cursor-pointer"
-                              />
-                            </td>
-                            <td className="px-4 py-4 text-xs font-semibold text-gray-900">#{req.id}</td>
+                          <tr key={req.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-4 text-xs font-semibold text-gray-900">#{req.id}</td>
                             <td className="px-6 py-4">
                               <div className="text-xs font-semibold text-gray-900">{getTeacherName(req)}</div>
                             </td>
@@ -870,6 +793,22 @@ export default function AdminSpecimenRequests() {
           loading={deleteLoading}
           onConfirm={confirmDelete}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {/* Bulk Action Confirmation */}
+      {confirmBulkAction && (
+        <ConfirmModal
+          title={confirmBulkAction.type === "approve" ? "Approve All Pending Requests?" : "Reject All Pending Requests?"}
+          message={
+            confirmBulkAction.type === "approve"
+              ? `Are you sure you want to approve & dispatch all ${pendingCount} pending specimen request(s)?`
+              : `Are you sure you want to reject all ${pendingCount} pending specimen request(s)?`
+          }
+          confirmLabel={confirmBulkAction.type === "approve" ? "Yes, Approve All" : "Yes, Reject All"}
+          loading={bulkActionLoading}
+          onConfirm={() => executeBulkAction(confirmBulkAction.type)}
+          onCancel={() => setConfirmBulkAction(null)}
         />
       )}
     </div>
