@@ -306,6 +306,9 @@ export default function AdminSpecimenRequests() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
   const debouncedSearch = useDebounce(search, 400);
   useEffect(() => { setPage(1); }, [debouncedSearch, statusFilter]);
 
@@ -324,6 +327,81 @@ export default function AdminSpecimenRequests() {
   const requests = data?.results ?? data?.items ?? [];
   const count = data?.count ?? data?.total ?? 0;
   const totalPages = Math.ceil(count / PAGE_SIZE) || 1;
+
+  // Multi-select bulk logic
+  const pageRequestIds = requests.map((r) => r.id);
+  const allCurrentSelected = pageRequestIds.length > 0 && pageRequestIds.every((id) => selectedIds.includes(id));
+  const someCurrentSelected = pageRequestIds.some((id) => selectedIds.includes(id));
+
+  function toggleSelectAll() {
+    if (allCurrentSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !pageRequestIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...pageRequestIds])));
+    }
+  }
+
+  function toggleSelectRow(reqId) {
+    setSelectedIds((prev) =>
+      prev.includes(reqId) ? prev.filter((id) => id !== reqId) : [...prev, reqId]
+    );
+  }
+
+  async function handleBulkApprove() {
+    if (selectedIds.length === 0) return;
+    setBulkProcessing(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const reqId of selectedIds) {
+      try {
+        await adminApproveSpecimen(reqId);
+        successCount++;
+      } catch (err) {
+        failCount++;
+        console.error(`Failed to approve specimen #${reqId}:`, err);
+      }
+    }
+
+    if (successCount > 0) {
+      toast.success(`Successfully approved ${successCount} specimen request(s).`);
+    }
+    if (failCount > 0) {
+      toast.error(`Failed to approve ${failCount} request(s).`);
+    }
+
+    setSelectedIds([]);
+    setBulkProcessing(false);
+    queryClient.invalidateQueries({ queryKey: ["admin-specimen-requests"] });
+  }
+
+  async function handleBulkReject() {
+    if (selectedIds.length === 0) return;
+    setBulkProcessing(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const reqId of selectedIds) {
+      try {
+        await adminRejectSpecimen(reqId);
+        successCount++;
+      } catch (err) {
+        failCount++;
+        console.error(`Failed to reject specimen #${reqId}:`, err);
+      }
+    }
+
+    if (successCount > 0) {
+      toast.error(`Rejected ${successCount} specimen request(s).`);
+    }
+    if (failCount > 0) {
+      toast.error(`Failed to reject ${failCount} request(s).`);
+    }
+
+    setSelectedIds([]);
+    setBulkProcessing(false);
+    queryClient.invalidateQueries({ queryKey: ["admin-specimen-requests"] });
+  }
 
   function formatDate(dateStr) {
     if (!dateStr) return "—";
@@ -465,6 +543,55 @@ export default function AdminSpecimenRequests() {
                 </div>
               </div>
 
+              {/* Bulk Actions Banner Bar */}
+              {selectedIds.length > 0 && (
+                <div className="bg-slate-900 text-white p-3 md:px-6 md:py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <div className="flex items-center gap-3">
+                    <span className="bg-purple-600 text-white font-bold text-xs px-2.5 py-1 rounded-full">
+                      {selectedIds.length} Selected
+                    </span>
+                    <span className="text-xs text-slate-300 font-medium hidden sm:inline">
+                      Choose bulk action for checked specimen requests:
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleBulkApprove}
+                      disabled={bulkProcessing}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl disabled:opacity-50 transition-all cursor-pointer shadow-sm"
+                    >
+                      {bulkProcessing ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-3.5 h-3.5" />
+                      )}
+                      Approve Selected ({selectedIds.length})
+                    </button>
+
+                    <button
+                      onClick={handleBulkReject}
+                      disabled={bulkProcessing}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 rounded-xl disabled:opacity-50 transition-all cursor-pointer shadow-sm"
+                    >
+                      {bulkProcessing ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <XCircle className="w-3.5 h-3.5" />
+                      )}
+                      Reject Selected ({selectedIds.length})
+                    </button>
+
+                    <button
+                      onClick={() => setSelectedIds([])}
+                      disabled={bulkProcessing}
+                      className="px-2.5 py-1.5 text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    >
+                      Deselect All
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Table */}
               <div className="flex-1 overflow-auto min-h-0">
                 {isLoading ? (
@@ -483,7 +610,18 @@ export default function AdminSpecimenRequests() {
                   <table className="hidden md:table w-full text-left border-collapse">
                     <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                       <tr>
-                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
+                        <th className="px-4 py-4 w-12 text-center">
+                          <input
+                            type="checkbox"
+                            checked={allCurrentSelected}
+                            ref={(el) => {
+                              if (el) el.indeterminate = !allCurrentSelected && someCurrentSelected;
+                            }}
+                            onChange={toggleSelectAll}
+                            className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500 cursor-pointer"
+                          />
+                        </th>
+                        <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Teacher</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">School</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Request Date</th>
@@ -499,10 +637,19 @@ export default function AdminSpecimenRequests() {
                         const isPending = !isOldData && statusRaw !== "dispatched" && statusRaw !== "rto";
                         const approvingKey = `${req.id}-approve`;
                         const rejectingKey = `${req.id}-reject`;
+                        const isSelectedRow = selectedIds.includes(req.id);
 
                         return (
-                          <tr key={req.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-6 py-4 text-xs font-semibold text-gray-900">#{req.id}</td>
+                          <tr key={req.id} className={`hover:bg-gray-50 transition-colors ${isSelectedRow ? "bg-purple-50/60" : ""}`}>
+                            <td className="px-4 py-4 w-12 text-center" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={isSelectedRow}
+                                onChange={() => toggleSelectRow(req.id)}
+                                className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500 cursor-pointer"
+                              />
+                            </td>
+                            <td className="px-4 py-4 text-xs font-semibold text-gray-900">#{req.id}</td>
                             <td className="px-6 py-4">
                               <div className="text-xs font-semibold text-gray-900">{getTeacherName(req)}</div>
                             </td>
@@ -593,12 +740,20 @@ export default function AdminSpecimenRequests() {
                       const approvingKey = `${req.id}-approve`;
                       const rejectingKey = `${req.id}-reject`;
                       return (
-                        <div key={req.id} className="p-4 hover:bg-gray-50 transition-colors">
+                        <div key={req.id} className={`p-4 hover:bg-gray-50 transition-colors ${selectedIds.includes(req.id) ? "bg-purple-50/60" : ""}`}>
                           <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1 min-w-0 pr-2">
-                              <p className="text-xs font-bold text-gray-900">#{req.id} · {getTeacherName(req)}</p>
-                              <p className="text-xs text-gray-500 truncate">{getSchoolName(req)}</p>
-                              <p className="text-xs text-gray-400 mt-0.5">{formatDate(req["RequestDate"])}</p>
+                            <div className="flex items-start gap-2.5 flex-1 min-w-0 pr-2">
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(req.id)}
+                                onChange={() => toggleSelectRow(req.id)}
+                                className="w-4 h-4 mt-0.5 text-purple-600 rounded border-gray-300 focus:ring-purple-500 cursor-pointer"
+                              />
+                              <div>
+                                <p className="text-xs font-bold text-gray-900">#{req.id} · {getTeacherName(req)}</p>
+                                <p className="text-xs text-gray-500 truncate">{getSchoolName(req)}</p>
+                                <p className="text-xs text-gray-400 mt-0.5">{formatDate(req["RequestDate"])}</p>
+                              </div>
                             </div>
                             <DeliveryStatusBadge status={req["DeliveryStatus"]} />
                           </div>
