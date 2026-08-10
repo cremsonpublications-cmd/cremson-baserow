@@ -566,7 +566,7 @@ export default function AdminSpecimenRequests() {
                       {requests.map((req) => {
                         const statusRaw = getStatusRaw(req["DeliveryStatus"]).toLowerCase();
                         const isOldData = Number(req.id) <= 363;
-                        const isPending = !isOldData && statusRaw !== "dispatched" && statusRaw !== "rto";
+                        const isPending = !isOldData && statusRaw !== "dispatched" && statusRaw !== "rto" && statusRaw !== "rejected";
                         const approvingKey = `${req.id}-approve`;
                         const rejectingKey = `${req.id}-reject`;
 
@@ -659,7 +659,7 @@ export default function AdminSpecimenRequests() {
                     {requests.map((req) => {
                       const statusRaw = getStatusRaw(req["DeliveryStatus"]).toLowerCase();
                       const isOldData = Number(req.id) <= 363;
-                      const isPending = !isOldData && statusRaw !== "dispatched" && statusRaw !== "rto";
+                      const isPending = !isOldData && statusRaw !== "dispatched" && statusRaw !== "rto" && statusRaw !== "rejected";
                       const approvingKey = `${req.id}-approve`;
                       const rejectingKey = `${req.id}-reject`;
                       return (
