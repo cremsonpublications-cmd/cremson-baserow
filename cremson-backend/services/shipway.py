@@ -220,6 +220,8 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
         if not match:
             return 0.5
         val = float(match.group(1))
+        if val <= 0:
+            return 0.5
         if "gm" in s or "g" in s and "kg" not in s:
             return val / 1000.0
         return val
@@ -270,8 +272,9 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
                 "tax_title": "GST",
             })
             
-            # Fetch product details from Baserow
-            weight_kg = 0.5
+            # Fetch product details from Baserow or item dict (Default to 500g / 0.5kg per book if missing)
+            item_weight_str = item.get("weight") or item.get("weight_kg")
+            weight_kg = parse_weight_kg(item_weight_str)
             length = 20.0
             breadth = 15.0
             height = 2.0
@@ -279,8 +282,9 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
             if prod_id.isdigit():
                 try:
                     prod_row = await baserow.get_row(TABLE_IDS["products"], int(prod_id))
-                    if prod_row:
+                    if prod_row and prod_row.get("weight"):
                         weight_kg = parse_weight_kg(prod_row.get("weight"))
+                    if prod_row and prod_row.get("dimension"):
                         length, breadth, height = parse_dimension_cm(prod_row.get("dimension"))
                 except Exception as e:
                     logger.error(f"[Shipway] Error fetching product {prod_id} details: {e}")
