@@ -348,14 +348,6 @@ async def verify_email(body: VerifyRequest):
 
     user = await get_user_by_email(body.email)
 
-    # If teacher account, send email confirmation only (no WhatsApp post-signup message)
-    if user.get("role") == "teacher" and int(user.get("is_approved") or 0) == 0:
-        try:
-            from services.email import send_teacher_signup_email
-            await send_teacher_signup_email(user["email"], user["name"])
-        except Exception as e:
-            print("Warning: Failed to send Email signup confirmation:", e)
-    
     token = make_token(user)
     return {
         "message": "Phone number verified successfully",
