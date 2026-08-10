@@ -408,10 +408,13 @@ async def get_teacher_details(email: str) -> dict:
                 "school_name": s_name,
                 "id_card_url": id_card_url,
                 "specimen_limit": limit,
+                "residence": t_row.get("Residence") or "",
+                "city": t_row.get("City") or "",
+                "pincode": t_row.get("Pin Code") or "",
             }
     except Exception as e:
         print("Warning: Failed to fetch teacher details:", e)
-    return {"teacher_row_id": None, "school_name": "", "id_card_url": "", "specimen_limit": 2}
+    return {"teacher_row_id": None, "school_name": "", "id_card_url": "", "specimen_limit": 2, "residence": "", "city": "", "pincode": ""}
 
 
 async def get_teacher_school_name(email: str) -> str:
@@ -473,6 +476,9 @@ async def login(body: LoginRequest):
             "id_card_url": t_details.get("id_card_url", ""),
             "specimen_limit": t_details.get("specimen_limit", 2),
             "designation": user.get("designation", "Teacher"),
+            "residence": t_details.get("residence") or user.get("residence", ""),
+            "city": t_details.get("city") or user.get("city", ""),
+            "pincode": t_details.get("pincode") or user.get("pincode", ""),
         },
     }
 
@@ -480,7 +486,7 @@ async def login(body: LoginRequest):
 @router.get("/me")
 async def me(user: dict = Depends(current_user)):
     role = user.get("role", "customer")
-    t_details = {"school_name": "", "id_card_url": "", "specimen_limit": 2}
+    t_details = {"school_name": "", "id_card_url": "", "specimen_limit": 2, "residence": "", "city": "", "pincode": ""}
     if role == "teacher":
         t_details = await get_teacher_details(user["email"])
         
@@ -496,6 +502,9 @@ async def me(user: dict = Depends(current_user)):
         "id_card_url": t_details.get("id_card_url", ""),
         "specimen_limit": t_details.get("specimen_limit", 2),
         "designation": user.get("designation", "Teacher"),
+        "residence": t_details.get("residence") or user.get("residence", ""),
+        "city": t_details.get("city") or user.get("city", ""),
+        "pincode": t_details.get("pincode") or user.get("pincode", ""),
     }
 
 

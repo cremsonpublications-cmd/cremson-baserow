@@ -182,6 +182,7 @@ function SpecimenContent() {
         mobile: user.phone || "",
         schoolName: user.school_name || "",
         designation: user.designation || "Teacher",
+        address: prev.address || user.residence || user.full_address || user.address || "",
         pincode: prev.pincode || user.pincode || user.pincode_code || "",
       }));
     }
@@ -366,6 +367,11 @@ function SpecimenContent() {
                 setSubmitted(false);
                 setSubmittedBooks([]);
                 setSelectedBooks([]);
+                setFormData((prev) => ({
+                  ...prev,
+                  address: user?.residence || user?.full_address || user?.address || "",
+                  comments: "",
+                }));
                 const params = new URLSearchParams(window.location.search);
                 params.delete("step");
                 router.push(`${window.location.pathname}`);
