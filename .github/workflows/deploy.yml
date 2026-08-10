@@ -18,7 +18,7 @@ jobs:
           script: |
             echo "Checking out tagged version ${{ github.ref_name }}..."
             cd /opt/cremson-baserow
-            git fetch --all --tags
+            git fetch --all --tags --force
             git checkout ${{ github.ref_name }}
             
             echo "Installing backend dependencies..."
