@@ -1,0 +1,307 @@
+================================================================================
+CREMSON PUBLICATIONS — WHATSAPP INTEGRATION DOCUMENTATION
+================================================================================
+
+This document details the complete WhatsApp chatbot flow, interactive menus,
+regex trigger routing, multi-step user state machines, and outgoing notification templates
+used in Cremson Publications backend service.
+
+--------------------------------------------------------------------------------
+1. CORE WHATSAPP CHATBOT FLOW (whatsapp_chat.py)
+--------------------------------------------------------------------------------
+Handles incoming messages, multi-step state transitions, list/button responses,
+and flow logic.
+
+A. Global Reset Triggers
+- Triggers: "hi", "hello", "start", "menu", "main", "main menu" (case-insensitive)
+- Action: Resets the user's state to "MAIN_MENU" and sends the Welcome Menu.
+
+B. Welcome Menu
+- Content:
+  "👋 Welcome to Cremson Publications! 📚
+
+  How can we assist you today?
+
+  1️⃣ Teachers Section
+  2️⃣ Buy Books
+  3️⃣ Track Your Order
+  4️⃣ Request Specimen Copy
+  5️⃣ Bulk Order Inquiry
+  6️⃣ Contact Support
+
+  Reply with the number or option name."
+
+C. Global Regex / Keyword Routing
+(Triggers anywhere in the flow except when inside multi-step registration forms)
+
+1. Bulk Order Inquiry Flow Trigger
+   - Regex Pattern: (?i)(yes|order|bulk\s+order|interested|place\s+order|want\s+order|recommend|adopt|adoption|finalized|finalised)
+   - Response:
+     "That's wonderful news! 🎉
+     Thank you for choosing Cremson Publications for this Session! 🙏
+
+     Here's how you can place your bulk order:
+     __________________________________
+
+     🌐 OPTION 1 — Order on our Website
+     https://cremsonpublications.com/shop
+     __________________________________
+
+     📋 OPTION 2 — Fill the Order Form
+     https://cremsonpublications.com/bulk-order
+     __________________________________
+
+     Looking forward to a long association! 😊
+
+     Team Cremson Publications"
+
+2. Feedback / Review Flow Trigger
+   - Regex Pattern: (?i)(feedback|review|thoughts|opinion|suggestion|experience|views|comment)
+   - Response:
+     "Thank you so much for taking the time! 💛
+
+     We truly value your perspective as an educator.
+
+     Please share your honest thoughts on the specimen book — what you liked, what could be better, and how suitable you found it for your students.
+
+     Your feedback goes directly to our editorial team and helps us improve every edition. 📝
+
+     Team Cremson Publications 🙏"
+
+3. Delivery Confirmation Trigger
+   - Regex Pattern: (?i)(received|got\s+it|delivered|books\s+received|parcel\s+received|books\s+arrived|got\s+books|mila|mil\s+gaya|aa\s+gaya)
+   - Response:
+     "Thank you for confirming! 🎉
+
+     We're thrilled your specimen copies have reached you safely. 📚
+
+     Our team will soon share exclusive FREE study material for your students — stay tuned! 😊
+
+     In the meantime, take your time going through the books. We'd love to hear your thoughts whenever you're ready.
+
+     Just reply:
+     💬 FEEDBACK — to share your experience
+     ✅ YES — when you're ready to place a bulk order
+     ⏰ LATER — if you need more time"
+
+D. Multi-Step State / Dialog Flow
+
+1. WAITING_TEACHER_PROMPT
+   - Triggered by selecting option "1" (Teachers section) or "4" (Request specimen)
+   - Message sent:
+     "Great to have you here, Educator! 🎓
+     We provide answer keys, lesson plans, and free specimen copies to verified teachers.
+
+     Are you currently registered with Cremson Publications?
+
+     Reply:
+     1️⃣ Registered (or reply A)
+     2️⃣ Unregistered / New Teacher (or reply B)"
+   - Processing logic:
+     - If user selects A/1/Registered:
+       - System queries Baserow Teachers Table (Table 877) using last 10 digits of user's phone.
+       - Case 1 (Account not found):
+         "We couldn't find a registered teacher account linked to your WhatsApp phone number (+91 XXXXXXXXXX). ⚠️
+         Would you like to register now as a new teacher?
+         Reply: B) Register as New Teacher
+         Or request specimen copies directly on our website: https://cremsonpublications.com/specimen-request"
+       - Case 2 (Verification pending):
+         "Welcome back, [Name]! 🎓
+         Your teacher registration status is currently: ⏳ Pending Verification.
+         Our team is reviewing your profile and credentials. You will receive full portal access once verified."
+       - Case 3 (Active / Verified):
+         "Welcome back, [Name]! Your verified teacher portal is active. 🎉
+         📥 Download Answer Keys, Lesson Plans & Question Banks:
+         https://drive.google.com/drive/folders/1GV6nyKLREdZbAt1Vt1IHW-CkqoB8wtpB?usp=share_link
+         📚 Request Free Specimen Copies:
+         https://cremsonpublications.com/specimen-request"
+     - If user selects B/2/Unregistered:
+       - Message sent:
+         "Awesome! You can register as a verified teacher on our website here:
+         🌐 Teacher Registration Link:
+         https://cremsonpublications.com/auth/teacher-signup
+         📚 Request Free Specimen Copies:
+         https://cremsonpublications.com/specimen-request"
+
+2. Teacher Signup Chat State Machine
+   - Collecting details through WhatsApp (if user is guided through chat registration):
+     - State TEACHER_REG_NAME: Asks user to enter their name.
+     - State TEACHER_REG_SCHOOL: Asks: "Got it! 👍 Next, please type your School Name along with the City/Location (e.g., DPS, Rohini):"
+     - State TEACHER_REG_SUBJECT: Asks: "Perfect. Which Subject(s) and Classes (6-12) do you teach? (e.g., Business Studies & Economics, Class 11-12):"
+     - State TEACHER_REG_DOC: Asks: "To safeguard our teaching resources and answer keys, we only share access with verified educators. 🛡️ Please send a photo or document of your School ID Card, Visiting Card, or School Letterhead:"
+     - Completion: "Thank you! All your details and documents have been successfully submitted. 🎉 Our team will review your profile and activate your verified teacher access within 24 hours."
+
+3. Package Tracking Flow (Option 3 / "track")
+   - Action: Searches user's phone in Orders Table (762) and Specimen Requests Table (878).
+   - Case 1 (No packages found):
+     - Sets state to WAITING_FOR_ORDER_ID
+     - Message sent:
+       "Let's find your package! 📦
+       We couldn't find any recent orders or specimen requests linked to your phone number.
+       Please enter your Order ID or Specimen ID (e.g. CR10025 or SPEC386)."
+   - Case 2 (Exactly 1 package found):
+     - Responds immediately with:
+       "📦 Package Tracking Details
+       Type: [Specimen Copy (Free) / Book Order]
+       ID: #[ID]
+       Book: [Title]
+       Status: [Status]
+       AWB / Tracking No: [AWB] (if available)
+       🔗 Live Tracking Link: [Link] (if available)"
+   - Case 3 (Multiple packages found):
+     - Lists up to 5 items and sets state to WAITING_FOR_ORDER_SELECTION.
+     - Message sent:
+       "📚 We found the following packages for your number:
+       [List: ID, Type, Book, Status]
+       Reply with the number (e.g. 1 or 2) to view tracking details."
+     - User input is matched to selection or direct lookup.
+
+--------------------------------------------------------------------------------
+2. OUTBOUND NOTIFICATION TEMPLATES (whatsapp.py)
+--------------------------------------------------------------------------------
+Sends order, payment, and shipping status notifications to customers. These templates
+are pre-configured and approved in the Meta Business Manager.
+
+A. Teacher Accounts Notifications
+
+1. Teacher Registration Confirmation
+   - Template Name: teacher_signup_confirm
+   - Parameters: {{1}} = Teacher Name
+   - Trigger: Triggered when a new teacher account is successfully registered.
+
+2. Teacher Registration Approved
+   - Template Name: teacher_approved
+   - Parameters: {{1}} = Teacher Name, {{2}} = Sign-in URL
+   - Trigger: Triggered when admin approves a pending teacher profile.
+
+3. Teacher Registration Rejected (Direct Text Message)
+   - Content:
+     "Hello [Name],
+     Thank you for your interest in Cremson Publications.
+     Your teacher account registration request has been reviewed and was not approved at this time. If you believe this was an error or have questions, please contact support."
+
+B. Order & Payment Notifications
+
+1. Order Confirmation (Paid)
+   - Template Name: order_confirmation_v6
+   - Parameters:
+     - {{1}} = Customer Name
+     - {{2}} = Order ID
+     - {{3}} = Transaction ID
+     - {{4}} = Formatted item list (bulleted items with quantities and prices)
+     - {{5}} = Total Amount
+   - Trigger: Sent upon successful order placement & payment confirmation.
+
+2. Order Status Update
+   - Template Name: [Configured template name]
+   - Parameters:
+     - {{1}} = Customer Name
+     - {{2}} = Order ID
+     - {{3}} = New Status
+   - Trigger: Sent on general order status change.
+
+3. Payment Failed Alert
+   - Template Name: payment_failed_v6
+   - Parameters:
+     - {{1}} = Customer Name
+     - {{2}} = Total Amount
+     - {{3}} = Order ID
+   - Trigger: Sent upon payment failure at checkout.
+
+C. Shipping Status Notifications (Shipway Integration)
+
+1. Shipment Created
+   - Template Name: shipment_created_v1
+   - Parameters:
+     - {{1}} = Customer Name
+     - {{2}} = Order ID
+     - {{3}} = AWB Tracking Number
+     - {{4}} = Courier Name
+     - {{5}} = Live Tracking URL
+   - Trigger: Fired when Shipway generates the AWB/shipping label.
+
+2. Picked Up
+   - Template Name: picked_up_v1
+   - Parameters:
+     - {{1}} = Customer Name
+     - {{2}} = Order ID
+     - {{3}} = Live Tracking URL
+   - Trigger: Fired on Shipway PICKED_UP event.
+
+3. In Transit
+   - Template Name: in_transit_v1
+   - Parameters:
+     - {{1}} = Customer Name
+     - {{2}} = Order ID
+     - {{3}} = Live Tracking URL
+   - Trigger: Fired on Shipway IN_TRANSIT event.
+
+4. Out For Delivery
+   - Template Name: out_for_delivery_v2
+   - Parameters:
+     - {{1}} = Customer Name
+     - {{2}} = Order ID
+     - {{3}} = Live Tracking URL
+   - Trigger: Fired on Shipway OUT_FOR_DELIVERY event.
+
+5. Delivered
+   - Template Name: delivered_v2
+   - Parameters:
+     - {{1}} = Customer Name
+     - {{2}} = Order ID
+   - Trigger: Fired on Shipway DELIVERED event.
+
+6. Return To Origin (RTO)
+   - Template Name: rto_v2
+   - Parameters:
+     - {{1}} = Customer Name
+     - {{2}} = Order ID
+   - Trigger: Fired on Shipway RTO event.
+
+D. Bulk Order Notifications (Direct Text Messages)
+
+1. Bulk Order Received (Sent to Teacher)
+   - Content:
+     "Hello [Name],
+     Thank you for submitting your Bulk Order request for *[School]* with Cremson Publications! 📚
+     Our admin team is currently reviewing your order request. Once approved, you will receive a WhatsApp notification with your special discounted pricing and payment link.
+     📌 Track your bulk order status anytime here: [Order Link]"
+
+2. New Bulk Order Admin Alert (Sent to Admin)
+   - Content:
+     "🔔 *NEW BULK ORDER RECEIVED*
+     • Teacher: [Name]
+     • School: [School]
+     • Total Pre-Discount: [Amount]
+     Review & approve discount here: [Admin Order Link]"
+
+3. Bulk Order Approved & Discounted (Sent to Teacher)
+   - Content:
+     "Great news [Name]! 🎉
+     Your Bulk Order request has been *APPROVED* by Cremson Publications! 📚
+     📋 *Order Price Breakdown:*
+     • Original Subtotal: [Subtotal]
+     • Special Discount: [Discount Info]
+     • 💰 *Final Payable Amount: [Final Amount]*
+     You can now view your order, pay directly, or generate individual split payment links for your students:
+     👉 [Order Link]"
+
+4. Bulk Order Payment Received (Sent to Teacher)
+   - Content:
+     "Payment Confirmed! ✅
+     Hello [Name],
+     We have received the full payment of *[Amount]* for your bulk order for *[School]*.
+     📦 *Status:* Ready for Shipment
+     Our warehouse team is preparing your books for dispatch. You will receive tracking details via WhatsApp as soon as your shipment is dispatched!
+     👉 View order status: [Order Link]"
+
+5. Bulk Order Shipped (Sent to Teacher)
+   - Content:
+     "Order Dispatched! 🚚📦
+     Hello [Name],
+     Your bulk order for *[School]* has been shipped!
+     • *AWB Tracking No:* [AWB]
+     • *Carrier:* Shipway Courier
+     🔗 *Track Shipment Live:* [Tracking Link]
+     📌 *Order Details:* [Order Link]"
+================================================================================
