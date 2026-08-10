@@ -158,12 +158,17 @@ function SpecimenContent() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
-  // Safety redirect: if they try to access step 2 or 3 without books, send them back to select books
+  // Safety redirect: if step > 0 but selectedBooks is empty (e.g. page reload or returning to /specimen), reset to step 0
   useEffect(() => {
-    if (step > 0 && selectedBooks.length === 0 && !submitted) {
-      setStep(0);
+    if (step > 0 && selectedBooks.length === 0 && !submitting) {
+      setSubmitted(false);
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("step")) {
+        params.delete("step");
+        router.replace(`${window.location.pathname}`);
+      }
     }
-  }, [step, selectedBooks.length, submitted]);
+  }, [step, selectedBooks.length, submitting, router]);
 
   const isApprovedTeacher = user && (user.role === "teacher" || user.is_admin);
 
@@ -733,12 +738,29 @@ function SpecimenContent() {
             ))}
           </ul>
         </div>
-        <Link
-          href="/"
-          className="mt-6 inline-flex items-center justify-center px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl shadow transition-all cursor-pointer"
-        >
-          Return to Home
-        </Link>
+        <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setSubmitted(false);
+              setSelectedBooks([]);
+              router.push("/specimen");
+            }}
+            className="w-full sm:w-auto px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow transition-all cursor-pointer"
+          >
+            Submit Another Request
+          </button>
+          <Link
+            href="/"
+            onClick={() => {
+              setSubmitted(false);
+              setSelectedBooks([]);
+            }}
+            className="w-full sm:w-auto px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer text-center"
+          >
+            Return to Home
+          </Link>
+        </div>
       </div>
 
       {showAuthModal && (
