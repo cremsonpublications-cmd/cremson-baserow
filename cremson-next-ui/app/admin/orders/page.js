@@ -749,46 +749,16 @@ export default function AdminOrders() {
 
     setBulkZipLoading(true);
     const toastId = toast.loading(`Compiling ZIP archive for ${eligible.length} shipping label(s)...`);
-    const zip = new JSZip();
-    let count = 0;
-
-    for (const order of eligible) {
-      const deliv = safeParseJSON(order.delivery) || {};
-      const labelUrl = deliv.label_url;
-      const orderId = order.order_id || `BOOK${order.id}`;
-
-      try {
-        const resp = await fetch(labelUrl);
-        if (resp.ok) {
-          const blob = await resp.blob();
-          zip.file(`shipping_label_${orderId}.pdf`, blob);
-          count++;
-        } else {
-          const proxyResp = await api.get(labelUrl, { responseType: "blob" }).catch(() => null);
-          if (proxyResp?.data) {
-            zip.file(`shipping_label_${orderId}.pdf`, proxyResp.data);
-            count++;
-          }
-        }
-      } catch (e) {
-        console.warn(`Could not download label for order ${orderId}:`, e);
-      }
-    }
-
-    if (count === 0) {
-      toast.dismiss(toastId);
-      toast.info("Opening shipping label URLs directly in new tabs...");
-      eligible.forEach((o) => {
-        const deliv = safeParseJSON(o.delivery) || {};
-        if (deliv.label_url) window.open(deliv.label_url, "_blank");
-      });
-      setBulkZipLoading(false);
-      return;
-    }
 
     try {
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      const blobUrl = URL.createObjectURL(zipBlob);
+      const orderIds = eligible.map((o) => o.order_id || String(o.id));
+      const response = await api.post(
+        "/api/orders/download-labels-zip",
+        { order_ids: orderIds },
+        { responseType: "blob" }
+      );
+
+      const blobUrl = URL.createObjectURL(new Blob([response.data], { type: "application/zip" }));
       const link = document.createElement("a");
       link.href = blobUrl;
       link.download = zipFilename;
@@ -796,11 +766,16 @@ export default function AdminOrders() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(blobUrl);
+
       toast.dismiss(toastId);
-      toast.success(`Downloaded ${count} shipping label(s) in ZIP archive!`);
+      toast.success(`Successfully downloaded ${eligible.length} shipping label(s) as ZIP archive!`);
     } catch (err) {
       toast.dismiss(toastId);
-      toast.error("Failed to generate ZIP file.");
+      toast.error("Failed to generate ZIP archive. Opening label links in browser...");
+      eligible.forEach((o) => {
+        const deliv = safeParseJSON(o.delivery) || {};
+        if (deliv.label_url) window.open(deliv.label_url, "_blank");
+      });
     } finally {
       setBulkZipLoading(false);
     }

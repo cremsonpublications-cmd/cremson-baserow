@@ -1,9 +1,13 @@
 import json
 import logging
+import io
+import zipfile
+import httpx
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from config import TABLE_IDS
@@ -18,6 +22,67 @@ client = BaserowClient()
 
 class OrderStatusUpdate(BaseModel):
     order_status: str
+
+
+class DownloadLabelsRequest(BaseModel):
+    order_ids: Optional[List[str]] = None
+
+
+@router.post("/download-labels-zip", summary="Bulk download shipping label PDFs in a ZIP file")
+async def download_labels_zip(payload: DownloadLabelsRequest):
+    """
+    Downloads shipping label PDFs server-side for requested order_ids (or all orders if empty)
+    and returns a ZIP archive file response.
+    """
+    rows = await client.get_rows(TABLE_IDS["orders"], size=200, order_by="-order_date")
+    all_orders = rows.get("results", [])
+
+    if payload.order_ids:
+        target_ids = set(str(oid) for oid in payload.order_ids)
+        target_orders = [
+            o for o in all_orders 
+            if str(o.get("id")) in target_ids or str(o.get("order_id")) in target_ids
+        ]
+    else:
+        target_orders = all_orders
+
+    zip_buffer = io.BytesIO()
+    count = 0
+
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as http_client:
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for order in target_orders:
+                delivery_raw = order.get("delivery") or "{}"
+                try:
+                    delivery_data = json.loads(delivery_raw) if isinstance(delivery_raw, str) else (delivery_raw or {})
+                except Exception:
+                    delivery_data = {}
+
+                label_url = delivery_data.get("label_url")
+                if not label_url:
+                    continue
+
+                order_id_str = order.get("order_id") or f"BOOK{order.get('id')}"
+                filename = f"shipping_label_{order_id_str}.pdf"
+
+                try:
+                    resp = await http_client.get(label_url, headers={
+                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    })
+                    if resp.status_code == 200 and resp.content:
+                        zip_file.writestr(filename, resp.content)
+                        count += 1
+                except Exception as exc:
+                    logger.warning(f"[Orders] Failed to download label for order {order_id_str}: {exc}")
+
+    if count == 0:
+        raise HTTPException(status_code=400, detail="No valid shipping label PDFs found for the selected orders.")
+
+    zip_buffer.seek(0)
+    headers = {
+        "Content-Disposition": 'attachment; filename="shipping_labels.zip"'
+    }
+    return Response(content=zip_buffer.getvalue(), media_type="application/zip", headers=headers)
 
 
 # ── List / Get / Patch (unchanged) ────────────────────────────────────────────
