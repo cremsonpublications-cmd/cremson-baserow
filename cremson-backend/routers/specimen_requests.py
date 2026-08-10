@@ -139,7 +139,22 @@ async def create_specimen_request(body: dict, user: dict = Depends(current_user)
     for readonly_field in ["Teacheer Name", "School Name", "Phone", "Email", "City", "SchoolID"]:
         body.pop(readonly_field, None)
             
-    return await client.create_row(TABLE_IDS["specimen_requests"], body)
+    res = await client.create_row(TABLE_IDS["specimen_requests"], body)
+
+    # Send WhatsApp notification to teacher
+    try:
+        from services.whatsapp import send_specimen_received_whatsapp
+        books_str = body.get("BooksRequested") or ""
+        b_list = [b.strip() for b in books_str.split(",") if b.strip()]
+        count_str = str(len(b_list)) if b_list else "1"
+        user_phone = user.get("phone") or ""
+        user_name = user.get("name") or "Educator"
+        if user_phone:
+            await send_specimen_received_whatsapp(user_phone, user_name, count_str)
+    except Exception as w_err:
+        print("Warning: Failed to send WhatsApp specimen received notification:", w_err)
+
+    return res
 
 
 @router.patch("/{row_id}", summary="Update specimen request")
