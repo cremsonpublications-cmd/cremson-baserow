@@ -813,25 +813,74 @@ function TeacherHistoryModal({ teacher, onClose }) {
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {orders.map((ord) => (
-                      <div key={ord.id} className="p-4 bg-white border border-slate-200/80 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:border-slate-300 transition-all shadow-xs">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-900">Order #{ord.id}</span>
-                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                              ₹{ord.TotalAmount || ord.total || "0"}
-                            </span>
-                            <span className="text-[10px] text-slate-400">({ord.CreatedDate || ord.created_at || "—"})</span>
+                    {orders.map((ord) => {
+                      const displayId = ord.order_id || `Order #${ord.id}`;
+
+                      let amount = 0;
+                      if (ord.order_summary) {
+                        let summary = ord.order_summary;
+                        if (typeof summary === "string") {
+                          try { summary = JSON.parse(summary); } catch (e) {}
+                        }
+                        if (typeof summary === "object" && summary) {
+                          amount = summary.grandTotal || summary.subTotal || summary.total || 0;
+                        }
+                      }
+                      if (!amount && ord.payment) {
+                        let pay = ord.payment;
+                        if (typeof pay === "string") {
+                          try { pay = JSON.parse(pay); } catch (e) {}
+                        }
+                        if (typeof pay === "object" && pay) {
+                          amount = pay.amount || 0;
+                        }
+                      }
+                      if (!amount) {
+                        amount = ord.amount || ord.TotalAmount || ord.total || 0;
+                      }
+
+                      let dateStr = ord.order_date || ord.created_at || ord.CreatedDate || "";
+                      if (typeof dateStr === "string" && dateStr) {
+                        dateStr = dateStr.split("T")[0].split(" ")[0];
+                      } else {
+                        dateStr = "—";
+                      }
+
+                      let itemsText = "";
+                      let items = ord.items || ord.Items || ord.items_summary;
+                      if (typeof items === "string") {
+                        try { items = JSON.parse(items); } catch (e) {}
+                      }
+                      if (Array.isArray(items) && items.length > 0) {
+                        itemsText = items.map((i) => i.name || i.title || i.product_name || "Book").join(", ");
+                      } else if (typeof items === "string") {
+                        itemsText = items;
+                      } else {
+                        itemsText = "—";
+                      }
+
+                      const statusStr = ord.order_status || ord.status || ord.OrderStatus || "Completed";
+
+                      return (
+                        <div key={ord.id} className="p-4 bg-white border border-slate-200/80 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:border-slate-300 transition-all shadow-xs">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-bold text-slate-900">{displayId}</span>
+                              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+                                ₹{amount}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-medium">({dateStr})</span>
+                            </div>
+                            <p className="text-xs text-slate-600 mt-1 line-clamp-1">
+                              <span className="font-semibold text-slate-700">Items:</span> {itemsText}
+                            </p>
                           </div>
-                          <p className="text-xs text-slate-600 mt-1 line-clamp-1">
-                            <span className="font-semibold text-slate-700">Items:</span> {ord.Items || ord.items_summary || "—"}
-                          </p>
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 self-end sm:self-center">
+                            {statusStr}
+                          </span>
                         </div>
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 self-end sm:self-center">
-                          {ord.OrderStatus || ord.status || "Completed"}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
