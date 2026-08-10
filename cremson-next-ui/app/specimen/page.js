@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   Lock,
   Upload,
+  MapPin,
 } from "lucide-react";
 
 const STEPS = ["Select Books", "Your Details", "Confirm"];
@@ -145,6 +146,7 @@ function SpecimenContent() {
     mobile: user?.phone || "",
     schoolName: user?.school_name || "",
     address: "",
+    pincode: user?.pincode || user?.pincode_code || "",
     designation: user?.designation || "Teacher",
     comments: "",
   });
@@ -174,6 +176,7 @@ function SpecimenContent() {
         mobile: user.phone || "",
         schoolName: user.school_name || "",
         designation: user.designation || "Teacher",
+        pincode: prev.pincode || user.pincode || user.pincode_code || "",
       }));
     }
   }, [user]);
@@ -270,14 +273,21 @@ function SpecimenContent() {
     setSubmitting(true);
     try {
       const booksRequested = selectedBooks.map((b) => b.name).join(", ");
-      await api.post("/api/specimen-requests/", {
+      const payload = {
         BooksRequested: booksRequested,
         Full_Address: formData.address,
         "Feedback/Notes": formData.comments || "",
         RequestDate: new Date().toISOString().split("T")[0],
         DeliveryStatus: "Not dispatched",
         HandDeliveredBy: "",
-      });
+      };
+      if (formData.pincode) {
+        const pinInt = parseInt(formData.pincode.trim(), 10);
+        if (!isNaN(pinInt)) {
+          payload.PinCode = pinInt;
+        }
+      }
+      await api.post("/api/specimen-requests/", payload);
 
       setSubmitted(true);
       setStep(2);
@@ -628,18 +638,35 @@ function SpecimenContent() {
                   </select>
                 </div>
               </div>
-              {/* Address */}
+              {/* Pincode */}
               <div>
-                <label htmlFor="address" className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-                  Full Address
+                <label htmlFor="pincode" className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                  Pincode *
                 </label>
-                <input
-                  id="address" type="text" name="address"
-                  value={formData.address} onChange={handleChange}
-                  placeholder="Street, City, State, PIN"
-                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
-                />
+                <div className="relative">
+                  <MapPin className="absolute left-4 top-3.5 h-4 w-4 text-gray-400" />
+                  <input
+                    id="pincode" type="text" name="pincode" required
+                    value={formData.pincode} onChange={handleChange}
+                    placeholder="Enter 6-digit pincode"
+                    maxLength={6}
+                    className="w-full pl-11 pr-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
+                  />
+                </div>
               </div>
+            </div>
+
+            {/* Address */}
+            <div>
+              <label htmlFor="address" className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                Full Address
+              </label>
+              <input
+                id="address" type="text" name="address"
+                value={formData.address} onChange={handleChange}
+                placeholder="Street address, building name, locality, city"
+                className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
+              />
             </div>
 
             {/* Comments */}
