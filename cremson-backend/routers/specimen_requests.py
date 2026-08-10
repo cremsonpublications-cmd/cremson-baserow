@@ -565,6 +565,17 @@ async def admin_create_specimen_request(body: AdminCreateSpecimenRequest):
     }
 
 
+import re
+
+
+def _clean_error_message(msg: str) -> str:
+    if not msg:
+        return ""
+    clean = re.sub(r"<[^>]+>", "", str(msg))
+    clean = clean.replace("['", "").replace("']", "").strip()
+    return clean
+
+
 class BulkSpecimenAction(BaseModel):
     ids: List[int]
 
@@ -583,9 +594,10 @@ async def bulk_approve_specimen_requests(body: BulkSpecimenAction):
             results.append({"id": row_id, "success": True, "details": res})
         except Exception as err:
             fail_count += 1
-            err_msg = getattr(err, "detail", str(err))
+            raw_msg = getattr(err, "detail", str(err))
+            err_msg = _clean_error_message(raw_msg)
             logger.error(f"[Bulk Approve Specimen] Request #{row_id} failed: {err_msg}")
-            results.append({"id": row_id, "success": False, "error": str(err_msg)})
+            results.append({"id": row_id, "success": False, "error": err_msg})
 
     return {
         "total": len(body.ids),
@@ -609,9 +621,10 @@ async def bulk_reject_specimen_requests(body: BulkSpecimenAction):
             results.append({"id": row_id, "success": True, "details": res})
         except Exception as err:
             fail_count += 1
-            err_msg = getattr(err, "detail", str(err))
+            raw_msg = getattr(err, "detail", str(err))
+            err_msg = _clean_error_message(raw_msg)
             logger.error(f"[Bulk Reject Specimen] Request #{row_id} failed: {err_msg}")
-            results.append({"id": row_id, "success": False, "error": str(err_msg)})
+            results.append({"id": row_id, "success": False, "error": err_msg})
 
     return {
         "total": len(body.ids),
