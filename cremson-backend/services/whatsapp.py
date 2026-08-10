@@ -474,39 +474,12 @@ async def send_bulk_order_shipped(phone: str, name: str, school: str, awb: str, 
 async def send_whatsapp_otp(phone: str, otp: str):
     """Sends a 6-digit verification code to the user via WhatsApp template."""
     import os
-    template_name = os.getenv("WHATSAPP_OTP_TEMPLATE_NAME", "cremson_otp")
-    
-    if template_name == "cremson_otp":
-        components = [
-            {
-                "type": "body",
-                "parameters": [
-                    {"type": "text", "text": otp}
-                ]
-            },
-            {
-                "type": "button",
-                "sub_type": "url",
-                "index": "0",
-                "parameters": [
-                    {"type": "text", "text": otp}
-                ]
-            }
-        ]
-        await _send_template(
-            phone=phone,
-            template_name=template_name,
-            parameters=[],
-            log_tag=f"whatsapp_otp code={otp}",
-            components=components
-        )
-    else:
-        await _send_template(
-            phone=phone,
-            template_name=template_name,
-            parameters=[
-                _txt(otp)
-            ],
-            log_tag=f"whatsapp_otp code={otp}"
-        )
+    template_name = os.getenv("WHATSAPP_OTP_TEMPLATE_NAME", "cremson_otp_utility")
+
+    await _send_template(
+        phone=phone,
+        template_name=template_name,
+        parameters=[_txt(otp)],
+        log_tag=f"whatsapp_otp code={otp}"
+    )
 

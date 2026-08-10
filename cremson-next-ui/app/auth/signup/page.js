@@ -131,7 +131,8 @@ function SignupFormContent() {
         phone: studentForm.phone,
         password: studentForm.password,
       });
-      router.push(`/auth/verify-email?email=${encodeURIComponent(studentForm.email)}&phone=${encodeURIComponent(studentForm.phone)}`);
+      sessionStorage.setItem("verify_email", studentForm.email);
+      router.push(`/auth/verify-email?phone=${encodeURIComponent(studentForm.phone)}`);
     } catch (err) {
       setStudentError(err?.response?.data?.detail || "Registration failed. Please try again.");
     } finally {
@@ -444,7 +445,8 @@ function SignupFormContent() {
         city: selectedSchool?.City || teacherForm.city || "",
       });
 
-      router.push(`/auth/verify-email?email=${encodeURIComponent(teacherForm.email)}&phone=${encodeURIComponent(teacherForm.phone)}&role=teacher&name=${encodeURIComponent(teacherForm.name)}`);
+      sessionStorage.setItem("verify_email", teacherForm.email);
+      router.push(`/auth/verify-email?phone=${encodeURIComponent(teacherForm.phone)}&role=teacher&name=${encodeURIComponent(teacherForm.name)}`);
     } catch (err) {
       setTeacherError(err?.response?.data?.detail || "Registration failed. Please try again.");
     } finally {

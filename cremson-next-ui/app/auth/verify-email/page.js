@@ -10,11 +10,22 @@ import CPLogo from "../../../components/CPLogo";
 function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const email = searchParams.get("email") || "";
+  const [email, setEmail] = useState("");
   const role = searchParams.get("role") || "";
   const name = searchParams.get("name") || "";
   const phone = searchParams.get("phone") || "";
   const { authLogin } = useApp();
+
+  // Read email from sessionStorage (not exposed in URL)
+  useEffect(() => {
+    const stored = sessionStorage.getItem("verify_email");
+    const urlEmail = searchParams.get("email") || "";
+    if (stored) {
+      setEmail(stored);
+    } else if (urlEmail) {
+      setEmail(urlEmail);
+    }
+  }, [searchParams]);
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
@@ -59,6 +70,7 @@ function VerifyEmailContent() {
     setLoading(true);
     try {
       const data = await verifyEmail({ email, otp: code });
+      sessionStorage.removeItem("verify_email");
       if (role === "teacher") {
         router.push(`/auth/signup?teacherSubmitted=true&name=${encodeURIComponent(name || data.user?.name || "")}`);
       } else {
