@@ -49,6 +49,7 @@ async def _send_template(
     template_name: str,
     parameters: List[dict],
     log_tag: str = "",
+    components: Optional[List[dict]] = None,
 ) -> None:
     """
     Core sender: posts one template message to the Meta Graph API.
@@ -63,6 +64,9 @@ async def _send_template(
         logger.warning(f"[WhatsApp] Invalid phone — skipping {log_tag}")
         return
 
+    if components is None:
+        components = [{"type": "body", "parameters": parameters}]
+
     payload = {
         "messaging_product": "whatsapp",
         "to": formatted,
@@ -70,7 +74,7 @@ async def _send_template(
         "template": {
             "name": template_name,
             "language": {"code": WHATSAPP_TEMPLATE_LANGUAGE},
-            "components": [{"type": "body", "parameters": parameters}],
+            "components": components,
         },
     }
 
@@ -471,12 +475,38 @@ async def send_whatsapp_otp(phone: str, otp: str):
     """Sends a 6-digit verification code to the user via WhatsApp template."""
     import os
     template_name = os.getenv("WHATSAPP_OTP_TEMPLATE_NAME", "cremson_otp")
-    await _send_template(
-        phone=phone,
-        template_name=template_name,
-        parameters=[
-            _txt(otp)
-        ],
-        log_tag=f"whatsapp_otp code={otp}"
-    )
+    
+    if template_name == "cremson_otp":
+        components = [
+            {
+                "type": "body",
+                "parameters": [
+                    {"type": "text", "text": otp}
+                ]
+            },
+            {
+                "type": "button",
+                "sub_type": "url",
+                "index": "0",
+                "parameters": [
+                    {"type": "text", "text": otp}
+                ]
+            }
+        ]
+        await _send_template(
+            phone=phone,
+            template_name=template_name,
+            parameters=[],
+            log_tag=f"whatsapp_otp code={otp}",
+            components=components
+        )
+    else:
+        await _send_template(
+            phone=phone,
+            template_name=template_name,
+            parameters=[
+                _txt(otp)
+            ],
+            log_tag=f"whatsapp_otp code={otp}"
+        )
 

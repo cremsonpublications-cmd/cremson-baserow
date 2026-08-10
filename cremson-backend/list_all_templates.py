@@ -26,6 +26,9 @@ async def list_templates():
             print(f"Total templates in WABA {WABA_ID}: {len(data)}")
             for t in data:
                 print(f"- Name: {t.get('name')}, Status: {t.get('status')}, Category: {t.get('category')}, Language: {t.get('language')}")
+                if "otp" in t.get("name", "").lower():
+                    import json
+                    print(json.dumps(t, indent=2))
         else:
             print(f"Failed to fetch templates. Status: {resp.status_code}")
             print(resp.text)
