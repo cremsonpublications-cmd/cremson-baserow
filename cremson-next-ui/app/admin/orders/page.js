@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import JSZip from "jszip";
 import api from "../../../lib/api/axios";
 import { adminUpdateOrderStatus, adminMarkReadyForPickup, adminReturnOrder } from "../../../lib/api/admin";
 import { 
@@ -652,11 +653,158 @@ export default function AdminOrders() {
   const [selected, setSelected] = useState(null);
   const [returnModalOrder, setReturnModalOrder] = useState(null);
 
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  const [loadingPickupId, setLoadingPickupId] = useState(null);
+  const [bulkPickupLoading, setBulkPickupLoading] = useState(false);
+  const [bulkZipLoading, setBulkZipLoading] = useState(false);
+
   const debouncedSearch = useDebounce(search, 400);
 
   useEffect(() => { 
     setPage(1); 
+    setSelectedOrderIds([]);
   }, [debouncedSearch, statusFilter]);
+
+  function toggleSelectAll() {
+    if (selectedOrderIds.length === orders.length && orders.length > 0) {
+      setSelectedOrderIds([]);
+    } else {
+      setSelectedOrderIds(orders.map((o) => o.id));
+    }
+  }
+
+  function toggleSelectOrder(id) {
+    setSelectedOrderIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  }
+
+  async function handleSingleReadyForPickup(order) {
+    const orderId = order.order_id || order.id;
+    if (!orderId) return;
+    setLoadingPickupId(order.id);
+    try {
+      await adminMarkReadyForPickup(orderId);
+      toast.success(`Order #${orderId} marked as Packed & Pickup Requested!`, {
+        description: "Customer notified via WhatsApp and courier pickup scheduled."
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || `Failed to request pickup for #${orderId}`);
+    } finally {
+      setLoadingPickupId(null);
+    }
+  }
+
+  async function handleBulkPackedAndRequestPickup() {
+    const selectedOrders = orders.filter((o) => selectedOrderIds.includes(o.id));
+    const eligibleOrders = selectedOrders.filter((o) => {
+      const st = (o.order_status ?? o.status ?? "").toLowerCase();
+      return ["ready_to_pack", "confirmed", "pending"].includes(st);
+    });
+
+    if (eligibleOrders.length === 0) {
+      toast.error("None of the selected orders are eligible for pickup request (must be Confirmed or Ready to Pack).");
+      return;
+    }
+
+    setBulkPickupLoading(true);
+    let successCount = 0;
+    let failCount = 0;
+    const toastId = toast.loading(`Requesting pickup for ${eligibleOrders.length} order(s)...`);
+
+    for (const order of eligibleOrders) {
+      const orderId = order.order_id || order.id;
+      try {
+        await adminMarkReadyForPickup(orderId);
+        successCount++;
+      } catch (err) {
+        failCount++;
+      }
+    }
+
+    toast.dismiss(toastId);
+    if (successCount > 0) {
+      toast.success(`Successfully requested pickup & notified WhatsApp for ${successCount} order(s)!`);
+    }
+    if (failCount > 0) {
+      toast.error(`Failed pickup request for ${failCount} order(s).`);
+    }
+
+    setSelectedOrderIds([]);
+    queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+    setBulkPickupLoading(false);
+  }
+
+  async function downloadLabelsAsZip(ordersList, zipFilename = "shipping_labels.zip") {
+    const eligible = ordersList.filter((o) => {
+      const deliv = safeParseJSON(o.delivery) || {};
+      return Boolean(deliv.label_url);
+    });
+
+    if (eligible.length === 0) {
+      toast.error("No active shipping label PDFs found in selected orders.");
+      return;
+    }
+
+    setBulkZipLoading(true);
+    const toastId = toast.loading(`Compiling ZIP archive for ${eligible.length} shipping label(s)...`);
+    const zip = new JSZip();
+    let count = 0;
+
+    for (const order of eligible) {
+      const deliv = safeParseJSON(order.delivery) || {};
+      const labelUrl = deliv.label_url;
+      const orderId = order.order_id || `BOOK${order.id}`;
+
+      try {
+        const resp = await fetch(labelUrl);
+        if (resp.ok) {
+          const blob = await resp.blob();
+          zip.file(`shipping_label_${orderId}.pdf`, blob);
+          count++;
+        } else {
+          const proxyResp = await api.get(labelUrl, { responseType: "blob" }).catch(() => null);
+          if (proxyResp?.data) {
+            zip.file(`shipping_label_${orderId}.pdf`, proxyResp.data);
+            count++;
+          }
+        }
+      } catch (e) {
+        console.warn(`Could not download label for order ${orderId}:`, e);
+      }
+    }
+
+    if (count === 0) {
+      toast.dismiss(toastId);
+      toast.info("Opening shipping label URLs directly in new tabs...");
+      eligible.forEach((o) => {
+        const deliv = safeParseJSON(o.delivery) || {};
+        if (deliv.label_url) window.open(deliv.label_url, "_blank");
+      });
+      setBulkZipLoading(false);
+      return;
+    }
+
+    try {
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const blobUrl = URL.createObjectURL(zipBlob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = zipFilename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+      toast.dismiss(toastId);
+      toast.success(`Downloaded ${count} shipping label(s) in ZIP archive!`);
+    } catch (err) {
+      toast.dismiss(toastId);
+      toast.error("Failed to generate ZIP file.");
+    } finally {
+      setBulkZipLoading(false);
+    }
+  }
 
   const params = { page, size: PAGE_SIZE };
   if (debouncedSearch) params.search = debouncedSearch;
@@ -722,19 +870,46 @@ export default function AdminOrders() {
               <div className="p-4 md:p-6 border-b border-gray-200 flex-shrink-0 bg-white">
                 <div className="space-y-4">
                   
-                  {/* Top Bar: Search Input & Total Count */}
+                  {/* Top Bar: Search Input & Total Count & Actions */}
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
-                      <input
-                        type="text"
-                        placeholder="Search orders..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="pl-8 md:pl-10 pr-4 py-2 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none w-full sm:w-80"
-                      />
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                      <div className="relative flex-1 sm:flex-none">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
+                        <input
+                          type="text"
+                          placeholder="Search orders..."
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          className="pl-8 md:pl-10 pr-4 py-2 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none w-full sm:w-80"
+                        />
+                      </div>
+                      
+                      {/* Status Filter Dropdown */}
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="px-3 py-2 text-xs md:text-sm font-semibold border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
+                      >
+                        {ORDER_STATUSES.map((st) => (
+                          <option key={st.value} value={st.value}>
+                            {st.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                    <div className="text-sm text-gray-600">Total: {count} orders</div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => downloadLabelsAsZip(orders, "all_shipping_labels.zip")}
+                        disabled={bulkZipLoading || orders.length === 0}
+                        className="px-3.5 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        title="Download all shipping labels for current orders list as ZIP"
+                      >
+                        <Download className="w-4 h-4 text-emerald-600" />
+                        Download All Labels (ZIP)
+                      </button>
+                      <div className="text-sm font-semibold text-gray-600">Total: {count} orders</div>
+                    </div>
                   </div>
 
                   {/* Bottom Bar: Date Range Pickers */}
@@ -757,9 +932,9 @@ export default function AdminOrders() {
                         className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white text-gray-700"
                       />
                     </div>
-                    {(startDate || endDate || search) && (
+                    {(startDate || endDate || search || statusFilter) && (
                       <button
-                        onClick={() => { setStartDate(""); setEndDate(""); setSearch(""); }}
+                        onClick={() => { setStartDate(""); setEndDate(""); setSearch(""); setStatusFilter(""); }}
                         className="text-xs font-semibold text-purple-600 hover:text-purple-800 transition-colors ml-auto cursor-pointer"
                       >
                         Clear Filters
@@ -769,6 +944,57 @@ export default function AdminOrders() {
 
                 </div>
               </div>
+
+              {/* Bulk Action Toolbar (Appears when 1+ rows selected) */}
+              {selectedOrderIds.length > 0 && (
+                <div className="bg-orange-50 border-b border-orange-200/80 px-6 py-3.5 flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-ping" />
+                    <span className="text-xs font-bold text-orange-950">
+                      {selectedOrderIds.length} order(s) selected
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {/* Orange Packed & Request Pickup Action Button */}
+                    <button
+                      onClick={handleBulkPackedAndRequestPickup}
+                      disabled={bulkPickupLoading}
+                      className="px-4 py-2 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 active:bg-orange-800 rounded-full shadow-md shadow-orange-600/20 disabled:opacity-50 transition-all flex items-center gap-2 cursor-pointer"
+                    >
+                      {bulkPickupLoading ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Processing Pickup...
+                        </>
+                      ) : (
+                        <>
+                          <Truck className="w-3.5 h-3.5" /> Packed & Request Pickup ({selectedOrderIds.length})
+                        </>
+                      )}
+                    </button>
+
+                    {/* Download Selected Labels ZIP */}
+                    <button
+                      onClick={() => {
+                        const selectedOrders = orders.filter((o) => selectedOrderIds.includes(o.id));
+                        downloadLabelsAsZip(selectedOrders, "selected_shipping_labels.zip");
+                      }}
+                      disabled={bulkZipLoading}
+                      className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-full shadow-md shadow-emerald-600/20 disabled:opacity-50 transition-all flex items-center gap-2 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Download Selected Labels (ZIP)
+                    </button>
+
+                    {/* Clear Selection */}
+                    <button
+                      onClick={() => setSelectedOrderIds([])}
+                      className="text-xs font-bold text-slate-500 hover:text-slate-800 underline px-2 py-1 cursor-pointer"
+                    >
+                      Deselect All
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Table Container */}
               <div className="flex-1 overflow-auto min-h-0">
@@ -788,6 +1014,14 @@ export default function AdminOrders() {
                   <table className="hidden md:table w-full text-left border-collapse">
                     <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                       <tr>
+                        <th className="px-4 py-4 text-xs font-semibold text-gray-500 w-10">
+                          <input
+                            type="checkbox"
+                            checked={selectedOrderIds.length === orders.length && orders.length > 0}
+                            onChange={toggleSelectAll}
+                            className="w-4 h-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500 cursor-pointer"
+                          />
+                        </th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">ORDER ID</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">CUSTOMER</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">DATE</th>
@@ -808,6 +1042,7 @@ export default function AdminOrders() {
                         const orderIdStr = String(order.order_id || "");
                         const isSpecimen = orderIdStr.startsWith("SPEC-") || paymentObj.method === "SPECIMEN (Free)" || paymentObj.status === "Specimen Copy";
                         const paymentStatus = isSpecimen ? "SPECIMEN (Free)" : (order.payment_status || paymentObj.status || "Paid");
+                        const isSelectedRow = selectedOrderIds.includes(order.id);
 
                         let delivColorClass = "bg-blue-100 text-blue-800";
                         if (deliveryStatusRaw === "pending") {
@@ -829,7 +1064,15 @@ export default function AdminOrders() {
                         const deliveryStatusDisplay = deliveryStatusRaw.replace(/_/g, " ");
 
                         return (
-                          <tr key={order.id} className="hover:bg-gray-50 transition-colors">
+                          <tr key={order.id} className={`transition-colors ${isSelectedRow ? "bg-orange-50/40 hover:bg-orange-50/70" : "hover:bg-gray-50"}`}>
+                            <td className="px-4 py-4 w-10">
+                              <input
+                                type="checkbox"
+                                checked={isSelectedRow}
+                                onChange={() => toggleSelectOrder(order.id)}
+                                className="w-4 h-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500 cursor-pointer"
+                              />
+                            </td>
                             <td className="px-6 py-4 text-xs font-semibold text-gray-900">
                               #{order.order_id || `BOOK${order.id}`}
                             </td>
@@ -861,10 +1104,30 @@ export default function AdminOrders() {
                             </td>
                             <td className="px-6 py-4 text-right whitespace-nowrap">
                               <div className="flex items-center justify-end space-x-2 text-purple-600">
+                                {/* Orange Packed & Request Pickup Button */}
+                                {["ready_to_pack", "ready to pack", "confirmed", "pending"].includes(deliveryStatusRaw) && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSingleReadyForPickup(order);
+                                    }}
+                                    disabled={loadingPickupId === order.id}
+                                    className="px-3.5 py-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 active:bg-orange-800 rounded-full shadow-sm hover:shadow transition-all cursor-pointer inline-flex items-center gap-1.5 flex-shrink-0"
+                                    title="Packed & Request Courier Pickup"
+                                  >
+                                    {loadingPickupId === order.id ? (
+                                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <Truck className="w-3.5 h-3.5" />
+                                    )}
+                                    Packed & Request Pickup
+                                  </button>
+                                )}
+
                                 <button 
                                   onClick={() => setSelected(order)}
-                                  className="p-1 hover:bg-purple-50 rounded transition-colors cursor-pointer"
-                                  title="View Order"
+                                  className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
+                                  title="View Order Details"
                                 >
                                   <Eye className="w-4 h-4 text-gray-400 hover:text-purple-600" />
                                 </button>
@@ -877,15 +1140,15 @@ export default function AdminOrders() {
                                       toast.error(`Shipping label not available for Order #${order.order_id || order.id}`);
                                     }
                                   }}
-                                  className="p-1 hover:bg-purple-50 rounded transition-colors cursor-pointer"
+                                  className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
                                   title="Download Shipping Label"
                                 >
-                                  <Download className="w-4 h-4 text-gray-400 hover:text-green-600" />
+                                  <Download className="w-4 h-4 text-gray-400 hover:text-emerald-600" />
                                 </button>
-                                 {["delivered", "out_for_delivery"].includes(deliveryStatusRaw) && (
+                                {["delivered", "out_for_delivery"].includes(deliveryStatusRaw) && (
                                   <button 
                                     onClick={() => setReturnModalOrder(order)}
-                                    className="p-1 hover:bg-rose-50 rounded transition-colors cursor-pointer text-rose-600"
+                                    className="p-1.5 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer text-rose-600"
                                     title="Initiate Return & Instant Refund"
                                   >
                                     <RotateCcw className="w-4 h-4 text-gray-400 hover:text-rose-600" />
@@ -893,7 +1156,7 @@ export default function AdminOrders() {
                                 )}
                                 <button 
                                   onClick={() => setSelected(order)}
-                                  className="p-1 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                                  className="p-1.5 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                                   title="Cancel/Delete"
                                 >
                                   <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-600" />
@@ -927,16 +1190,24 @@ export default function AdminOrders() {
                       else if (deliveryStatusRaw === "cancelled" || deliveryStatusRaw === "refunded") delivColorClass = "bg-rose-100 text-rose-800";
                       const deliveryStatusDisplay = deliveryStatusRaw.replace(/_/g, " ");
                       return (
-                        <div key={order.id} className="p-4 hover:bg-gray-50 transition-colors">
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <p className="text-xs font-bold text-gray-900">#{order.order_id || `BOOK${order.id}`}</p>
-                              <p className="text-xs font-semibold text-gray-700 mt-0.5">{uInfo.name || "—"}</p>
-                              <p className="text-xs text-gray-400">{uInfo.email || uInfo.phone || ""}</p>
+                        <div key={order.id} className="p-4 hover:bg-gray-50 transition-colors space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-2">
+                              <input
+                                type="checkbox"
+                                checked={selectedOrderIds.includes(order.id)}
+                                onChange={() => toggleSelectOrder(order.id)}
+                                className="w-4 h-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500 cursor-pointer mt-0.5"
+                              />
+                              <div>
+                                <p className="text-xs font-bold text-gray-900">#{order.order_id || `BOOK${order.id}`}</p>
+                                <p className="text-xs font-semibold text-gray-700 mt-0.5">{uInfo.name || "—"}</p>
+                                <p className="text-xs text-gray-400">{uInfo.email || uInfo.phone || ""}</p>
+                              </div>
                             </div>
                             <p className="text-sm font-bold text-gray-900">₹{Math.round(amount)}</p>
                           </div>
-                          <div className="flex flex-wrap items-center gap-2 mb-3">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${delivColorClass}`}>{deliveryStatusDisplay}</span>
                             {isSpecimen ? (
                               <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">🎁 SPECIMEN (Free)</span>
@@ -945,28 +1216,32 @@ export default function AdminOrders() {
                             )}
                             <span className="text-xs text-gray-400">{dateFormatted}</span>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <button onClick={() => setSelected(order)} className="p-1.5 hover:bg-purple-50 rounded transition-colors cursor-pointer" title="View Order">
-                              <Eye className="w-4 h-4 text-gray-400 hover:text-purple-600" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                const deliv = safeParseJSON(order.delivery) || {};
-                                if (deliv.label_url) { window.open(deliv.label_url, "_blank"); }
-                                else { toast.error(`Shipping label not available for Order #${order.order_id || order.id}`); }
-                              }}
-                              className="p-1.5 hover:bg-purple-50 rounded transition-colors cursor-pointer" title="Download Shipping Label"
-                            >
-                              <Download className="w-4 h-4 text-gray-400 hover:text-green-600" />
-                            </button>
-                            {["delivered", "out_for_delivery"].includes(deliveryStatusRaw) && (
-                              <button onClick={() => setReturnModalOrder(order)} className="p-1.5 hover:bg-rose-50 rounded transition-colors cursor-pointer" title="Initiate Return">
-                                <RotateCcw className="w-4 h-4 text-gray-400 hover:text-rose-600" />
+                          <div className="flex items-center justify-between pt-1">
+                            {["ready_to_pack", "ready to pack", "confirmed", "pending"].includes(deliveryStatusRaw) && (
+                              <button
+                                onClick={() => handleSingleReadyForPickup(order)}
+                                disabled={loadingPickupId === order.id}
+                                className="px-3.5 py-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 active:bg-orange-800 rounded-full shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
+                              >
+                                {loadingPickupId === order.id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Truck className="w-3.5 h-3.5" />}
+                                Packed & Request Pickup
                               </button>
                             )}
-                            <button onClick={() => setSelected(order)} className="p-1.5 hover:bg-red-50 rounded transition-colors cursor-pointer" title="Cancel/Delete">
-                              <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-600" />
-                            </button>
+                            <div className="flex items-center gap-2 ml-auto">
+                              <button onClick={() => setSelected(order)} className="p-1.5 hover:bg-purple-50 rounded transition-colors cursor-pointer" title="View Order">
+                                <Eye className="w-4 h-4 text-gray-400 hover:text-purple-600" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const deliv = safeParseJSON(order.delivery) || {};
+                                  if (deliv.label_url) { window.open(deliv.label_url, "_blank"); }
+                                  else { toast.error(`Shipping label not available for Order #${order.order_id || order.id}`); }
+                                }}
+                                className="p-1.5 hover:bg-purple-50 rounded transition-colors cursor-pointer" title="Download Shipping Label"
+                              >
+                                <Download className="w-4 h-4 text-gray-400 hover:text-green-600" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
