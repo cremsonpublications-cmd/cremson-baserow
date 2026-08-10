@@ -56,7 +56,7 @@ function DeliveryStatusBadge({ status }) {
   let colors = "bg-slate-100 text-slate-700";
   if (s === "delivered" || s === "handdelivered") colors = "bg-emerald-100 text-emerald-800";
   else if (s === "dispatched" || s === "in transit") colors = "bg-blue-100 text-blue-800";
-  else if (s === "rto") colors = "bg-rose-100 text-rose-800";
+  else if (s === "rto" || s === "rejected") colors = "bg-rose-100 text-rose-800";
   else if (s === "not dispatched") colors = "bg-amber-100 text-amber-800";
   return (
     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize ${colors}`}>
@@ -85,8 +85,8 @@ function DetailModal({ request, onClose, onAction }) {
   const statusRaw = getStatusRaw(request["DeliveryStatus"]).toLowerCase();
   const isOldData = Number(request.id) <= 363;
   const isDispatched = statusRaw === "dispatched";
-  const isRTO = statusRaw === "rto";
-  const isPending = !isOldData && !isDispatched && !isRTO;
+  const isRejected = statusRaw === "rto" || statusRaw === "rejected";
+  const isPending = !isOldData && !isDispatched && !isRejected;
 
   async function handleApprove() {
     setApproving(true);
@@ -332,7 +332,7 @@ export default function AdminSpecimenRequests() {
   const pendingRequests = requests.filter((req) => {
     const statusRaw = getStatusRaw(req["DeliveryStatus"]).toLowerCase();
     const isOldData = Number(req.id) <= 363;
-    return !isOldData && statusRaw !== "dispatched" && statusRaw !== "rto";
+    return !isOldData && statusRaw !== "dispatched" && statusRaw !== "rto" && statusRaw !== "rejected";
   });
   const pendingCount = pendingRequests.length;
 

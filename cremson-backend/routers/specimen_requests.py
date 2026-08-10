@@ -454,11 +454,11 @@ async def approve_specimen_request(row_id: int):
 
 @router.patch("/{row_id}/reject", summary="Reject specimen request")
 async def reject_specimen_request(row_id: int):
-    """Set DeliveryStatus to RTO (rejected/returned)."""
+    """Set DeliveryStatus to Rejected (no shipment creation, no order creation)."""
     result = await client.update_row(
         TABLE_IDS["specimen_requests"],
         row_id,
-        {"DeliveryStatus": "RTO"},
+        {"DeliveryStatus": "Rejected"},
     )
     return result
 
