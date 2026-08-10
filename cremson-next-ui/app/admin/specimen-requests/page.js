@@ -51,15 +51,21 @@ function getStatusRaw(status) {
 }
 
 function DeliveryStatusBadge({ status }) {
-  const raw = getStatusRaw(status);
+  let raw = getStatusRaw(status);
   const s = raw.toLowerCase();
   let colors = "bg-slate-100 text-slate-700";
-  if (s === "delivered" || s === "handdelivered") colors = "bg-emerald-100 text-emerald-800";
-  else if (s === "dispatched" || s === "in transit") colors = "bg-blue-100 text-blue-800";
-  else if (s === "rto" || s === "rejected") colors = "bg-rose-100 text-rose-800";
-  else if (s === "not dispatched") colors = "bg-amber-100 text-amber-800";
+  if (s === "delivered" || s === "handdelivered") {
+    colors = "bg-emerald-100 text-emerald-800";
+  } else if (s === "dispatched" || s === "in transit") {
+    colors = "bg-blue-100 text-blue-800";
+  } else if (s === "rto" || s === "rejected") {
+    colors = "bg-rose-100 text-rose-800";
+    raw = "Rejected";
+  } else if (s === "not dispatched") {
+    colors = "bg-amber-100 text-amber-800";
+  }
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize ${colors}`}>
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${colors}`}>
       {raw || "—"}
     </span>
   );
