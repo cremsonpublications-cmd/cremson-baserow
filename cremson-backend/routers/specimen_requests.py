@@ -106,15 +106,38 @@ async def get_specimen_request(row_id: int):
 @router.post("/", summary="Create specimen request")
 async def create_specimen_request(body: dict, user: dict = Depends(current_user)):
     role = user.get("role", "customer")
-    if role == "teacher" and not body.get("TeacherID"):
+    
+    # Extract pincode from body if present
+    raw_pincode = body.pop("PinCode", None) or body.pop("pincode", None) or body.pop("Pin Code", None)
+    
+    teacher_id = None
+    if role == "teacher":
         try:
             # Query teacher CRM table (877) by user's email to get teacher record ID
             teacher_res = await client.get_rows(TABLE_IDS["teacher"], filters={"Email": user["email"].lower().strip()})
             t_rows = teacher_res.get("results", [])
             if t_rows:
-                body["TeacherID"] = [t_rows[0]["id"]]
+                teacher_id = t_rows[0]["id"]
+                if not body.get("TeacherID"):
+                    body["TeacherID"] = [teacher_id]
+                
+                # Update teacher's Pin Code and Residence if provided
+                update_fields = {}
+                if raw_pincode:
+                    try:
+                        update_fields["Pin Code"] = int(raw_pincode)
+                    except Exception:
+                        pass
+                if body.get("Full_Address"):
+                    update_fields["Residence"] = body.get("Full_Address")
+                if update_fields:
+                    await client.update_row(TABLE_IDS["teacher"], teacher_id, update_fields)
         except Exception as e:
-            print("Warning: Failed to auto-link teacher profile to specimen request:", e)
+            print("Warning: Failed to auto-link/update teacher profile for specimen request:", e)
+
+    # Remove lookup/read-only fields from body to prevent Baserow validation errors
+    for readonly_field in ["Teacheer Name", "School Name", "Phone", "Email", "City", "SchoolID"]:
+        body.pop(readonly_field, None)
             
     return await client.create_row(TABLE_IDS["specimen_requests"], body)
 
