@@ -514,22 +514,12 @@ async def send_specimen_received_whatsapp(phone: str, name: str, book_count: str
 
 
 async def send_specimen_rejected_whatsapp(phone: str, name: str, books_requested: str = ""):
-    """Sends a WhatsApp template notification (specimen_rejected_v1) to teacher when a specimen request is rejected. Falls back to text message if template is pending approval."""
+    """Sends a WhatsApp template notification (specimen_rejected_v1) to teacher when a specimen request is rejected."""
     b_desc = books_requested if books_requested else "Requested Specimen Copy"
-    sent = await _send_template(
+    await _send_template(
         phone=phone,
         template_name="specimen_rejected_v1",
         parameters=[_txt(name), _txt(b_desc)],
         log_tag=f"specimen_rejected name={name}",
     )
-    if not sent:
-        msg = (
-            f"Hello {name},\n\n"
-            f"Thank you for contacting Cremson Publications.\n\n"
-            f"Regarding your specimen copy request ({b_desc}): Our team reviewed your request, but unfortunately, we are unable to approve or dispatch this specimen copy request at this time.\n\n"
-            f"If you have any questions or need evaluation copies for your school, please contact our support team.\n\n"
-            f"Thank you,\n"
-            f"Cremson Publications Team"
-        )
-        await _send_text_message(phone, msg, log_tag=f"specimen_rejected_fallback name={name}")
 
