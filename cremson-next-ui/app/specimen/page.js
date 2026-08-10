@@ -126,7 +126,7 @@ function SpecimenContent() {
     mobile: user?.phone || "",
     schoolName: user?.school_name || "",
     address: "",
-    pincode: user?.pincode || user?.pincode_code || "",
+    pincode: "",
     designation: user?.designation || "Teacher",
     comments: "",
   });
@@ -182,8 +182,8 @@ function SpecimenContent() {
         mobile: user.phone || "",
         schoolName: user.school_name || "",
         designation: user.designation || "Teacher",
-        address: prev.address || user.residence || user.full_address || user.address || "",
-        pincode: prev.pincode || user.pincode || user.pincode_code || "",
+        address: prev.address || "",
+        pincode: prev.pincode || "",
       }));
     }
   }, [user]);
