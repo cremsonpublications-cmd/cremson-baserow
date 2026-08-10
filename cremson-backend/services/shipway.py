@@ -166,17 +166,13 @@ async def get_cheapest_carrier(
         except Exception as exc:
             logger.debug(f"[Shipway Rate Check] Endpoint {url} check error: {exc}")
 
-    # Fallback to weight-matched carrier ID from account
+    # Fallback to weight-matched carrier ID from account (standard Delhivery parcel couriers)
     if weight_grams <= 500:
         fallback_carrier = "80622"  # Delhivery 0.5kg
-    elif weight_grams <= 1000:
+    elif weight_grams <= 1500:
         fallback_carrier = "80734"  # Delhivery 1kg
-    elif weight_grams <= 2000:
-        fallback_carrier = "80977"  # Delhivery 2kg
-    elif weight_grams <= 5000:
-        fallback_carrier = "7613"   # Delhivery 5kg
     else:
-        fallback_carrier = "7666"   # Delhivery 10kg
+        fallback_carrier = "80977"  # Delhivery 2kg Standard
 
     logger.info(
         f"[Shipway Rate Check] Using weight-matched carrier_id {fallback_carrier} for {weight_grams}g"
