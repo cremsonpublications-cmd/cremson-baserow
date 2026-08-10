@@ -509,3 +509,17 @@ async def send_specimen_received_whatsapp(phone: str, name: str, book_count: str
         log_tag=f"specimen_received name={name} count={book_count}",
     )
 
+
+async def send_specimen_rejected_whatsapp(phone: str, name: str, books_requested: str = ""):
+    """Sends WhatsApp notification to teacher when a specimen request is rejected."""
+    b_desc = f" ({books_requested})" if books_requested else ""
+    msg = (
+        f"Hello {name},\n\n"
+        f"Thank you for contacting Cremson Publications.\n\n"
+        f"Regarding your specimen copy request{b_desc}: Our team reviewed your request, but unfortunately, we are unable to approve or dispatch this specimen copy request at this time.\n\n"
+        f"If you have any questions or need evaluation copies for your school, please contact our support team or reach out to your regional representative.\n\n"
+        f"Thank you,\n"
+        f"Cremson Publications Team"
+    )
+    await _send_text_message(phone, msg, log_tag=f"specimen_rejected name={name}")
+

@@ -454,12 +454,41 @@ async def approve_specimen_request(row_id: int):
 
 @router.patch("/{row_id}/reject", summary="Reject specimen request")
 async def reject_specimen_request(row_id: int):
-    """Set DeliveryStatus to Rejected (no shipment creation, no order creation)."""
+    """Set DeliveryStatus to Rejected (no shipment creation, no order creation) and send WhatsApp notification."""
+    row = None
+    try:
+        row = await client.get_row(TABLE_IDS["specimen_requests"], row_id)
+    except Exception as e:
+        logger.warning(f"[Specimen Rejection] Could not fetch row #{row_id} details: {e}")
+
     result = await client.update_row(
         TABLE_IDS["specimen_requests"],
         row_id,
         {"DeliveryStatus": "Rejected"},
     )
+
+    if row:
+        phone = ""
+        teacher_name = "Teacher"
+        books_requested = row.get("BooksRequested") or ""
+
+        phones = row.get("Phone", [])
+        if phones and isinstance(phones, list) and len(phones) > 0:
+            p_obj = phones[0]
+            phone = p_obj.get("value") if isinstance(p_obj, dict) else str(p_obj)
+
+        t_names = row.get("Teacheer Name", []) or row.get("Teacher Name", [])
+        if t_names and isinstance(t_names, list) and len(t_names) > 0:
+            t_obj = t_names[0]
+            teacher_name = t_obj.get("value") if isinstance(t_obj, dict) else str(t_obj)
+
+        if phone:
+            try:
+                from services.whatsapp import send_specimen_rejected_whatsapp
+                await send_specimen_rejected_whatsapp(phone, teacher_name, books_requested)
+            except Exception as wa_err:
+                logger.error(f"[Specimen Rejection] WhatsApp notification error for #{row_id}: {wa_err}")
+
     return result
 
 
