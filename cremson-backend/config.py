@@ -13,10 +13,10 @@ WHATSAPP_TEMPLATE_LANGUAGE = os.getenv("WHATSAPP_TEMPLATE_LANGUAGE", "en")
 WHATSAPP_MAIN_PHONE = os.getenv("WHATSAPP_MAIN_PHONE", "919205153617")
 
 # 2Factor SMS Gateway Config
-TWOFACTOR_API_KEY = os.getenv("TWOFACTOR_API_KEY", "")
-TWOFACTOR_SENDER_ID = os.getenv("TWOFACTOR_SENDER_ID", "CREMSN")
-TWOFACTOR_OTP_TEMPLATE = os.getenv("TWOFACTOR_OTP_TEMPLATE", "{otp} is your verification OTP for Cremson Publications. Please do not share this with anyone.")
-TWOFACTOR_OTP_TEMPLATE_NAME = os.getenv("TWOFACTOR_OTP_TEMPLATE_NAME", "CremsonOTP")
+TWOFACTOR_API_KEY = os.getenv("TWOFACTOR_API_KEY") or ""
+TWOFACTOR_SENDER_ID = os.getenv("TWOFACTOR_SENDER_ID") or "CREMSN"
+TWOFACTOR_OTP_TEMPLATE = os.getenv("TWOFACTOR_OTP_TEMPLATE") or "{otp} is your verification OTP for Cremson Publications. Please do not share this with anyone."
+TWOFACTOR_OTP_TEMPLATE_NAME = os.getenv("TWOFACTOR_OTP_TEMPLATE_NAME") or "CremsonOTP"
 
 # Shipway
 SHIPWAY_USERNAME = os.getenv("SHIPWAY_USERNAME", "")
