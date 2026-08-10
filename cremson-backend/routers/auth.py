@@ -103,7 +103,7 @@ def make_otp() -> str:
 
 
 async def send_otp_to_user(email: str, name: str, phone: str, otp: str):
-    # 1. Send via WhatsApp (using the template)
+    # 1. Send via WhatsApp
     if phone:
         try:
             from services.whatsapp import send_whatsapp_otp
@@ -111,13 +111,6 @@ async def send_otp_to_user(email: str, name: str, phone: str, otp: str):
             print(f"WhatsApp OTP sent successfully to {phone}")
         except Exception as e:
             print(f"Warning: Failed to send WhatsApp OTP to {phone}: {e}")
-
-    # 2. Send via Email (as backup)
-    try:
-        await send_verification_email(email, name, otp)
-        print(f"Email OTP sent successfully to {email}")
-    except Exception as e:
-        print(f"Warning: Failed to send Email OTP to {email}: {e}")
 
 
 def make_token(user: dict) -> str:

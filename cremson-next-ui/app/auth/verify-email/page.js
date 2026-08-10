@@ -154,7 +154,7 @@ function VerifyEmailContent() {
               disabled={loading}
               className="w-full py-3.5 bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-sm uppercase tracking-wider rounded-xl shadow-md transition-all"
             >
-              {loading ? "Verifying…" : "Verify Email"}
+              {loading ? "Verifying…" : "Verify Number"}
             </button>
           </form>
 
