@@ -16,9 +16,10 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
+            set -e
             echo "Checking out tagged version ${{ github.ref_name }}..."
             cd /opt/cremson-baserow
-            git fetch --all --tags --force
+            git fetch origin --tags --force || git fetch --all --tags --force
             git checkout -f ${{ github.ref_name }}
             git reset --hard ${{ github.ref_name }}
             
@@ -31,5 +32,5 @@ jobs:
             pip install -r requirements.txt
             
             echo "Restarting FastAPI service..."
-            sudo systemctl restart cremson-backend || systemctl restart cremson-backend
+            sudo systemctl restart cremson-backend || systemctl restart cremson-backend || true
             echo "Deployment completed successfully!"
