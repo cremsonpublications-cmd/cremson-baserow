@@ -434,7 +434,7 @@ function SpecimenContent() {
                   {!user
                     ? "Specimen copy requests are exclusively available for verified school teachers. Please sign in or register as a teacher."
                     : user.role === "teacher"
-                    ? "Your teacher account is pending admin approval. Once approved by an admin, you can request specimen copies."
+                    ? "Welcome! Please select the specimen copies you would like to receive."
                     : "You are currently logged in as a student/customer. Free specimen copies are only available for verified teachers. Please log out and sign in with a teacher account, or register a new teacher account."}
                 </p>
               </div>

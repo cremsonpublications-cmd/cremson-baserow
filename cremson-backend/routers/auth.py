@@ -277,7 +277,7 @@ async def teacher_register(body: TeacherRegisterRequest):
         password_hash=pw_hash,
         phone=body.phone,
         role="teacher",
-        is_approved=0,
+        is_approved=1,
         is_verified=0,
         designation=body.designation,
     )
@@ -305,7 +305,7 @@ async def teacher_register(body: TeacherRegisterRequest):
             "Teacher Name": body.name,
             "Email": body.email.lower().strip(),
             "Whatsapp Phone": normalize_phone(body.phone),
-            "Status": "Pending Approval",
+            "Status": "Approved",
             "IdCardUrl": body.id_card_url or "",
             "City": city_name or "",
             "Residence": residence_address or "",
@@ -443,23 +443,20 @@ async def login(body: LoginRequest):
         )
 
     role = user.get("role", "customer")
-    is_approved = int(user.get("is_approved") or (0 if role == "teacher" else 1))
+    raw_approved = user.get("is_approved")
+    is_approved = int(raw_approved) if raw_approved is not None and str(raw_approved) != "" else 1
     t_details = {"school_name": "", "id_card_url": "", "specimen_limit": 2}
 
     # If teacher account, verify approval status
     if role == "teacher":
-        if is_approved == 1:
-            t_details = await get_teacher_details(user["email"])
-        elif is_approved == -1:
+        if is_approved == -1:
             raise HTTPException(
                 status_code=403,
                 detail="Your teacher registration request was rejected by admin.",
             )
         else:
-            raise HTTPException(
-                status_code=403,
-                detail="Your teacher account is pending admin approval. You will be able to log in once an admin approves your account.",
-            )
+            is_approved = 1
+            t_details = await get_teacher_details(user["email"])
 
     token = make_token({**user, "role": role, "is_approved": is_approved})
     return {
