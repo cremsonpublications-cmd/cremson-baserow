@@ -464,7 +464,7 @@ async def reject_specimen_request(row_id: int):
     result = await client.update_row(
         TABLE_IDS["specimen_requests"],
         row_id,
-        {"DeliveryStatus": "Rejected"},
+        {"DeliveryStatus": "RTO"},
     )
 
     if row:
