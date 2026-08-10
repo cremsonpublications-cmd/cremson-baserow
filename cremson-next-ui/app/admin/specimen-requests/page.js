@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "../../../lib/api/axios";
-import { adminApproveSpecimen, adminRejectSpecimen, adminDeleteSpecimenRequest } from "../../../lib/api/admin";
+import { adminApproveSpecimen, adminRejectSpecimen, adminDeleteSpecimenRequest, adminBulkApproveSpecimen, adminBulkRejectSpecimen } from "../../../lib/api/admin";
 import ConfirmModal from "../components/ConfirmModal";
 import CreateSpecimenModal from "../components/CreateSpecimenModal";
 import {
@@ -341,34 +341,34 @@ export default function AdminSpecimenRequests() {
     setBulkActionLoading(true);
     setConfirmBulkAction(null);
 
-    let successCount = 0;
-    let failCount = 0;
+    const targetIds = pendingRequests.map((req) => req.id);
 
-    for (const req of pendingRequests) {
-      try {
-        if (actionType === "approve") {
-          await adminApproveSpecimen(req.id);
-        } else {
-          await adminRejectSpecimen(req.id);
+    try {
+      if (actionType === "approve") {
+        const res = await adminBulkApproveSpecimen(targetIds);
+        if (res.success_count > 0) {
+          toast.success(`Approved & dispatched ${res.success_count} specimen request(s).`);
         }
-        successCount++;
-      } catch (err) {
-        failCount++;
-        console.error(`Failed to ${actionType} specimen #${req.id}:`, err);
+        if (res.fail_count > 0) {
+          const firstFail = res.results.find((r) => !r.success);
+          const errorDetail = firstFail?.error || "Dispatch failed";
+          toast.error(`Failed ${res.fail_count} request(s): ${errorDetail}`, { duration: 6000 });
+        }
+      } else {
+        const res = await adminBulkRejectSpecimen(targetIds);
+        if (res.success_count > 0) {
+          toast.error(`Rejected ${res.success_count} specimen request(s).`);
+        }
+        if (res.fail_count > 0) {
+          toast.error(`Failed to reject ${res.fail_count} request(s).`);
+        }
       }
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || `Bulk ${actionType} failed.`);
+    } finally {
+      setBulkActionLoading(false);
+      queryClient.invalidateQueries({ queryKey: ["admin-specimen-requests"] });
     }
-
-    if (actionType === "approve") {
-      if (successCount > 0) toast.success(`Approved & dispatched ${successCount} specimen request(s).`);
-    } else {
-      if (successCount > 0) toast.error(`Rejected ${successCount} specimen request(s).`);
-    }
-    if (failCount > 0) {
-      toast.error(`Failed to ${actionType} ${failCount} request(s).`);
-    }
-
-    setBulkActionLoading(false);
-    queryClient.invalidateQueries({ queryKey: ["admin-specimen-requests"] });
   }
 
   function formatDate(dateStr) {

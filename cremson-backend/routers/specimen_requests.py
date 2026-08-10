@@ -565,3 +565,59 @@ async def admin_create_specimen_request(body: AdminCreateSpecimenRequest):
     }
 
 
+class BulkSpecimenAction(BaseModel):
+    ids: List[int]
+
+
+@router.post("/bulk-approve", summary="Bulk approve multiple specimen requests")
+async def bulk_approve_specimen_requests(body: BulkSpecimenAction):
+    """Approve multiple specimen requests in a single payload."""
+    results = []
+    success_count = 0
+    fail_count = 0
+
+    for row_id in body.ids:
+        try:
+            res = await approve_specimen_request(row_id)
+            success_count += 1
+            results.append({"id": row_id, "success": True, "details": res})
+        except Exception as err:
+            fail_count += 1
+            err_msg = getattr(err, "detail", str(err))
+            logger.error(f"[Bulk Approve Specimen] Request #{row_id} failed: {err_msg}")
+            results.append({"id": row_id, "success": False, "error": str(err_msg)})
+
+    return {
+        "total": len(body.ids),
+        "success_count": success_count,
+        "fail_count": fail_count,
+        "results": results,
+    }
+
+
+@router.post("/bulk-reject", summary="Bulk reject multiple specimen requests")
+async def bulk_reject_specimen_requests(body: BulkSpecimenAction):
+    """Reject multiple specimen requests in a single payload."""
+    results = []
+    success_count = 0
+    fail_count = 0
+
+    for row_id in body.ids:
+        try:
+            res = await reject_specimen_request(row_id)
+            success_count += 1
+            results.append({"id": row_id, "success": True, "details": res})
+        except Exception as err:
+            fail_count += 1
+            err_msg = getattr(err, "detail", str(err))
+            logger.error(f"[Bulk Reject Specimen] Request #{row_id} failed: {err_msg}")
+            results.append({"id": row_id, "success": False, "error": str(err_msg)})
+
+    return {
+        "total": len(body.ids),
+        "success_count": success_count,
+        "fail_count": fail_count,
+        "results": results,
+    }
+
+

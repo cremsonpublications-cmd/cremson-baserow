@@ -34,6 +34,8 @@ export const adminGetSpecimenRequests = (params) => api.get("/api/specimen-reque
 export const adminUpdateSpecimenStatus = (id, status) => api.patch(`/api/specimen-requests/${id}`, { status }).then(r => r.data);
 export const adminApproveSpecimen = (id) => api.patch(`/api/specimen-requests/${id}/approve`).then(r => r.data);
 export const adminRejectSpecimen = (id) => api.patch(`/api/specimen-requests/${id}/reject`).then(r => r.data);
+export const adminBulkApproveSpecimen = (ids) => api.post("/api/specimen-requests/bulk-approve", { ids }).then(r => r.data);
+export const adminBulkRejectSpecimen = (ids) => api.post("/api/specimen-requests/bulk-reject", { ids }).then(r => r.data);
 
 // Shipping Settings
 export const adminGetShippingSettings = (params) => api.get("/api/shipping-settings/", { params }).then(r => r.data);
