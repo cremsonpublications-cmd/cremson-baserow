@@ -72,6 +72,11 @@ class SplitPaymentCreate(BaseModel):
     student_names: Optional[List[str]] = []   # Optional names per student
 
 
+class InitiateStudentPayment(BaseModel):
+    student_name: str
+    student_phone: str
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _calc_final_amount(subtotal: float, discount_type: str, discount_value: float) -> float:
@@ -368,42 +373,75 @@ async def create_full_payment(token: str):
     }
 
 
-@router.post("/{token}/split", summary="Generate N student payment tokens")
+@router.post("/{token}/split", summary="Generate split payment configuration")
 async def create_split_payment(token: str, body: SplitPaymentCreate):
     if body.split_count < 2:
         raise HTTPException(status_code=400, detail="Split count must be at least 2")
 
     norm = await get_bulk_order(token)
-    if norm.get("status") != "approved":
+    if norm.get("status") not in ["approved", "partially_paid"]:
         raise HTTPException(status_code=400, detail="Order is not approved yet")
 
     final_amount = norm.get("final_amount", 0)
     per_student = round(final_amount / body.split_count, 2)
 
-    students = []
-    for i in range(body.split_count):
-        name = (body.student_names[i] if body.student_names and i < len(body.student_names) else f"Student {i+1}")
-        students.append({
-            "student_token": str(uuid.uuid4()),
-            "name": name,
-            "amount": per_student,
-            "paid": False,
-            "razorpay_payment_id": None,
-        })
-
     norm["split_count"] = body.split_count
     norm["paid_count"] = 0
-    norm["student_payments"] = students
+    norm["student_payments"] = []
     await _save_bulk_data(norm["id"], norm)
 
     site = SITE_URL
     return {
         "split_count": body.split_count,
         "per_student_amount": per_student,
-        "students": [
-            {**s, "pay_link": f"{site}/bulk-order/{token}/pay/{s['student_token']}"}
-            for s in students
-        ],
+        "pay_link": f"{site}/bulk-order/{token}/pay",
+    }
+
+
+@router.post("/{token}/initiate-student-payment", summary="Dynamically register student and create Razorpay order")
+async def initiate_student_payment(token: str, body: InitiateStudentPayment):
+    norm = await get_bulk_order(token)
+    if norm.get("status") not in ["approved", "partially_paid"]:
+        raise HTTPException(status_code=400, detail="Order is not open for payments")
+
+    split_count = int(norm.get("split_count", 0))
+    if split_count < 2:
+        raise HTTPException(status_code=400, detail="Order split not initialized")
+
+    final_amount = norm.get("final_amount", 0)
+    per_student = round(final_amount / split_count, 2)
+
+    students = norm.get("student_payments", [])
+    paid_students = [s for s in students if s.get("paid")]
+    if len(paid_students) >= split_count:
+        raise HTTPException(status_code=400, detail="All split payments for this order have already been completed")
+
+    student_token = str(uuid.uuid4())
+    new_student = {
+        "student_token": student_token,
+        "name": body.student_name,
+        "phone": body.student_phone,
+        "amount": per_student,
+        "paid": False,
+        "razorpay_payment_id": None,
+    }
+    students.append(new_student)
+    norm["student_payments"] = students
+    await _save_bulk_data(norm["id"], norm)
+
+    rz_order = await _razorpay_create_order(
+        per_student,
+        f"bulk_{norm['id']}_s_{student_token[:8]}"
+    )
+
+    return {
+        "razorpay_order_id": rz_order["id"],
+        "amount": rz_order["amount"],
+        "currency": "INR",
+        "key_id": RAZORPAY_KEY_ID,
+        "student_name": body.student_name,
+        "bulk_order_token": token,
+        "student_token": student_token,
     }
 
 

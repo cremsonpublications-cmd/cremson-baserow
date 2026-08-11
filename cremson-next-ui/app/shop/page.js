@@ -993,7 +993,7 @@ function Shop() {
               <div className="flex items-center justify-center space-x-2 mt-8">
                 <button
                   disabled={currentPage === 1}
-                  onClick={() => updateUrl({ page: currentPage - 1 })}
+                  onClick={() => { updateUrl({ page: currentPage - 1 }); window.scrollTo(0, 0); }}
                   className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${currentPage === 1 ? "text-gray-400 cursor-not-allowed" : "text-gray-700 hover:bg-gray-100 hover:text-black cursor-pointer"
                     }`}
                 >
@@ -1006,7 +1006,7 @@ function Shop() {
                     return (
                       <button
                         key={pageNum}
-                        onClick={() => updateUrl({ page: pageNum })}
+                        onClick={() => { updateUrl({ page: pageNum }); window.scrollTo(0, 0); }}
                         className={`px-3 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${currentPage === pageNum
                           ? "bg-black text-white"
                           : "text-gray-700 hover:bg-gray-100 hover:text-black"
@@ -1019,7 +1019,7 @@ function Shop() {
                 </div>
                 <button
                   disabled={currentPage === totalPages}
-                  onClick={() => updateUrl({ page: currentPage + 1 })}
+                  onClick={() => { updateUrl({ page: currentPage + 1 }); window.scrollTo(0, 0); }}
                   className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${currentPage === totalPages ? "text-gray-400 cursor-not-allowed" : "text-gray-700 hover:bg-gray-100 hover:text-black cursor-pointer"
                     }`}
                 >
