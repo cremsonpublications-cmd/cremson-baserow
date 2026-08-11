@@ -376,6 +376,8 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
   });
 
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(isEdit ? "saved" : "");
+  const debounceRef = useRef(null);
 
   const tabLabel = TABS.find(t => t.id === activeTab)?.label || "Record";
 
@@ -391,10 +393,109 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
 
   const auditLogs = auditData?.logs || [];
 
+  // Core auto-save execution
+  const triggerSave = useCallback(async (currentForm) => {
+    if (!isEdit || !record?.id) return;
+    setSaveStatus("saving");
+    try {
+      const payload = {};
+      fields.forEach(field => {
+        const val = currentForm[field.key];
+
+        let isMultiple = field.multiple;
+        if (activeTab === "teachers" && field.key === "SchoolID") {
+          isMultiple = !!currentForm["Guest"];
+        }
+
+        if (field.type === "link") {
+          if (isMultiple) {
+            payload[field.key] = Array.isArray(val) ? val.map(x => x.id) : [];
+          } else {
+            if (Array.isArray(val)) {
+              payload[field.key] = val.length > 0 && val[0] && val[0].id ? [val[0].id] : [];
+            } else {
+              payload[field.key] = val && val.id ? [val.id] : [];
+            }
+          }
+        } else {
+          payload[field.key] = val === "" ? null : val;
+        }
+      });
+
+      const apiCalls = API_CALLS[activeTab];
+      await apiCalls.update(record.id, payload);
+      setSaveStatus("saved");
+      refetchAudit();
+      onSaved();
+    } catch (err) {
+      console.error("Auto-save error:", err);
+      setSaveStatus("error");
+    }
+  }, [isEdit, record?.id, fields, activeTab, refetchAudit, onSaved]);
+
+  const handleFieldChange = (fieldKey, newVal, fieldType) => {
+    setForm(f => {
+      const updated = { ...f, [fieldKey]: newVal };
+      if (activeTab === "teachers" && fieldKey === "Guest" && !newVal) {
+        if (Array.isArray(updated["SchoolID"])) {
+          updated["SchoolID"] = updated["SchoolID"].slice(0, 1);
+        }
+      }
+
+      // Trigger auto-save if editing existing record
+      if (isEdit) {
+        if (fieldType === "select" || fieldType === "boolean" || fieldType === "link" || fieldType === "date") {
+          triggerSave(updated);
+        } else {
+          clearTimeout(debounceRef.current);
+          setSaveStatus("saving");
+          debounceRef.current = setTimeout(() => {
+            triggerSave(updated);
+          }, 600);
+        }
+      }
+
+      return updated;
+    });
+
+    if (activeTab === "teachers" && fieldKey === "SchoolID" && newVal) {
+      const schoolId = Array.isArray(newVal)
+        ? (newVal.length > 0 ? newVal[0].id : null)
+        : newVal.id;
+
+      if (schoolId) {
+        api.get(`/api/crm/schools/${schoolId}`)
+          .then(res => {
+            const schoolData = res.data;
+            if (schoolData) {
+              setForm(f => {
+                const autoFilled = {
+                  ...f,
+                  "Residence": schoolData.SchoolAddress || f.Residence || "",
+                  "City": schoolData.SchoolCity || f.City || ""
+                };
+                if (isEdit) triggerSave(autoFilled);
+                return autoFilled;
+              });
+              toast.success("Teacher address pre-filled from selected school!");
+            }
+          })
+          .catch(err => {
+            console.error("Failed to fetch school details for auto-fill:", err);
+          });
+      }
+    }
+  };
+
   async function handleSubmit(e) {
     e.preventDefault();
-    setSaving(true);
+    if (isEdit) {
+      // If editing, form is already auto-saved, just close
+      onClose();
+      return;
+    }
 
+    setSaving(true);
     try {
       if (form["Whatsapp Phone"]) {
         const val = String(form["Whatsapp Phone"]).trim();
@@ -402,29 +503,10 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
           throw new Error("Whatsapp Phone must be exactly 10 digits.");
         }
       }
-      if (form["Alternate Number"]) {
-        const val = String(form["Alternate Number"]).trim();
-        if (val && !/^\d{10}$/.test(val)) {
-          throw new Error("Alternate Number must be exactly 10 digits.");
-        }
-      }
-      if (form["Pin Code"]) {
-        const val = String(form["Pin Code"]).trim();
-        if (val && !/^\d{6}$/.test(val)) {
-          throw new Error("Pin Code must be exactly 6 digits.");
-        }
-      }
-      if (form["SchoolPhone"]) {
-        const val = String(form["SchoolPhone"]).trim();
-        if (val && !/^\d{10}$/.test(val)) {
-          throw new Error("School Phone must be exactly 10 digits.");
-        }
-      }
 
       const payload = {};
       fields.forEach(field => {
         const val = form[field.key];
-
         let isMultiple = field.multiple;
         if (activeTab === "teachers" && field.key === "SchoolID") {
           isMultiple = !!form["Guest"];
@@ -446,12 +528,7 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
       });
 
       const apiCalls = API_CALLS[activeTab];
-      if (isEdit) {
-        await apiCalls.update(record.id, payload);
-        refetchAudit();
-      } else {
-        await apiCalls.create(payload);
-      }
+      await apiCalls.create(payload);
       onSaved();
     } catch (err) {
       console.error(err);
@@ -466,11 +543,28 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
       <div className={`bg-white rounded-2xl border border-gray-200 shadow-2xl w-full max-h-[90vh] flex flex-col overflow-hidden transition-all ${isEdit ? "max-w-5xl md:max-w-6xl" : "max-w-2xl"}`}>
-        {/* Header */}
+        {/* Header with Auto-Save Status */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {isEdit ? `Edit ${tabLabel} #${record.id}` : `Add New ${tabLabel}`}
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-semibold text-gray-900">
+              {isEdit ? `Edit ${tabLabel} #${record.id}` : `Add New ${tabLabel}`}
+            </h2>
+            {isEdit && (
+              saveStatus === "saving" ? (
+                <span className="flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-full font-medium border border-blue-100 animate-pulse">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Auto-saving...
+                </span>
+              ) : saveStatus === "saved" ? (
+                <span className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full font-semibold border border-emerald-200">
+                  <Check className="w-3.5 h-3.5" /> All changes saved
+                </span>
+              ) : saveStatus === "error" ? (
+                <span className="text-xs text-rose-600 bg-rose-50 px-3 py-1 rounded-full font-medium border border-rose-100">
+                  Auto-save error
+                </span>
+              ) : null
+            )}
+          </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
             <X className="w-6 h-6" />
           </button>
@@ -483,42 +577,6 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {fields.map(field => {
                 const value = form[field.key];
-
-                const onChange = (newVal) => {
-                  setForm(f => {
-                    const updated = { ...f, [field.key]: newVal };
-                    if (activeTab === "teachers" && field.key === "Guest" && !newVal) {
-                      if (Array.isArray(updated["SchoolID"])) {
-                        updated["SchoolID"] = updated["SchoolID"].slice(0, 1);
-                      }
-                    }
-                    return updated;
-                  });
-
-                  if (activeTab === "teachers" && field.key === "SchoolID" && newVal) {
-                    const schoolId = Array.isArray(newVal)
-                      ? (newVal.length > 0 ? newVal[0].id : null)
-                      : newVal.id;
-
-                    if (schoolId) {
-                      api.get(`/api/crm/schools/${schoolId}`)
-                        .then(res => {
-                          const schoolData = res.data;
-                          if (schoolData) {
-                            setForm(f => ({
-                              ...f,
-                              "Residence": schoolData.SchoolAddress || f.Residence || "",
-                              "City": schoolData.SchoolCity || f.City || ""
-                            }));
-                            toast.success("Teacher address pre-filled from selected school!");
-                          }
-                        })
-                        .catch(err => {
-                          console.error("Failed to fetch school details for auto-fill:", err);
-                        });
-                    }
-                  }
-                };
 
                 let displayField = { ...field };
                 if (activeTab === "teachers" && field.key === "SchoolID") {
@@ -540,7 +598,7 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
                     {displayField.type === "textarea" ? (
                       <textarea
                         value={value || ""}
-                        onChange={(e) => onChange(e.target.value)}
+                        onChange={(e) => handleFieldChange(field.key, e.target.value, "textarea")}
                         required={displayField.required}
                         rows={3}
                         placeholder={`Enter ${displayField.label.toLowerCase()}`}
@@ -550,12 +608,12 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
                       <RelationPicker
                         field={displayField}
                         value={value}
-                        onChange={onChange}
+                        onChange={(val) => handleFieldChange(field.key, val, "link")}
                       />
                     ) : displayField.type === "select" ? (
                       <select
                         value={value || ""}
-                        onChange={(e) => onChange(e.target.value || null)}
+                        onChange={(e) => handleFieldChange(field.key, e.target.value || null, "select")}
                         required={displayField.required}
                         className="w-full border border-gray-300 rounded-lg pl-3 pr-10 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white cursor-pointer appearance-none"
                         style={{
@@ -574,7 +632,7 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
                       <div className="flex items-center pt-2">
                         <button
                           type="button"
-                          onClick={() => onChange(!value)}
+                          onClick={() => handleFieldChange(field.key, !value, "boolean")}
                           className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${value ? 'bg-blue-600' : 'bg-gray-200'
                             }`}
                         >
@@ -591,7 +649,7 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
                         value={value === null || value === undefined ? "" : value}
                         onChange={(e) => {
                           const val = displayField.type === "number" ? (e.target.value !== "" ? Number(e.target.value) : "") : e.target.value;
-                          onChange(val);
+                          handleFieldChange(field.key, val, displayField.type);
                         }}
                         required={displayField.required}
                         placeholder={`Enter ${displayField.label.toLowerCase()}`}
@@ -604,20 +662,32 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
             </div>
 
             <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 mt-8">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 transition-colors cursor-pointer"
-              >
-                {saving ? "Saving..." : isEdit ? "Save Changes" : "Create Record"}
-              </button>
+              {isEdit ? (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-6 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer shadow-sm"
+                >
+                  Done / Close
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 transition-colors cursor-pointer"
+                  >
+                    {saving ? "Creating..." : "Create Record"}
+                  </button>
+                </>
+              )}
             </div>
           </form>
 
