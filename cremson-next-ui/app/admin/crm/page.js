@@ -426,7 +426,6 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
       await apiCalls.update(record.id, payload);
       setSaveStatus("saved");
       refetchAudit();
-      onSaved();
     } catch (err) {
       console.error("Auto-save error:", err);
       setSaveStatus("error");
