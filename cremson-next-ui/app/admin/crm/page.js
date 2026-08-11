@@ -379,6 +379,18 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
 
   const tabLabel = TABS.find(t => t.id === activeTab)?.label || "Record";
 
+  const { data: auditData, isLoading: loadingHistory, refetch: refetchAudit } = useQuery({
+    queryKey: ["teacher-audit-history", record?.id],
+    queryFn: async () => {
+      if (!record?.id) return { logs: [] };
+      const { data } = await api.get(`/api/crm/teachers/${record.id}/history`);
+      return data;
+    },
+    enabled: Boolean(isEdit && record?.id),
+  });
+
+  const auditLogs = auditData?.logs || [];
+
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
@@ -436,6 +448,7 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
       const apiCalls = API_CALLS[activeTab];
       if (isEdit) {
         await apiCalls.update(record.id, payload);
+        refetchAudit();
       } else {
         await apiCalls.create(payload);
       }
@@ -452,7 +465,8 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+      <div className={`bg-white rounded-2xl border border-gray-200 shadow-2xl w-full max-h-[90vh] flex flex-col overflow-hidden transition-all ${isEdit ? "max-w-5xl md:max-w-6xl" : "max-w-2xl"}`}>
+        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
           <h2 className="text-xl font-semibold text-gray-900">
             {isEdit ? `Edit ${tabLabel} #${record.id}` : `Add New ${tabLabel}`}
@@ -462,148 +476,218 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5 text-left">
+        {/* Content Body: Side by Side Flex */}
+        <div className="flex flex-1 overflow-hidden min-h-0">
+          {/* Left Side: Form */}
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5 text-left flex flex-col justify-between">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {fields.map(field => {
+                const value = form[field.key];
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {fields.map(field => {
-              const value = form[field.key];
+                const onChange = (newVal) => {
+                  setForm(f => {
+                    const updated = { ...f, [field.key]: newVal };
+                    if (activeTab === "teachers" && field.key === "Guest" && !newVal) {
+                      if (Array.isArray(updated["SchoolID"])) {
+                        updated["SchoolID"] = updated["SchoolID"].slice(0, 1);
+                      }
+                    }
+                    return updated;
+                  });
 
-              const onChange = (newVal) => {
-                setForm(f => {
-                  const updated = { ...f, [field.key]: newVal };
-                  if (activeTab === "teachers" && field.key === "Guest" && !newVal) {
-                    if (Array.isArray(updated["SchoolID"])) {
-                      updated["SchoolID"] = updated["SchoolID"].slice(0, 1);
+                  if (activeTab === "teachers" && field.key === "SchoolID" && newVal) {
+                    const schoolId = Array.isArray(newVal)
+                      ? (newVal.length > 0 ? newVal[0].id : null)
+                      : newVal.id;
+
+                    if (schoolId) {
+                      api.get(`/api/crm/schools/${schoolId}`)
+                        .then(res => {
+                          const schoolData = res.data;
+                          if (schoolData) {
+                            setForm(f => ({
+                              ...f,
+                              "Residence": schoolData.SchoolAddress || f.Residence || "",
+                              "City": schoolData.SchoolCity || f.City || ""
+                            }));
+                            toast.success("Teacher address pre-filled from selected school!");
+                          }
+                        })
+                        .catch(err => {
+                          console.error("Failed to fetch school details for auto-fill:", err);
+                        });
                     }
                   }
-                  return updated;
-                });
+                };
 
-                if (activeTab === "teachers" && field.key === "SchoolID" && newVal) {
-                  const schoolId = Array.isArray(newVal)
-                    ? (newVal.length > 0 ? newVal[0].id : null)
-                    : newVal.id;
-
-                  if (schoolId) {
-                    api.get(`/api/crm/schools/${schoolId}`)
-                      .then(res => {
-                        const schoolData = res.data;
-                        if (schoolData) {
-                          setForm(f => ({
-                            ...f,
-                            "Residence": schoolData.SchoolAddress || f.Residence || "",
-                            "City": schoolData.SchoolCity || f.City || ""
-                          }));
-                          toast.success("Teacher address pre-filled from selected school!");
-                        }
-                      })
-                      .catch(err => {
-                        console.error("Failed to fetch school details for auto-fill:", err);
-                      });
+                let displayField = { ...field };
+                if (activeTab === "teachers" && field.key === "SchoolID") {
+                  if (form["Guest"]) {
+                    displayField.multiple = true;
+                    displayField.label = "Linked Schools";
+                  } else {
+                    displayField.multiple = false;
+                    displayField.label = "Linked School";
                   }
                 }
-              };
 
-              let displayField = { ...field };
-              if (activeTab === "teachers" && field.key === "SchoolID") {
-                if (form["Guest"]) {
-                  displayField.multiple = true;
-                  displayField.label = "Linked Schools";
-                } else {
-                  displayField.multiple = false;
-                  displayField.label = "Linked School";
-                }
-              }
+                return (
+                  <div key={displayField.key} className={displayField.type === "textarea" || displayField.type === "link" ? "col-span-2" : ""}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      {displayField.label} {displayField.required && <span className="text-red-500">*</span>}
+                    </label>
 
-              return (
-                <div key={displayField.key} className={displayField.type === "textarea" || displayField.type === "link" ? "col-span-2" : ""}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    {displayField.label} {displayField.required && <span className="text-red-500">*</span>}
-                  </label>
-
-                  {displayField.type === "textarea" ? (
-                    <textarea
-                      value={value || ""}
-                      onChange={(e) => onChange(e.target.value)}
-                      required={displayField.required}
-                      rows={3}
-                      placeholder={`Enter ${displayField.label.toLowerCase()}`}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  ) : displayField.type === "link" ? (
-                    <RelationPicker
-                      field={displayField}
-                      value={value}
-                      onChange={onChange}
-                    />
-                  ) : displayField.type === "select" ? (
-                    <select
-                      value={value || ""}
-                      onChange={(e) => onChange(e.target.value || null)}
-                      required={displayField.required}
-                      className="w-full border border-gray-300 rounded-lg pl-3 pr-10 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white cursor-pointer appearance-none"
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                        backgroundPosition: "right 0.75rem center",
-                        backgroundRepeat: "no-repeat",
-                        backgroundSize: "1.25rem 1.25rem",
-                      }}
-                    >
-                      <option value="">-- Select Option --</option>
-                      {displayField.options.map(opt => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
-                  ) : displayField.type === "boolean" ? (
-                    <div className="flex items-center pt-2">
-                      <button
-                        type="button"
-                        onClick={() => onChange(!value)}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${value ? 'bg-blue-600' : 'bg-gray-200'
-                          }`}
+                    {displayField.type === "textarea" ? (
+                      <textarea
+                        value={value || ""}
+                        onChange={(e) => onChange(e.target.value)}
+                        required={displayField.required}
+                        rows={3}
+                        placeholder={`Enter ${displayField.label.toLowerCase()}`}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : displayField.type === "link" ? (
+                      <RelationPicker
+                        field={displayField}
+                        value={value}
+                        onChange={onChange}
+                      />
+                    ) : displayField.type === "select" ? (
+                      <select
+                        value={value || ""}
+                        onChange={(e) => onChange(e.target.value || null)}
+                        required={displayField.required}
+                        className="w-full border border-gray-300 rounded-lg pl-3 pr-10 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white cursor-pointer appearance-none"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                          backgroundPosition: "right 0.75rem center",
+                          backgroundRepeat: "no-repeat",
+                          backgroundSize: "1.25rem 1.25rem",
+                        }}
                       >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${value ? 'translate-x-5' : 'translate-x-0'
+                        <option value="">-- Select Option --</option>
+                        {displayField.options.map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    ) : displayField.type === "boolean" ? (
+                      <div className="flex items-center pt-2">
+                        <button
+                          type="button"
+                          onClick={() => onChange(!value)}
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${value ? 'bg-blue-600' : 'bg-gray-200'
                             }`}
-                        />
-                      </button>
-                      <span className="ml-3 text-sm text-gray-500">{value ? "Yes" : "No"}</span>
-                    </div>
-                  ) : (
-                    <input
-                      type={displayField.type}
-                      value={value === null || value === undefined ? "" : value}
-                      onChange={(e) => {
-                        const val = displayField.type === "number" ? (e.target.value !== "" ? Number(e.target.value) : "") : e.target.value;
-                        onChange(val);
-                      }}
-                      required={displayField.required}
-                      placeholder={`Enter ${displayField.label.toLowerCase()}`}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${value ? 'translate-x-5' : 'translate-x-0'
+                              }`}
+                          />
+                        </button>
+                        <span className="ml-3 text-sm text-gray-500">{value ? "Yes" : "No"}</span>
+                      </div>
+                    ) : (
+                      <input
+                        type={displayField.type}
+                        value={value === null || value === undefined ? "" : value}
+                        onChange={(e) => {
+                          const val = displayField.type === "number" ? (e.target.value !== "" ? Number(e.target.value) : "") : e.target.value;
+                          onChange(val);
+                        }}
+                        required={displayField.required}
+                        placeholder={`Enter ${displayField.label.toLowerCase()}`}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
 
-          <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 mt-8">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 transition-colors cursor-pointer"
-            >
-              {saving ? "Saving..." : isEdit ? "Save Changes" : "Create Record"}
-            </button>
-          </div>
-        </form>
+            <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 mt-8">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 transition-colors cursor-pointer"
+              >
+                {saving ? "Saving..." : isEdit ? "Save Changes" : "Create Record"}
+              </button>
+            </div>
+          </form>
+
+          {/* Right Side: History Sidebar (Baserow Style) */}
+          {isEdit && (
+            <div className="w-80 md:w-96 border-l border-gray-200 bg-slate-50/70 flex flex-col text-left shrink-0">
+              {/* Header with Tabs */}
+              <div className="flex items-center justify-between border-b border-gray-200 bg-white px-5 h-14 shrink-0">
+                <div className="flex gap-6 text-xs font-bold text-gray-700 h-full items-center">
+                  <span className="text-gray-400 font-medium cursor-default">Comments</span>
+                  <span className="text-blue-600 border-b-2 border-blue-600 py-4 font-bold flex items-center gap-1.5 cursor-default">
+                    History
+                    {auditLogs.length > 0 && (
+                      <span className="bg-blue-100 text-blue-800 text-[10px] px-1.5 py-0.2 rounded-full">
+                        {auditLogs.length}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* History Stream */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+                {loadingHistory ? (
+                  <div className="flex items-center justify-center py-12 text-gray-400 gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Loading history...</span>
+                  </div>
+                ) : auditLogs.length === 0 ? (
+                  <div className="py-16 text-center text-gray-400">
+                    <History className="w-8 h-8 mx-auto mb-2 opacity-30 text-gray-400" />
+                    <p className="font-semibold text-xs text-gray-600">No edit history recorded yet.</p>
+                    <p className="text-[11px] text-gray-400 mt-1">Changes saved to this row will appear here in real time.</p>
+                  </div>
+                ) : (
+                  auditLogs.map((log) => (
+                    <div key={log.id} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-[10px] flex items-center justify-center shadow-xs">
+                            {(log.changed_by || "A")[0].toUpperCase()}
+                          </div>
+                          <span className="font-semibold text-gray-800 text-xs">
+                            {log.changed_by === "Admin" || !log.changed_by ? "You updated this row" : `${log.changed_by} updated this row`}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-gray-400 font-medium">{log.changed_at}</span>
+                      </div>
+
+                      {/* Baserow Diff Card */}
+                      <div className="bg-white border border-gray-200/90 rounded-xl p-3 space-y-2.5 shadow-2xs">
+                        {log.changes.map((change, idx) => (
+                          <div key={idx} className="space-y-1">
+                            <span className="font-bold text-gray-700 text-[11px] block">{change.field}</span>
+                            <div className="bg-red-50 border border-red-200/80 text-red-900 px-2.5 py-1.5 rounded-lg text-xs font-mono line-through break-all">
+                              {change.old}
+                            </div>
+                            <div className="bg-emerald-50 border border-emerald-200/80 text-emerald-900 px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold break-all">
+                              {change.new}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -892,54 +976,6 @@ function TeacherHistoryModal({ teacher, onClose }) {
                         </div>
                       );
                     })}
-                  </div>
-                )}
-              </div>
-
-              {/* Edit Audit History Timeline Section */}
-              <div className="space-y-3 pt-5 border-t border-slate-200">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                    <History className="w-4 h-4 text-purple-600" /> Edit Audit History ({auditLogs.length})
-                  </h3>
-                </div>
-
-                {auditLogs.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-xl border border-slate-100">
-                    No edit history logs recorded yet. Any future changes made to this teacher profile will be logged here with exact timestamp & diff.
-                  </p>
-                ) : (
-                  <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                    {auditLogs.map((log) => (
-                      <div key={log.id} className="p-4 bg-purple-50/40 border border-purple-100 rounded-2xl space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-purple-600"></span>
-                            Edited by {log.changed_by || "Admin"}
-                          </span>
-                          <span className="text-[11px] font-semibold text-slate-500 bg-white px-2.5 py-0.5 rounded-full border border-purple-100 shadow-xs">
-                            {log.changed_at}
-                          </span>
-                        </div>
-
-                        <div className="space-y-1.5 pt-1">
-                          {log.changes.map((change, idx) => (
-                            <div key={idx} className="text-xs bg-white p-2.5 rounded-xl border border-purple-100/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-slate-700">
-                              <span className="font-bold text-slate-900 min-w-[120px]">{change.field}:</span>
-                              <div className="flex items-center gap-2 text-xs flex-wrap font-mono">
-                                <span className="px-2 py-0.5 bg-rose-50 text-rose-700 rounded border border-rose-100 line-through">
-                                  {change.old}
-                                </span>
-                                <span className="text-slate-400 font-bold">→</span>
-                                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 rounded border border-emerald-200 font-bold">
-                                  {change.new}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 )}
               </div>
