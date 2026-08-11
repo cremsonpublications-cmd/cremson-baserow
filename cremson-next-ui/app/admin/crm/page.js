@@ -712,42 +712,55 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
                     <p className="text-[11px] text-gray-400 mt-1">Changes saved to this row will appear here in real time.</p>
                   </div>
                 ) : (
-                  auditLogs.map((log) => (
-                    <div key={log.id} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-[10px] flex items-center justify-center shadow-xs">
-                            {(log.changed_by || "A")[0].toUpperCase()}
-                          </div>
-                          <span className="font-semibold text-gray-800 text-xs">
-                            {log.changed_by === "Admin" || !log.changed_by ? "You updated this row" : `${log.changed_by} updated this row`}
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-gray-400 font-medium">{log.changed_at}</span>
-                      </div>
+                  auditLogs.map((log) => {
+                    let changesList = log.changes;
+                    if ((!Array.isArray(changesList) || changesList.length === 0) && log.changes_json) {
+                      try {
+                        let parsed = typeof log.changes_json === "string" ? JSON.parse(log.changes_json) : log.changes_json;
+                        if (typeof parsed === "string") parsed = JSON.parse(parsed);
+                        if (Array.isArray(parsed)) changesList = parsed;
+                      } catch (e) {
+                        changesList = [];
+                      }
+                    }
 
-                      {/* Baserow Diff Card */}
-                      <div className="bg-[#f4f5f6] border border-gray-200/80 rounded-xl p-3 space-y-2.5">
-                        {Array.isArray(log.changes) && log.changes.length > 0 ? (
-                          log.changes.map((change, idx) => (
-                            <div key={idx} className="space-y-1">
-                              <span className="font-semibold text-gray-600 text-xs block mb-1">{change.field}</span>
-                              {change.old && change.old !== "(empty)" && (
-                                <div className="bg-[#f8d7da] text-[#721c24] px-3 py-2 rounded-lg text-xs font-mono line-through font-medium break-all">
-                                  {change.old}
-                                </div>
-                              )}
-                              <div className="bg-[#d4edda] text-[#155724] px-3 py-2 rounded-lg text-xs font-mono font-semibold break-all">
-                                {change.new || "(empty)"}
-                              </div>
+                    return (
+                      <div key={log.id} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-[10px] flex items-center justify-center shadow-xs">
+                              {(log.changed_by || "A")[0].toUpperCase()}
                             </div>
-                          ))
-                        ) : (
-                          <div className="text-gray-500 text-xs italic">Updated record details</div>
-                        )}
+                            <span className="font-semibold text-gray-800 text-xs">
+                              {log.changed_by === "Admin" || !log.changed_by ? "You updated this row" : `${log.changed_by} updated this row`}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-gray-400 font-medium">{log.changed_at}</span>
+                        </div>
+
+                        {/* Baserow Diff Card */}
+                        <div className="bg-[#f4f5f6] border border-gray-200/80 rounded-xl p-3 space-y-2.5">
+                          {Array.isArray(changesList) && changesList.length > 0 ? (
+                            changesList.map((change, idx) => (
+                              <div key={idx} className="space-y-1">
+                                <span className="font-semibold text-gray-600 text-xs block mb-1">{change.field}</span>
+                                {change.old && change.old !== "(empty)" && (
+                                  <div className="bg-[#f8d7da] text-[#721c24] px-3 py-2 rounded-lg text-xs font-mono line-through font-medium break-all">
+                                    {change.old}
+                                  </div>
+                                )}
+                                <div className="bg-[#d4edda] text-[#155724] px-3 py-2 rounded-lg text-xs font-mono font-semibold break-all">
+                                  {change.new || "(empty)"}
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-gray-500 text-xs italic">Updated record details</div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

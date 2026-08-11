@@ -302,6 +302,7 @@ async def create_teacher(body: dict):
 async def get_teacher_audit_history(row_id: int):
     """Return all historical edit audit log entries for a teacher."""
     try:
+        import json
         from db.blogs import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -316,10 +317,21 @@ async def get_teacher_audit_history(row_id: int):
         logs = []
         for r in rows:
             item = dict(r)
-            try:
-                item["changes"] = json.loads(item["changes_json"])
-            except Exception:
-                item["changes"] = []
+            raw_changes = item.get("changes_json") or "[]"
+            parsed_changes = []
+            if isinstance(raw_changes, str):
+                try:
+                    res = json.loads(raw_changes)
+                    if isinstance(res, str):
+                        res = json.loads(res)
+                    if isinstance(res, list):
+                        parsed_changes = res
+                except Exception:
+                    parsed_changes = []
+            elif isinstance(raw_changes, list):
+                parsed_changes = raw_changes
+
+            item["changes"] = parsed_changes
             logs.append(item)
 
         return {"teacher_id": row_id, "logs": logs}
