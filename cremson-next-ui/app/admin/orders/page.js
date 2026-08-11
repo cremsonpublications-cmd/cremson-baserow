@@ -1229,14 +1229,6 @@ export default function AdminOrders() {
                   <table className="hidden md:table w-full text-left border-collapse">
                     <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                       <tr>
-                        <th className="px-4 py-4 text-xs font-semibold text-gray-500 w-10">
-                          <input
-                            type="checkbox"
-                            checked={selectedOrderIds.length === orders.length && orders.length > 0}
-                            onChange={toggleSelectAll}
-                            className="w-4 h-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500 cursor-pointer"
-                          />
-                        </th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">ORDER ID</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">CUSTOMER</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">DATE</th>
@@ -1280,14 +1272,6 @@ export default function AdminOrders() {
 
                         return (
                           <tr key={order.id} className={`transition-colors ${isSelectedRow ? "bg-orange-50/40 hover:bg-orange-50/70" : "hover:bg-gray-50"}`}>
-                            <td className="px-4 py-4 w-10">
-                              <input
-                                type="checkbox"
-                                checked={isSelectedRow}
-                                onChange={() => toggleSelectOrder(order.id)}
-                                className="w-4 h-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500 cursor-pointer"
-                              />
-                            </td>
                             <td className="px-6 py-4 text-xs font-semibold text-gray-900">
                               #{order.order_id || `BOOK${order.id}`}
                             </td>
@@ -1408,12 +1392,6 @@ export default function AdminOrders() {
                         <div key={order.id} className="p-4 hover:bg-gray-50 transition-colors space-y-3">
                           <div className="flex items-start justify-between">
                             <div className="flex items-start gap-2">
-                              <input
-                                type="checkbox"
-                                checked={selectedOrderIds.includes(order.id)}
-                                onChange={() => toggleSelectOrder(order.id)}
-                                className="w-4 h-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500 cursor-pointer mt-0.5"
-                              />
                               <div>
                                 <p className="text-xs font-bold text-gray-900">#{order.order_id || `BOOK${order.id}`}</p>
                                 <p className="text-xs font-semibold text-gray-700 mt-0.5">{uInfo.name || "—"}</p>
