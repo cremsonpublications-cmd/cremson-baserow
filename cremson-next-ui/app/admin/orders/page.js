@@ -32,7 +32,8 @@ import {
   Eye,
   Edit3,
   Trash2,
-  RotateCcw
+  RotateCcw,
+  FileText
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
