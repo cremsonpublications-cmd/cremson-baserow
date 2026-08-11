@@ -80,7 +80,7 @@ templates = [
                 ),
                 "example": {
                     "body_text": [
-                        ["Arjunan Cahippa", "BOOK2304", "AWB12345678", "BlueDart", "https://cremsonpublications.shipway.com/track"]
+                        ["Arjunan Cahippa", "BOOK2304", "AWB12345678", "BlueDart", "https://cremsonpublications.shipway.com/tracking/forward/AWB12345678/"]
                     ]
                 }
             }
@@ -101,7 +101,7 @@ templates = [
                 ),
                 "example": {
                     "body_text": [
-                        ["Arjunan Cahippa", "BOOK2304", "https://cremsonpublications.shipway.com/track"]
+                        ["Arjunan Cahippa", "BOOK2304", "https://cremsonpublications.shipway.com/tracking/forward/AWB12345678/"]
                     ]
                 }
             }
@@ -122,7 +122,7 @@ templates = [
                 ),
                 "example": {
                     "body_text": [
-                        ["Arjunan Cahippa", "BOOK2304", "https://cremsonpublications.shipway.com/track"]
+                        ["Arjunan Cahippa", "BOOK2304", "https://cremsonpublications.shipway.com/tracking/forward/AWB12345678/"]
                     ]
                 }
             }
@@ -143,7 +143,7 @@ templates = [
                 ),
                 "example": {
                     "body_text": [
-                        ["Arjunan Cahippa", "BOOK2304", "https://cremsonpublications.shipway.com/track"]
+                        ["Arjunan Cahippa", "BOOK2304", "https://cremsonpublications.shipway.com/tracking/forward/AWB12345678/"]
                     ]
                 }
             }
@@ -237,7 +237,7 @@ templates = [
                             "Yoga Text Book 12th",
                             "Dispatched",
                             "30234042583040",
-                            "https://app-v1.shipway.com/tracking/forward/30234042583040/"
+                            "https://cremsonpublications.shipway.com/tracking/forward/30234042583040/"
                         ]
                     ]
                 }
