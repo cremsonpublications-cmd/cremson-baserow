@@ -648,3 +648,13 @@ async def ship_bulk_order(row_id: int, bg: BackgroundTasks):
     )
 
     return {"success": True, "awb": awb, "status": "shipped"}
+
+
+@router.delete("/{row_id}", summary="Delete a bulk order")
+async def delete_bulk_order(row_id: int):
+    try:
+        await client.delete_row(TABLE_IDS["bulk_orders"], row_id)
+        return {"success": True, "detail": "Bulk order deleted successfully."}
+    except Exception as e:
+        logger.error(f"[BulkOrder] Delete error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete bulk order: {str(e)}")

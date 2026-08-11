@@ -87,6 +87,21 @@ export default function AdminBulkOrdersPage() {
     }
   };
 
+  const handleDeleteOrder = async (order) => {
+    if (!confirm(`Are you sure you want to delete the bulk order for ${order.school_name}? This action cannot be undone.`)) return;
+
+    setActionLoading(true);
+    try {
+      await api.delete(`/api/bulk-orders/${order.id}`);
+      queryClient.invalidateQueries({ queryKey: ["admin-bulk-orders"] });
+      alert("Bulk order deleted successfully.");
+    } catch (err) {
+      alert(err?.response?.data?.detail || "Failed to delete bulk order.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const calcFinal = (subtotal) => {
     const sub = Number(subtotal || 0);
     const disc = Number(discountValue || 0);
@@ -274,6 +289,14 @@ export default function AdminBulkOrdersPage() {
                             <Truck className="w-3.5 h-3.5" /> Ship Now
                           </button>
                         )}
+
+                        <button
+                          onClick={() => handleDeleteOrder(o)}
+                          disabled={actionLoading}
+                          className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 font-semibold rounded text-xs transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
                       </td>
                     </tr>
                   );
