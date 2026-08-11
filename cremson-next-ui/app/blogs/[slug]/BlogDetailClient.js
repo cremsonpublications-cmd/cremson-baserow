@@ -30,12 +30,18 @@ export default function BlogDetailPage() {
   const [newName, setNewName] = useState("");
   const [newComment, setNewComment] = useState("");
 
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+
   useEffect(() => {
     const fetchPost = async () => {
       try {
         setLoading(true);
         const res = await api.get(`/api/blogs/${slug}`);
         setPost(res.data);
+        setLikeCount(res.data.likes || 0);
+        const isLikedLocal = localStorage.getItem(`liked_blog_${res.data.id || slug}`) === "true";
+        setLiked(isLikedLocal);
       } catch (err) {
         console.error("Failed to load blog post details:", err);
       } finally {
@@ -44,6 +50,33 @@ export default function BlogDetailPage() {
     };
     fetchPost();
   }, [slug]);
+
+  const handleLikeToggle = async () => {
+    if (!post) return;
+    const blogKey = `liked_blog_${post.id || slug}`;
+
+    if (liked) {
+      setLiked(false);
+      setLikeCount((prev) => Math.max(0, prev - 1));
+      localStorage.removeItem(blogKey);
+      try {
+        const res = await api.post(`/api/blogs/${slug}/unlike`);
+        if (typeof res.data.likes === "number") setLikeCount(res.data.likes);
+      } catch (e) {
+        console.error("Unlike failed:", e);
+      }
+    } else {
+      setLiked(true);
+      setLikeCount((prev) => prev + 1);
+      localStorage.setItem(blogKey, "true");
+      try {
+        const res = await api.post(`/api/blogs/${slug}/like`);
+        if (typeof res.data.likes === "number") setLikeCount(res.data.likes);
+      } catch (e) {
+        console.error("Like failed:", e);
+      }
+    }
+  };
 
   const handleCommentSubmit = (e) => {
     e.preventDefault();
@@ -115,6 +148,32 @@ export default function BlogDetailPage() {
           <h2 className="my-5 max-w-2xl mx-auto text-lg text-gray-500 font-normal leading-relaxed">
             {post.description}
           </h2>
+
+          {/* Heart / Like Button */}
+          <div className="flex items-center justify-center gap-3 my-6">
+            <button
+              onClick={handleLikeToggle}
+              className={`group flex items-center gap-2.5 px-6 py-2.5 rounded-full border transition-all duration-300 shadow-xs cursor-pointer ${
+                liked
+                  ? "bg-rose-50 border-rose-200 text-rose-600 shadow-rose-100/50"
+                  : "bg-white border-gray-200 text-gray-600 hover:border-rose-300 hover:text-rose-500 hover:bg-rose-50/30"
+              }`}
+              title={liked ? "Unlike this article" : "Like this article"}
+            >
+              <svg
+                className={`w-5 h-5 transition-transform duration-300 group-active:scale-125 ${
+                  liked ? "fill-rose-500 stroke-rose-500 scale-110" : "fill-none stroke-currentColor"
+                }`}
+                viewBox="0 0 24 24"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+              </svg>
+              <span className="font-bold text-sm">{likeCount} {likeCount === 1 ? "Like" : "Likes"}</span>
+            </button>
+          </div>
         </div>
 
         {/* Hero image */}

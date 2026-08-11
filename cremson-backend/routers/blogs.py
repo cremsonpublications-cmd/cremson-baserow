@@ -18,6 +18,7 @@ class BlogCreate(BaseModel):
     status: Optional[str] = "Published"
     pdf_url: Optional[str] = ""
     pdf_name: Optional[str] = ""
+    likes: Optional[int] = 0
 
 class BlogResponse(BaseModel):
     id: int
@@ -32,6 +33,7 @@ class BlogResponse(BaseModel):
     status: str
     pdf_url: Optional[str] = ""
     pdf_name: Optional[str] = ""
+    likes: Optional[int] = 0
 
 class CategoryCreate(BaseModel):
     name: str
@@ -361,3 +363,47 @@ def toggle_blog_status(id: int):
     updated_row = cursor.fetchone()
     conn.close()
     return dict(updated_row)
+
+
+@router.post("/{slug_or_id}/like")
+def like_blog(slug_or_id: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    if slug_or_id.isdigit():
+        cursor.execute("UPDATE blogs SET likes = COALESCE(likes, 0) + 1 WHERE id = ?", (int(slug_or_id),))
+        cursor.execute("SELECT likes FROM blogs WHERE id = ?", (int(slug_or_id),))
+    else:
+        cursor.execute("UPDATE blogs SET likes = COALESCE(likes, 0) + 1 WHERE slug = ?", (slug_or_id,))
+        cursor.execute("SELECT likes FROM blogs WHERE slug = ?", (slug_or_id,))
+        
+    row = cursor.fetchone()
+    conn.commit()
+    conn.close()
+    
+    if not row:
+        raise HTTPException(status_code=404, detail="Blog post not found")
+        
+    return {"success": True, "likes": row["likes"]}
+
+
+@router.post("/{slug_or_id}/unlike")
+def unlike_blog(slug_or_id: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    if slug_or_id.isdigit():
+        cursor.execute("UPDATE blogs SET likes = MAX(0, COALESCE(likes, 0) - 1) WHERE id = ?", (int(slug_or_id),))
+        cursor.execute("SELECT likes FROM blogs WHERE id = ?", (int(slug_or_id),))
+    else:
+        cursor.execute("UPDATE blogs SET likes = MAX(0, COALESCE(likes, 0) - 1) WHERE slug = ?", (slug_or_id,))
+        cursor.execute("SELECT likes FROM blogs WHERE slug = ?", (slug_or_id,))
+        
+    row = cursor.fetchone()
+    conn.commit()
+    conn.close()
+    
+    if not row:
+        raise HTTPException(status_code=404, detail="Blog post not found")
+        
+    return {"success": True, "likes": row["likes"]}

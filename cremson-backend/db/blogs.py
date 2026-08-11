@@ -29,13 +29,15 @@ def init_blogs_db():
         )
     """)
     
-    # Run migration check for pdf columns
+    # Run migration check for pdf and likes columns
     cursor.execute("PRAGMA table_info(blogs)")
     columns = [col[1] for col in cursor.fetchall()]
     if "pdf_url" not in columns:
         cursor.execute("ALTER TABLE blogs ADD COLUMN pdf_url TEXT")
     if "pdf_name" not in columns:
         cursor.execute("ALTER TABLE blogs ADD COLUMN pdf_name TEXT")
+    if "likes" not in columns:
+        cursor.execute("ALTER TABLE blogs ADD COLUMN likes INTEGER DEFAULT 0")
     conn.commit()
     
     # Check if table is empty
