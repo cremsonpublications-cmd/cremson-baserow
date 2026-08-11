@@ -1,13 +1,9 @@
 import React, { Suspense } from "react";
-import Header from "../../components/Header";
-import Footer from "../../components/Footer";
 
 export default function TermsConditions() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-white" />}>
       <div className="min-h-screen bg-white flex flex-col justify-between font-sans">
-      <Header />
-
       <main className="max-w-4xl mx-auto px-4 py-12 md:py-16 text-gray-900 flex-1">
         <div className="text-center mb-12">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-black mb-4">
@@ -183,8 +179,6 @@ export default function TermsConditions() {
           </p>
         </div>
       </main>
-
-      <Footer />
     </div>
     </Suspense>
   );

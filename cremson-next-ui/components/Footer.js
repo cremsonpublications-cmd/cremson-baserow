@@ -200,8 +200,8 @@ export default function Footer() {
               
               <section className="flex flex-col mt-5">
                 <h3 className="font-medium text-sm md:text-base uppercase tracking-widest mb-6">policies</h3>
-                <Link className="text-black/60 text-sm md:text-base mb-4 w-fit capitalize hover:text-black transition-colors" href="/terms-conditions">terms &amp; conditions</Link>
-                <Link className="text-black/60 text-sm md:text-base mb-4 w-fit capitalize hover:text-black transition-colors" href="/privacy-policy">privacy policy</Link>
+                <a className="text-black/60 text-sm md:text-base mb-4 w-fit capitalize hover:text-black transition-colors" href="/terms-conditions" target="_blank" rel="noopener noreferrer">terms &amp; conditions</a>
+                <a className="text-black/60 text-sm md:text-base mb-4 w-fit capitalize hover:text-black transition-colors" href="/privacy-policy" target="_blank" rel="noopener noreferrer">privacy policy</a>
               </section>
             </div>
 
@@ -228,8 +228,8 @@ export default function Footer() {
               
               <section className="flex flex-col mt-5">
                 <h3 className="font-medium text-sm md:text-base uppercase tracking-widest mb-6">policies</h3>
-                <Link className="text-black/60 text-sm md:text-base mb-4 w-fit capitalize hover:text-black transition-colors" href="/terms-conditions">terms &amp; conditions</Link>
-                <Link className="text-black/60 text-sm md:text-base mb-4 w-fit capitalize hover:text-black transition-colors" href="/privacy-policy">privacy policy</Link>
+                <a className="text-black/60 text-sm md:text-base mb-4 w-fit capitalize hover:text-black transition-colors" href="/terms-conditions" target="_blank" rel="noopener noreferrer">terms &amp; conditions</a>
+                <a className="text-black/60 text-sm md:text-base mb-4 w-fit capitalize hover:text-black transition-colors" href="/privacy-policy" target="_blank" rel="noopener noreferrer">privacy policy</a>
               </section>
             </div>
           </div>
