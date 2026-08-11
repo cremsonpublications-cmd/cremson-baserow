@@ -390,6 +390,84 @@ async def bulk_request_pickup(payload: BulkPickupRequest, background_tasks: Back
 # ── List / Get / Patch (unchanged) ────────────────────────────────────────────
 
 
+def _map_bulk_to_standard_order(bulk: dict) -> dict:
+    items = []
+    for item in bulk.get("items", []):
+        qty = int(item.get("qty", 1))
+        items.append({
+            "product_id": item.get("product_id"),
+            "title": item.get("title"),
+            "name": item.get("title"),
+            "quantity": qty,
+            "qty": qty,
+            "price": float(item.get("price", 0)),
+        })
+        
+    user_info = {
+        "name": bulk.get("contact_name", "Teacher"),
+        "email": "info@cremsonpublications.com",
+        "phone": bulk.get("phone", ""),
+        "address": {
+            "street": bulk.get("address", ""),
+            "city": bulk.get("city", ""),
+            "state": bulk.get("state", ""),
+            "pincode": bulk.get("pincode", ""),
+        },
+        "school_name": bulk.get("school_name", "")
+    }
+    
+    order_summary = {
+        "subtotal": float(bulk.get("subtotal", 0)),
+        "discount": float(bulk.get("subtotal", 0)) - float(bulk.get("final_amount", 0)),
+        "grandTotal": float(bulk.get("final_amount", 0))
+    }
+    
+    bulk_status = bulk.get("status", "")
+    if bulk_status == "shipped":
+        order_status = "SHIPPED"
+    elif bulk_status in ["fully_paid", "approved", "partially_paid"]:
+        order_status = "READY_TO_PACK"
+    else:
+        order_status = "PENDING"
+        
+    payment = {
+        "amount": float(bulk.get("final_amount", 0)),
+        "method": "Razorpay (Bulk Split)" if bulk.get("split_count", 0) > 0 else "Razorpay",
+        "status": "Paid" if bulk_status in ["fully_paid", "shipped"] else "Partially Paid" if bulk_status == "partially_paid" else "Unpaid",
+        "transactionId": bulk.get("razorpay_payment_id") or ""
+    }
+    
+    delivery = {
+        "notes": bulk.get("admin_notes", ""),
+        "status": "Shipped" if bulk_status == "shipped" else "Confirmed",
+        "awb": bulk.get("shipway_awb") or "",
+        "tracking_url": f"https://shipway.in/track/{bulk.get('shipway_awb')}" if bulk.get("shipway_awb") else ""
+    }
+    
+    order_date = bulk.get("order_date") or ""
+    if "T" in order_date:
+        order_date = order_date.replace("T", " ").split(".")[0]
+        
+    return {
+        "id": f"bulk_{bulk.get('id')}",
+        "order_id": bulk.get("order_id"),
+        "order_status": order_status,
+        "order_date": order_date,
+        "user_info": json.dumps(user_info),
+        "items": json.dumps(items),
+        "order_summary": json.dumps(order_summary),
+        "payment": json.dumps(payment),
+        "delivery": json.dumps(delivery),
+        "shipment_id": "",
+        "awb": bulk.get("shipway_awb") or "",
+        "courier": "Shipway",
+        "tracking_url": f"https://shipway.in/track/{bulk.get('shipway_awb')}" if bulk.get("shipway_awb") else "",
+        "label_url": "",
+        "is_bulk": True,
+        "school_name": bulk.get("school_name", "")
+    }
+
+
 @router.get("/", summary="List orders")
 async def list_orders(
     page: int = Query(1, ge=1, description="Page number"),
@@ -410,26 +488,89 @@ async def list_orders(
     elif user_id is not None:
         contains_filters["user_info"] = f'"userId": {user_id}'
 
-    return await client.get_rows(
+    # Fetch standard orders
+    orders_res = await client.get_rows(
         TABLE_IDS["orders"],
-        page=page,
-        size=size,
+        page=1,
+        size=100,
         search=search,
         filters=filters if filters else None,
         contains_filters=contains_filters if contains_filters else None,
         order_by="-order_date",
     )
+    standard_orders = orders_res.get("results", [])
+
+    # Fetch and merge bulk orders
+    bulk_orders_mapped = []
+    if not user_id and not email:
+        try:
+            from routers.bulk_orders import _normalize_bulk_row
+            bulk_res = await client.get_rows(
+                TABLE_IDS["bulk_orders"],
+                size=100,
+                search=search
+            )
+            for r in bulk_res.get("results", []):
+                norm = _normalize_bulk_row(r)
+                if norm.get("status") in ["approved", "partially_paid", "fully_paid", "shipped"]:
+                    mapped = _map_bulk_to_standard_order(norm)
+                    if order_status:
+                        if mapped["order_status"] == order_status:
+                            bulk_orders_mapped.append(mapped)
+                    else:
+                        bulk_orders_mapped.append(mapped)
+        except Exception as e:
+            logger.error(f"[Orders] Error merging bulk orders: {e}")
+
+    # Merge and sort
+    all_merged = list(standard_orders) + bulk_orders_mapped
+    all_merged.sort(key=lambda o: o.get("order_date") or "", reverse=True)
+
+    start_idx = (page - 1) * size
+    end_idx = start_idx + size
+    paginated = all_merged[start_idx:end_idx]
+
+    return {
+        "count": len(all_merged),
+        "results": paginated
+    }
 
 
 @router.get("/{row_id}", summary="Get a single order by Baserow row ID")
-async def get_order(row_id: int):
+async def get_order(row_id: str):
     """Return a single order by Baserow row ID."""
-    return await client.get_row(TABLE_IDS["orders"], row_id)
+    if str(row_id).startswith("bulk_"):
+        bulk_id = int(str(row_id).split("_")[1])
+        row = await client.get_row(TABLE_IDS["bulk_orders"], bulk_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Bulk order not found")
+        from routers.bulk_orders import _normalize_bulk_row
+        norm = _normalize_bulk_row(row)
+        return _map_bulk_to_standard_order(norm)
+    else:
+        return await client.get_row(TABLE_IDS["orders"], int(row_id))
 
 
 @router.patch("/{row_id}", summary="Update order status by Baserow row ID")
-async def update_order(row_id: int, body: OrderStatusUpdate):
-    return await client.update_row(TABLE_IDS["orders"], row_id, body.model_dump(exclude_none=True))
+async def update_order(row_id: str, body: OrderStatusUpdate):
+    if str(row_id).startswith("bulk_"):
+        bulk_id = int(str(row_id).split("_")[1])
+        row = await client.get_row(TABLE_IDS["bulk_orders"], bulk_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Bulk order not found")
+        from routers.bulk_orders import _normalize_bulk_row, _save_bulk_data
+        norm = _normalize_bulk_row(row)
+        
+        std_status = body.order_status
+        if std_status == "SHIPPED":
+            norm["status"] = "shipped"
+        elif std_status == "READY_TO_PACK":
+            norm["status"] = "fully_paid"
+            
+        await _save_bulk_data(bulk_id, norm)
+        return {"success": True, "detail": "Bulk order status updated"}
+    else:
+        return await client.update_row(TABLE_IDS["orders"], int(row_id), body.model_dump(exclude_none=True))
 
 
 # ── Admin action: Packed & Ready for Pickup ───────────────────────────────────
