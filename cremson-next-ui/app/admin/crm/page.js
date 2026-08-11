@@ -433,29 +433,27 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
   }
 
   const handleFieldChange = (fieldKey, newVal, fieldType) => {
-    setForm(f => {
-      const updated = { ...f, [fieldKey]: newVal };
-      if (activeTab === "teachers" && fieldKey === "Guest" && !newVal) {
-        if (Array.isArray(updated["SchoolID"])) {
-          updated["SchoolID"] = updated["SchoolID"].slice(0, 1);
-        }
+    let updated = { ...form, [fieldKey]: newVal };
+    if (activeTab === "teachers" && fieldKey === "Guest" && !newVal) {
+      if (Array.isArray(updated["SchoolID"])) {
+        updated["SchoolID"] = updated["SchoolID"].slice(0, 1);
       }
+    }
 
-      // Trigger auto-save if editing existing record
-      if (isEdit) {
-        if (fieldType === "select" || fieldType === "boolean" || fieldType === "link" || fieldType === "date") {
+    setForm(updated);
+
+    // Trigger auto-save if editing existing record
+    if (isEdit) {
+      if (fieldType === "select" || fieldType === "boolean" || fieldType === "link" || fieldType === "date") {
+        triggerSave(updated);
+      } else {
+        clearTimeout(debounceRef.current);
+        setSaveStatus("saving");
+        debounceRef.current = setTimeout(() => {
           triggerSave(updated);
-        } else {
-          clearTimeout(debounceRef.current);
-          setSaveStatus("saving");
-          debounceRef.current = setTimeout(() => {
-            triggerSave(updated);
-          }, 600);
-        }
+        }, 600);
       }
-
-      return updated;
-    });
+    }
 
     if (activeTab === "teachers" && fieldKey === "SchoolID" && newVal) {
       const schoolId = Array.isArray(newVal)
@@ -467,15 +465,13 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
           .then(res => {
             const schoolData = res.data;
             if (schoolData) {
-              setForm(f => {
-                const autoFilled = {
-                  ...f,
-                  "Residence": schoolData.SchoolAddress || f.Residence || "",
-                  "City": schoolData.SchoolCity || f.City || ""
-                };
-                if (isEdit) triggerSave(autoFilled);
-                return autoFilled;
-              });
+              const autoFilled = {
+                ...updated,
+                "Residence": schoolData.SchoolAddress || updated.Residence || "",
+                "City": schoolData.SchoolCity || updated.City || ""
+              };
+              setForm(autoFilled);
+              if (isEdit) triggerSave(autoFilled);
               toast.success("Teacher address pre-filled from selected school!");
             }
           })

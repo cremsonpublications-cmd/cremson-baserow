@@ -287,15 +287,30 @@ def log_teacher_edit(teacher_row_id: int, teacher_name: str, old_dict: dict, new
     if not changes:
         return
 
+    changes_json_str = json.dumps(changes)
     changed_at = datetime.now().strftime("%d %b %Y, %I:%M %p")
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        # Check if identical changes were just logged for this teacher
+        cursor.execute("""
+            SELECT changes_json FROM teacher_audit_logs 
+            WHERE teacher_row_id = ? 
+            ORDER BY id DESC LIMIT 1
+        """, (teacher_row_id,))
+        last_row = cursor.fetchone()
+        if last_row:
+            last_changes = last_row["changes_json"]
+            if last_changes == changes_json_str:
+                conn.close()
+                return
+
         cursor.execute("""
             INSERT INTO teacher_audit_logs (teacher_row_id, teacher_name, changed_at, changed_by, changes_json)
             VALUES (?, ?, ?, ?, ?)
-        """, (teacher_row_id, teacher_name or f"Teacher #{teacher_row_id}", changed_at, changed_by, json.dumps(changes)))
+        """, (teacher_row_id, teacher_name or f"Teacher #{teacher_row_id}", changed_at, changed_by, changes_json_str))
         conn.commit()
         conn.close()
     except Exception as exc:
