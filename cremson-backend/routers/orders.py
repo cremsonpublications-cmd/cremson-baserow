@@ -622,32 +622,28 @@ async def ready_for_pickup(order_id: str, background_tasks: BackgroundTasks):
     }
 
 
-# ── Admin action: Initiate Return & Instant Refund ─────────────────────────────
+# ── Admin action: Initiate Return (Reverse Pickup Only) ─────────────────────────
 
 
 class ReturnOrderRequest(BaseModel):
     return_reason: str
     return_notes: Optional[str] = None
-    refund_amount: Optional[float] = None
 
 
 @router.post(
     "/{order_id}/return",
-    summary="Admin: Initiate order return, schedule reverse pickup & process instant Razorpay refund",
+    summary="Admin: Initiate order return & schedule reverse pickup via Shipway",
 )
 async def return_order(order_id: str, body: ReturnOrderRequest):
     """
     Called when admin clicks 'Initiate Return' in Admin Dashboard.
     1. Finds order by order_id
-    2. Extracts Razorpay payment_id from order details
-    3. Issues immediate refund via Razorpay API
-    4. Schedules reverse shipment pickup via Shipway API (from customer address to warehouse)
-    5. Updates order status → RETURN_INITIATED in Baserow
+    2. Schedules reverse shipment pickup via Shipway API (from customer address to warehouse)
+    3. Updates order status → RETURN_INITIATED in Baserow with reverse_awb & tracking_url
+    Does NOT issue Razorpay refund automatically.
     """
-    from services.razorpay import issue_refund
     from services.shipway import create_reverse_shipment
 
-    # ── 1. Find order ─────────────────────────────────────────────────────────
     rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
     results = rows.get("results", [])
     if not results:
@@ -656,7 +652,6 @@ async def return_order(order_id: str, body: ReturnOrderRequest):
     order = results[0]
     row_id: int = order["id"]
 
-    # Parse delivery & user_info JSON
     delivery_raw = order.get("delivery") or "{}"
     try:
         delivery_data = json.loads(delivery_raw) if isinstance(delivery_raw, str) else (delivery_raw or {})
@@ -675,41 +670,13 @@ async def return_order(order_id: str, body: ReturnOrderRequest):
     except Exception:
         order_summary = {}
 
-    # Extract payment ID
-    payment_id = (
-        order.get("razorpay_payment_id")
-        or delivery_data.get("transactionId")
-        or delivery_data.get("payment_id")
-        or user_info.get("payment_id")
-        or ""
-    )
-
-    # Determine refund amount
     total_amount = float(
         order_summary.get("grandTotal")
         or order.get("total_amount")
         or delivery_data.get("amount")
         or 0.0
     )
-    refund_amt = body.refund_amount if (body.refund_amount and body.refund_amount > 0) else total_amount
 
-    # ── 2. Issue Razorpay Refund ──────────────────────────────────────────────
-    refund_result = {"success": False, "error": "No payment ID found for this order"}
-    if payment_id:
-        refund_result = await issue_refund(
-            payment_id=payment_id,
-            amount_rupees=refund_amt,
-            reason=body.return_reason,
-            notes={
-                "order_id": order_id,
-                "reason": body.return_reason,
-                "notes": body.return_notes or "",
-            },
-        )
-    else:
-        logger.warning(f"[Orders Return] Order {order_id} has no payment_id stored; skipping Razorpay API call.")
-
-    # ── 3. Schedule Reverse Shipment (Shipway) ─────────────────────────────────
     user_address = user_info.get("address") or {}
     if not isinstance(user_address, dict):
         user_address = {}
@@ -745,15 +712,12 @@ async def return_order(order_id: str, body: ReturnOrderRequest):
         reverse_order_payload, reason=body.return_reason
     )
 
-    # ── 4. Update Baserow Database ────────────────────────────────────────────
     now_iso = datetime.now().isoformat()
     delivery_data["status"] = "RETURN_INITIATED"
+    delivery_data["return_status"] = "RETURN_INITIATED"
     delivery_data["return_initiated_at"] = now_iso
     delivery_data["return_reason"] = body.return_reason
     delivery_data["return_notes"] = body.return_notes or ""
-    delivery_data["refund_id"] = refund_result.get("refund_id", "")
-    delivery_data["refund_amount"] = refund_amt
-    delivery_data["refund_status"] = refund_result.get("status", "FAILED" if not refund_result.get("success") else "PROCESSED")
     delivery_data["reverse_awb"] = reverse_result.get("reverse_awb", "")
     delivery_data["reverse_tracking_url"] = reverse_result.get("tracking_url", "")
 
@@ -767,18 +731,132 @@ async def return_order(order_id: str, body: ReturnOrderRequest):
     except Exception as exc:
         logger.error(f"[Orders Return] Error updating Baserow row {row_id}: {exc}")
 
-    logger.info(
-        f"[Orders Return] Order {order_id} → RETURN_INITIATED. "
-        f"Refund ID: {refund_result.get('refund_id')}, Reverse AWB: {reverse_result.get('reverse_awb')}"
-    )
-
     return {
         "success": True,
         "order_id": order_id,
         "status": "RETURN_INITIATED",
         "returned_at": now_iso,
-        "refund": refund_result,
         "reverse_shipment": reverse_result,
         "return_reason": body.return_reason,
         "return_notes": body.return_notes,
+    }
+
+
+# ── Admin action: Issue Razorpay Refund Only ──────────────────────────────────
+
+
+class RefundOrderRequest(BaseModel):
+    refund_amount: Optional[float] = None
+    refund_reason: Optional[str] = "Customer refund requested"
+    refund_notes: Optional[str] = None
+
+
+@router.post(
+    "/{order_id}/refund",
+    summary="Admin: Issue Razorpay refund for an order",
+)
+async def refund_order(order_id: str, body: RefundOrderRequest):
+    """
+    Called when admin clicks 'Process Refund' in Admin Dashboard.
+    1. Finds order by order_id
+    2. Extracts Razorpay payment_id
+    3. Calls Razorpay API to refund specified amount
+    4. Updates delivery details with refund_id, refund_amount & refund_status
+    Does NOT affect return shipment status.
+    """
+    from services.razorpay import issue_refund
+
+    rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
+    results = rows.get("results", [])
+    if not results:
+        raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
+
+    order = results[0]
+    row_id: int = order["id"]
+
+    delivery_raw = order.get("delivery") or "{}"
+    try:
+        delivery_data = json.loads(delivery_raw) if isinstance(delivery_raw, str) else (delivery_raw or {})
+    except Exception:
+        delivery_data = {}
+
+    user_info_raw = order.get("user_info") or "{}"
+    try:
+        user_info = json.loads(user_info_raw) if isinstance(user_info_raw, str) else (user_info_raw or {})
+    except Exception:
+        user_info = {}
+
+    order_summary_raw = order.get("order_summary") or "{}"
+    try:
+        order_summary = json.loads(order_summary_raw) if isinstance(order_summary_raw, str) else (order_summary_raw or {})
+    except Exception:
+        order_summary = {}
+
+    payment_id = (
+        order.get("razorpay_payment_id")
+        or delivery_data.get("transactionId")
+        or delivery_data.get("payment_id")
+        or user_info.get("payment_id")
+        or ""
+    )
+
+    total_amount = float(
+        order_summary.get("grandTotal")
+        or order.get("total_amount")
+        or delivery_data.get("amount")
+        or 0.0
+    )
+    refund_amt = body.refund_amount if (body.refund_amount and body.refund_amount > 0) else total_amount
+
+    if not payment_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot process refund for order {order_id}: No Razorpay Payment ID found.",
+        )
+
+    refund_result = await issue_refund(
+        payment_id=payment_id,
+        amount_rupees=refund_amt,
+        reason=body.refund_reason or "Admin requested refund",
+        notes={
+            "order_id": order_id,
+            "reason": body.refund_reason or "",
+            "notes": body.refund_notes or "",
+        },
+    )
+
+    if not refund_result.get("success"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Razorpay Refund Failed: {refund_result.get('error', 'Unknown Razorpay error')}",
+        )
+
+    now_iso = datetime.now().isoformat()
+    delivery_data["refund_id"] = refund_result.get("refund_id", "")
+    delivery_data["refund_amount"] = refund_amt
+    delivery_data["refund_status"] = "PROCESSED"
+    delivery_data["refunded_at"] = now_iso
+    delivery_data["refund_notes"] = body.refund_notes or ""
+
+    update_payload = {
+        "delivery": json.dumps(delivery_data),
+    }
+
+    current_status = str(order.get("order_status") or "").upper()
+    if current_status != "RETURN_INITIATED":
+        update_payload["order_status"] = "REFUNDED"
+
+    try:
+        await client.update_row(TABLE_IDS["orders"], row_id, update_payload)
+    except Exception as exc:
+        logger.error(f"[Orders Refund] Error updating Baserow row {row_id}: {exc}")
+
+    return {
+        "success": True,
+        "order_id": order_id,
+        "refund_id": refund_result.get("refund_id"),
+        "refund_amount": refund_amt,
+        "refund_status": "PROCESSED",
+        "refunded_at": now_iso,
+        "refund_notes": body.refund_notes,
     }

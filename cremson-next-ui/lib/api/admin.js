@@ -17,6 +17,7 @@ export const adminGetOrders = (params) => api.get("/api/orders/", { params }).th
 export const adminUpdateOrderStatus = (id, status) => api.patch(`/api/orders/${id}`, { order_status: status }).then(r => r.data);
 export const adminMarkReadyForPickup = (orderId) => api.post(`/api/orders/${orderId}/ready-for-pickup`).then(r => r.data);
 export const adminReturnOrder = (orderId, data) => api.post(`/api/orders/${orderId}/return`, data).then(r => r.data);
+export const adminIssueRefund = (orderId, data) => api.post(`/api/orders/${orderId}/refund`, data).then(r => r.data);
 
 
 // Coupons

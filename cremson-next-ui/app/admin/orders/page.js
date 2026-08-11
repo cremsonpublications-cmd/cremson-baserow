@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import api from "../../../lib/api/axios";
-import { adminUpdateOrderStatus, adminMarkReadyForPickup, adminReturnOrder } from "../../../lib/api/admin";
+import { adminUpdateOrderStatus, adminMarkReadyForPickup, adminReturnOrder, adminIssueRefund } from "../../../lib/api/admin";
 import { 
   Search, 
   X, 
@@ -105,12 +105,9 @@ function safeParseJSON(val) {
 
 function ReturnModal({ order, onClose, onReturnSuccess }) {
   if (!order) return null;
-  const orderSummary = safeParseJSON(order.order_summary) || {};
-  const totalAmount = Number(orderSummary.grandTotal || order.total_amount || 0);
 
   const [reason, setReason] = useState("Damaged / Defective Item");
   const [notes, setNotes] = useState("");
-  const [refundAmount, setRefundAmount] = useState(totalAmount || "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -133,17 +130,16 @@ function ReturnModal({ order, onClose, onReturnSuccess }) {
       const res = await adminReturnOrder(orderId, {
         return_reason: reason,
         return_notes: notes,
-        refund_amount: parseFloat(refundAmount) || totalAmount,
       });
 
       if (res.success) {
-        toast.success(`Return & Instant Refund Processed for #${orderId}!`, {
-          description: `Refund ID: ${res.refund?.refund_id || "N/A"} | Reverse AWB: ${res.reverse_shipment?.reverse_awb || "N/A"}`
+        toast.success(`Return Pickup Scheduled for #${orderId}!`, {
+          description: `Reverse AWB: ${res.reverse_shipment?.reverse_awb || "N/A"}`
         });
         onReturnSuccess(orderId, res);
         onClose();
       } else {
-        setError(res.error || "Failed to process return.");
+        setError(res.error || "Failed to schedule return shipment.");
       }
     } catch (err) {
       setError(err?.response?.data?.detail || err.message || "Failed to initiate return.");
@@ -159,11 +155,11 @@ function ReturnModal({ order, onClose, onReturnSuccess }) {
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-900 text-white">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-rose-500/20 rounded-xl border border-rose-500/30 text-rose-400">
+            <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-500/30 text-amber-400">
               <RotateCcw className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Initiate Return & Refund</h3>
+              <h3 className="text-base font-bold text-white">Schedule Return Pickup (Shipway)</h3>
               <p className="text-xs text-slate-400">Order #{order.order_id || order.id}</p>
             </div>
           </div>
@@ -181,7 +177,7 @@ function ReturnModal({ order, onClose, onReturnSuccess }) {
             <select
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full text-xs font-semibold px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:bg-white outline-none"
+              className="w-full text-xs font-semibold px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none"
               required
             >
               {REASON_OPTIONS.map((opt) => (
@@ -196,35 +192,22 @@ function ReturnModal({ order, onClose, onReturnSuccess }) {
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Customer provided photo of torn cover page..."
+              placeholder="e.g. Customer requested pickup for return..."
               rows={3}
-              className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:bg-white outline-none"
+              className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none"
             />
-          </div>
-
-          {/* Refund Amount */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Refund Amount (₹ INR) *</label>
-            <input
-              type="number"
-              step="0.01"
-              value={refundAmount}
-              onChange={(e) => setRefundAmount(e.target.value)}
-              className="w-full text-xs font-bold px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:bg-white outline-none"
-              required
-            />
-            <p className="text-[10px] text-slate-400">Defaulted to total order amount (₹{totalAmount.toFixed(2)}).</p>
           </div>
 
           {/* Summary Box */}
-          <div className="bg-rose-50 border border-rose-100 rounded-xl p-3 text-xs text-rose-800 space-y-1">
+          <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-900 space-y-1">
             <p className="font-bold flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5 text-rose-600" /> Actions performed upon confirmation:
+              <AlertCircle className="w-3.5 h-3.5 text-amber-600" /> Action performed upon confirmation:
             </p>
-            <ul className="list-disc list-inside text-[11px] text-rose-700 space-y-0.5 pl-1">
-              <li>Immediate Razorpay API refund (₹{Number(refundAmount || 0).toFixed(2)})</li>
-              <li>Schedule Shipway Reverse Pickup from customer address</li>
-              <li>Update Order status to <span className="font-mono font-bold">RETURN_INITIATED</span></li>
+            <ul className="list-disc list-inside text-[11px] text-amber-800 space-y-0.5 pl-1">
+              <li>Schedules Shipway Reverse Pickup from customer to warehouse</li>
+              <li>Generates Reverse Courier AWB &amp; Track Link</li>
+              <li>Updates Order status to <span className="font-mono font-bold">RETURN_INITIATED</span></li>
+              <li className="font-semibold text-slate-600">Note: Does NOT issue Razorpay refund automatically (Refund can be processed separately).</li>
             </ul>
           </div>
 
@@ -244,28 +227,173 @@ function ReturnModal({ order, onClose, onReturnSuccess }) {
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 rounded-xl shadow-md shadow-rose-600/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="flex-1 py-2.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-xl shadow-md shadow-amber-600/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               {submitting ? (
                 <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Processing...
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Scheduling...
                 </>
               ) : (
                 <>
-                  <RotateCcw className="w-3.5 h-3.5" /> Confirm Return & Refund
+                  <RotateCcw className="w-3.5 h-3.5" /> Schedule Reverse Pickup
                 </>
               )}
             </button>
           </div>
-
         </form>
-
       </div>
     </div>
   );
 }
 
-function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal }) {
+function RefundModal({ order, onClose, onRefundSuccess }) {
+  if (!order) return null;
+  const orderSummary = safeParseJSON(order.order_summary) || {};
+  const totalAmount = Number(orderSummary.grandTotal || order.total_amount || 0);
+
+  const [refundAmount, setRefundAmount] = useState(totalAmount || "");
+  const [reason, setReason] = useState("Customer refund requested");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const orderId = order.order_id || order.id;
+      const res = await adminIssueRefund(orderId, {
+        refund_amount: parseFloat(refundAmount) || totalAmount,
+        refund_reason: reason,
+        refund_notes: notes,
+      });
+
+      if (res.success) {
+        toast.success(`Razorpay Refund Processed for #${orderId}!`, {
+          description: `Refund ID: ${res.refund_id || "N/A"} | Amount: ₹${res.refund_amount}`
+        });
+        onRefundSuccess(orderId, res);
+        onClose();
+      } else {
+        setError(res.error || "Failed to process refund.");
+      }
+    } catch (err) {
+      setError(err?.response?.data?.detail || err.message || "Failed to process Razorpay refund.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden text-left">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-900 text-white">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-emerald-500/20 rounded-xl border border-emerald-500/30 text-emerald-400">
+              <CreditCard className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Process Razorpay Refund</h3>
+              <p className="text-xs text-slate-400">Order #{order.order_id || order.id}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white rounded-full transition-all">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          
+          {/* Refund Amount */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Refund Amount (₹ INR) *</label>
+            <input
+              type="number"
+              step="0.01"
+              value={refundAmount}
+              onChange={(e) => setRefundAmount(e.target.value)}
+              className="w-full text-xs font-bold px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none"
+              required
+            />
+            <p className="text-[10px] text-slate-400">Defaulted to total order amount (₹{totalAmount.toFixed(2)}).</p>
+          </div>
+
+          {/* Reason */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Refund Reason</label>
+            <input
+              type="text"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Return received or customer cancelled"
+              className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none"
+            />
+          </div>
+
+          {/* Admin Notes */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Admin Refund Notes / Remarks</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. Refund approved after inspecting returned item..."
+              rows={3}
+              className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none"
+            />
+          </div>
+
+          {/* Summary Box */}
+          <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-xs text-emerald-900 space-y-1">
+            <p className="font-bold flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 text-emerald-600" /> Action performed upon confirmation:
+            </p>
+            <ul className="list-disc list-inside text-[11px] text-emerald-800 space-y-0.5 pl-1">
+              <li>Direct Razorpay API refund (₹{Number(refundAmount || 0).toFixed(2)}) to customer account</li>
+              <li>Generates official Razorpay Refund ID &amp; Status update</li>
+            </ul>
+          </div>
+
+          {error && (
+            <p className="text-xs font-bold text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-200 text-center">{error}</p>
+          )}
+
+          {/* Buttons */}
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-md shadow-emerald-600/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {submitting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Processing Refund...
+                </>
+              ) : (
+                <>
+                  <CreditCard className="w-3.5 h-3.5" /> Confirm &amp; Issue Refund
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal, onOpenRefundModal }) {
   if (!order) return null;
   const userInfo = safeParseJSON(order.user_info) || {};
   const items = safeParseJSON(order.items) || [];
@@ -565,36 +693,72 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal }) {
                   </div>
                 )}
 
-                {/* Initiate Return & Refund Action / Details */}
-                {currentStatusLower === "return_initiated" || delivery.status === "RETURN_INITIATED" ? (
-                  <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 space-y-2 text-left">
-                    <p className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
-                      <RotateCcw className="w-4 h-4 text-rose-600" /> Return & Refund Initiated
-                    </p>
-                    <div className="text-[11px] text-rose-700 space-y-1 pt-1">
-                      {delivery.return_reason && <p><span className="font-bold">Reason:</span> {delivery.return_reason}</p>}
-                      {delivery.return_notes && <p><span className="font-bold">Notes:</span> {delivery.return_notes}</p>}
-                      {delivery.refund_id && <p><span className="font-bold">Razorpay Refund ID:</span> <span className="font-mono bg-rose-100 px-1.5 py-0.5 rounded text-rose-900">{delivery.refund_id}</span></p>}
-                      {delivery.reverse_awb && <p><span className="font-bold">Reverse Courier AWB:</span> <span className="font-mono bg-rose-100 px-1.5 py-0.5 rounded text-rose-900">{delivery.reverse_awb}</span></p>}
-                      {delivery.refund_amount && <p><span className="font-bold">Amount Refunded:</span> ₹{Number(delivery.refund_amount).toFixed(2)}</p>}
+                {/* Separate Return & Refund Management */}
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3 text-left">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">Return &amp; Refund Management</p>
+                      <p className="text-[10px] text-slate-500">Perform reverse pickup or Razorpay refund independently.</p>
                     </div>
                   </div>
-                ) : ["delivered", "out_for_delivery"].includes(currentStatusLower) ? (
-                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2 text-left">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-xs font-bold text-slate-800">Return & Instant Refund</p>
-                        <p className="text-[10px] text-slate-500">Order delivered. Initiate reverse pickup & refund.</p>
+
+                  <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+                    <button
+                      onClick={() => onOpenReturnModal(order)}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-all cursor-pointer shadow-2xs"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                      {delivery.return_status === "RETURN_INITIATED" || currentStatusLower === "return_initiated" ? "Re-Schedule Return" : "Schedule Return Pickup"}
+                    </button>
+
+                    <button
+                      onClick={() => onOpenRefundModal(order)}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all cursor-pointer shadow-2xs"
+                    >
+                      <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+                      {delivery.refund_status === "PROCESSED" ? "Issue Another Refund" : "Issue Razorpay Refund"}
+                    </button>
+                  </div>
+
+                  {/* Display Return Information if initiated */}
+                  {(delivery.return_status === "RETURN_INITIATED" || currentStatusLower === "return_initiated") && (
+                    <div className="mt-2 p-3 bg-amber-500/10 border border-amber-200/60 rounded-xl space-y-1.5 text-xs text-amber-900">
+                      <div className="flex items-center justify-between">
+                        <p className="font-bold flex items-center gap-1.5 text-amber-800">
+                          <RotateCcw className="w-4 h-4 text-amber-600" /> Return Pickup Initiated
+                        </p>
+                        {delivery.reverse_tracking_url && (
+                          <a
+                            href={delivery.reverse_tracking_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <ExternalLink className="w-3 h-3" /> Track Return
+                          </a>
+                        )}
                       </div>
-                      <button
-                        onClick={() => onOpenReturnModal(order)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 rounded-xl transition-all cursor-pointer"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" /> Return Order
-                      </button>
+                      <div className="text-[11px] text-amber-800 space-y-0.5">
+                        {delivery.return_reason && <p><span className="font-bold">Reason:</span> {delivery.return_reason}</p>}
+                        {delivery.reverse_awb && <p><span className="font-bold">Reverse Courier AWB:</span> <span className="font-mono bg-amber-100 px-1.5 py-0.5 rounded text-amber-950">{delivery.reverse_awb}</span></p>}
+                      </div>
                     </div>
-                  </div>
-                ) : null}
+                  )}
+
+                  {/* Display Refund Information if processed */}
+                  {delivery.refund_status === "PROCESSED" && (
+                    <div className="mt-2 p-3 bg-emerald-500/10 border border-emerald-200/60 rounded-xl space-y-1.5 text-xs text-emerald-900">
+                      <p className="font-bold flex items-center gap-1.5 text-emerald-800">
+                        <CreditCard className="w-4 h-4 text-emerald-600" /> Razorpay Refund Processed
+                      </p>
+                      <div className="text-[11px] text-emerald-800 space-y-0.5">
+                        {delivery.refund_id && <p><span className="font-bold">Refund ID:</span> <span className="font-mono bg-emerald-100 px-1.5 py-0.5 rounded text-emerald-950">{delivery.refund_id}</span></p>}
+                        {delivery.refund_amount && <p><span className="font-bold">Refunded Amount:</span> ₹{Number(delivery.refund_amount).toFixed(2)}</p>}
+                        {delivery.refunded_at && <p><span className="font-bold">Processed At:</span> {new Date(delivery.refunded_at).toLocaleString('en-IN')}</p>}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
 
@@ -653,6 +817,7 @@ export default function AdminOrders() {
   const [endDate, setEndDate] = useState("");
   const [selected, setSelected] = useState(null);
   const [returnModalOrder, setReturnModalOrder] = useState(null);
+  const [refundModalOrder, setRefundModalOrder] = useState(null);
 
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
   const [loadingPickupId, setLoadingPickupId] = useState(null);
@@ -1352,10 +1517,11 @@ export default function AdminOrders() {
           onClose={() => setSelected(null)}
           onStatusUpdated={handleStatusUpdated}
           onOpenReturnModal={(ord) => setReturnModalOrder(ord)}
+          onOpenRefundModal={(ord) => setRefundModalOrder(ord)}
         />
       )}
 
-      {/* Return & Refund Modal */}
+      {/* Return Shipment Modal (Reverse Pickup) */}
       {returnModalOrder && (
         <ReturnModal
           order={returnModalOrder}
@@ -1363,7 +1529,36 @@ export default function AdminOrders() {
           onReturnSuccess={(orderId, res) => {
             queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
             if (selected) {
-              setSelected((prev) => prev ? { ...prev, order_status: "RETURN_INITIATED" } : null);
+              const currentDeliv = safeParseJSON(selected.delivery) || {};
+              const updatedDeliv = {
+                ...currentDeliv,
+                return_status: "RETURN_INITIATED",
+                reverse_awb: res.reverse_shipment?.reverse_awb || "",
+                reverse_tracking_url: res.reverse_shipment?.tracking_url || "",
+              };
+              setSelected((prev) => prev ? { ...prev, order_status: "RETURN_INITIATED", delivery: JSON.dumps(updatedDeliv) } : null);
+            }
+          }}
+        />
+      )}
+
+      {/* Process Refund Modal (Razorpay API) */}
+      {refundModalOrder && (
+        <RefundModal
+          order={refundModalOrder}
+          onClose={() => setRefundModalOrder(null)}
+          onRefundSuccess={(orderId, res) => {
+            queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+            if (selected) {
+              const currentDeliv = safeParseJSON(selected.delivery) || {};
+              const updatedDeliv = {
+                ...currentDeliv,
+                refund_status: "PROCESSED",
+                refund_id: res.refund_id || "",
+                refund_amount: res.refund_amount || 0,
+                refunded_at: res.refunded_at || "",
+              };
+              setSelected((prev) => prev ? { ...prev, delivery: JSON.dumps(updatedDeliv) } : null);
             }
           }}
         />
