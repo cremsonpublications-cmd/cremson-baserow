@@ -918,15 +918,6 @@ export default function AdminOrders() {
 
                     <div className="flex items-center gap-3">
                       <button
-                        onClick={() => downloadLabelsAsZip(orders, "all_shipping_labels.zip")}
-                        disabled={bulkZipLoading || orders.length === 0}
-                        className="px-3.5 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                        title="Download all shipping labels for current orders list as ZIP"
-                      >
-                        <Download className="w-4 h-4 text-emerald-600" />
-                        Download All Labels (ZIP)
-                      </button>
-                      <button
                         onClick={() => downloadReadyToPackLabelsPdf()}
                         disabled={bulkPdfLoading}
                         className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs hover:shadow transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
