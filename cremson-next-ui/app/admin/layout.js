@@ -31,12 +31,12 @@ import {
 
 const coreLinks = [
   { href: "/admin", label: "Dashboard", Icon: LayoutDashboard },
-  { href: "/admin/reminders", label: "Reminders", Icon: Bell, badgeKey: "reminders" },
   { href: "/admin/orders", label: "Orders", Icon: ShoppingCart, badgeKey: "orders" },
   { href: "/admin/bulk-orders", label: "Bulk Orders", Icon: Package, badgeKey: "bulkOrders" },
   { href: "/admin/specimen-requests", label: "Specimen Requests", Icon: FileText, badgeKey: "specimenRequests" },
   { href: "/admin/specimen-books", label: "Specimen Books", Icon: BookOpen },
   { href: "/admin/crm?tab=schools", label: "CRM Database Hub", Icon: Database },
+  { href: "/admin/reminders", label: "Reminders", Icon: Bell, badgeKey: "reminders" },
 ];
 
 const adminLinks = [
