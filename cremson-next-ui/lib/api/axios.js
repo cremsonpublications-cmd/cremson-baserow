@@ -4,16 +4,28 @@ import { toast } from "sonner";
 export const getApiBaseUrl = () => {
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
-    if (hostname === "cremson-baserow-dev.pages.dev" || hostname.endsWith("cremsonpublications.com")) {
+    // Always use HTTPS API for any non-localhost hostname
+    if (hostname !== "localhost" && hostname !== "127.0.0.1") {
       return "https://api.cremsonpublications.com";
     }
   }
-  return process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8000";
+  // Fallback: prefer env var, default to localhost for local dev
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  // Safety: if env var is http but not localhost, force https
+  if (envUrl.startsWith("http://") && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1")) {
+    return envUrl.replace("http://", "https://");
+  }
+  return envUrl;
 };
 
 const api = axios.create({
-  baseURL: getApiBaseUrl(),
   headers: { "Content-Type": "application/json" },
+});
+
+// Set baseURL dynamically on every request so it always reflects current hostname
+api.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl();
+  return config;
 });
 
 api.interceptors.request.use((config) => {
