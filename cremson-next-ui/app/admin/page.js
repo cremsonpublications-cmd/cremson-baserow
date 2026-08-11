@@ -101,6 +101,8 @@ export default function AdminDashboard() {
   const overdueList = reminders.filter((r) => r.is_overdue);
   const todayList = reminders.filter((r) => r.is_today);
 
+  const dashboardReminders = reminders.filter((r) => r.is_today || r.is_overdue);
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
       {/* ── Page Title ── */}
@@ -111,7 +113,7 @@ export default function AdminDashboard() {
           className="flex items-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold px-4 py-2 rounded-xl border border-purple-200 transition-colors"
         >
           <Bell className="w-4 h-4 text-purple-600" />
-          Manage Reminders ({reminders.length})
+          Manage Reminders ({dashboardReminders.length})
         </Link>
       </div>
 
@@ -160,7 +162,7 @@ export default function AdminDashboard() {
             href="/admin/reminders"
             className="text-xs font-semibold text-purple-600 hover:text-purple-800 flex items-center gap-1"
           >
-            View All ({reminders.length}) <ArrowRight className="w-3.5 h-3.5" />
+            View All ({dashboardReminders.length}) <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
@@ -170,7 +172,7 @@ export default function AdminDashboard() {
             <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
             Loading follow-up reminders...
           </div>
-        ) : reminders.length === 0 ? (
+        ) : dashboardReminders.length === 0 ? (
           <div className="p-8 text-center bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
             <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
             <p className="text-sm font-semibold text-gray-700">All caught up!</p>
@@ -178,7 +180,7 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <div className="space-y-3">
-            {reminders.slice(0, 5).map((item) => (
+            {dashboardReminders.slice(0, 5).map((item) => (
               <div
                 key={item.id}
                 className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
