@@ -62,6 +62,48 @@ async def purge_user(email: str):
     except Exception as e:
         print(f"Error in teacher CRM: {e}")
 
+    # 4. Search and delete from bulk_orders (Table 767)
+    print("\n--- Checking bulk_orders ---")
+    try:
+        res = await client.get_rows(TABLE_IDS["bulk_orders"], size=200)
+        for r in res.get("results", []):
+            if str(r.get("email", "")).lower().strip() == email:
+                print(f"Found bulk order ID: {r['id']} for {email}. Deleting...")
+                await client.delete_row(TABLE_IDS["bulk_orders"], r["id"])
+                print("Deleted bulk order.")
+    except Exception as e:
+        print(f"Error in bulk_orders: {e}")
+
+    # 5. Search and delete from orders (Table 762)
+    print("\n--- Checking orders ---")
+    try:
+        import json
+        res = await client.get_rows(TABLE_IDS["orders"], size=200)
+        for r in res.get("results", []):
+            user_info_raw = r.get("user_info") or "{}"
+            try:
+                user_info = json.loads(user_info_raw) if isinstance(user_info_raw, str) else user_info_raw
+            except Exception:
+                user_info = {}
+            if str(user_info.get("email", "")).lower().strip() == email:
+                print(f"Found order ID: {r['id']} for {email}. Deleting...")
+                await client.delete_row(TABLE_IDS["orders"], r["id"])
+                print("Deleted order.")
+    except Exception as e:
+        print(f"Error in orders: {e}")
+
+    # 6. Search and delete from specimen_requests (Table 878)
+    print("\n--- Checking specimen_requests ---")
+    try:
+        res = await client.get_rows(TABLE_IDS["specimen_requests"], size=200)
+        for r in res.get("results", []):
+            if str(r.get("Email", "")).lower().strip() == email:
+                print(f"Found specimen request ID: {r['id']} for {email}. Deleting...")
+                await client.delete_row(TABLE_IDS["specimen_requests"], r["id"])
+                print("Deleted specimen request.")
+    except Exception as e:
+        print(f"Error in specimen_requests: {e}")
+
     print("\nPurge completed successfully.")
 
 if __name__ == "__main__":
