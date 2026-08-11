@@ -394,7 +394,7 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
   const auditLogs = auditData?.logs || [];
 
   // Core auto-save execution
-  const triggerSave = useCallback(async (currentForm) => {
+  async function triggerSave(currentForm) {
     if (!isEdit || !record?.id) return;
     setSaveStatus("saving");
     try {
@@ -431,7 +431,7 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
       console.error("Auto-save error:", err);
       setSaveStatus("error");
     }
-  }, [isEdit, record?.id, fields, activeTab, refetchAudit, onSaved]);
+  }
 
   const handleFieldChange = (fieldKey, newVal, fieldType) => {
     setForm(f => {
