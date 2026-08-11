@@ -237,6 +237,24 @@ def init_blogs_db():
 init_blogs_db()
 
 
+def format_field_value(val):
+    if val is None or val == "":
+        return ""
+    if isinstance(val, bool):
+        return "Yes" if val else "No"
+    if isinstance(val, list):
+        items = []
+        for item in val:
+            if isinstance(item, dict):
+                items.append(str(item.get("value") or item.get("id") or item))
+            else:
+                items.append(str(item))
+        return ", ".join(items) if items else ""
+    if isinstance(val, dict):
+        return str(val.get("value") or val.get("id") or val)
+    return str(val).strip()
+
+
 def log_teacher_edit(teacher_row_id: int, teacher_name: str, old_dict: dict, new_dict: dict, changed_by: str = "Admin"):
     """
     Compares old_dict vs new_dict, extracts modified fields, and inserts an audit log entry.
@@ -245,13 +263,18 @@ def log_teacher_edit(teacher_row_id: int, teacher_name: str, old_dict: dict, new
     from datetime import datetime
 
     changes = []
-    ignore_keys = {"id", "Teacher ID", "created_on", "IdCardUrl", "Teacher"}
+    ignore_keys = {"id", "Teacher ID", "created_on", "IdCardUrl", "Teacher", "order", "created_at", "updated_at"}
 
-    all_keys = set(old_dict.keys()).union(new_dict.keys()) - ignore_keys
-
-    for key in sorted(all_keys):
-        old_val = str(old_dict.get(key) or "").strip()
-        new_val = str(new_dict.get(key) or "").strip()
+    # Compare keys present in both dictionaries
+    for key in sorted(new_dict.keys()):
+        if key in ignore_keys:
+            continue
+        
+        old_raw = old_dict.get(key)
+        new_raw = new_dict.get(key)
+        
+        old_val = format_field_value(old_raw)
+        new_val = format_field_value(new_raw)
 
         if old_val != new_val:
             changes.append({

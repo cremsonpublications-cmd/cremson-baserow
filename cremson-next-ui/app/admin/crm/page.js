@@ -661,34 +661,25 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
               })}
             </div>
 
-            <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 mt-8">
-              {isEdit ? (
+            {/* Footer - only shown when creating new record */}
+            {!isEdit && (
+              <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 mt-8">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-6 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer shadow-sm"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
                 >
-                  Done / Close
+                  Cancel
                 </button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 transition-colors cursor-pointer"
-                  >
-                    {saving ? "Creating..." : "Create Record"}
-                  </button>
-                </>
-              )}
-            </div>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  {saving ? "Creating..." : "Create Record"}
+                </button>
+              </div>
+            )}
           </form>
 
           {/* Right Side: History Sidebar (Baserow Style) */}
@@ -738,17 +729,23 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
 
                       {/* Baserow Diff Card */}
                       <div className="bg-white border border-gray-200/90 rounded-xl p-3 space-y-2.5 shadow-2xs">
-                        {log.changes.map((change, idx) => (
-                          <div key={idx} className="space-y-1">
-                            <span className="font-bold text-gray-700 text-[11px] block">{change.field}</span>
-                            <div className="bg-red-50 border border-red-200/80 text-red-900 px-2.5 py-1.5 rounded-lg text-xs font-mono line-through break-all">
-                              {change.old}
+                        {Array.isArray(log.changes) && log.changes.length > 0 ? (
+                          log.changes.map((change, idx) => (
+                            <div key={idx} className="space-y-1">
+                              <span className="font-bold text-gray-700 text-[11px] block">{change.field}</span>
+                              {change.old && change.old !== "(empty)" && (
+                                <div className="bg-red-50 border border-red-200/80 text-red-900 px-2.5 py-1.5 rounded-lg text-xs font-mono line-through break-all">
+                                  {change.old}
+                                </div>
+                              )}
+                              <div className="bg-emerald-50 border border-emerald-200/80 text-emerald-900 px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold break-all">
+                                {change.new || "(empty)"}
+                              </div>
                             </div>
-                            <div className="bg-emerald-50 border border-emerald-200/80 text-emerald-900 px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold break-all">
-                              {change.new}
-                            </div>
-                          </div>
-                        ))}
+                          ))
+                        ) : (
+                          <div className="text-gray-500 text-xs italic">Updated record details</div>
+                        )}
                       </div>
                     </div>
                   ))

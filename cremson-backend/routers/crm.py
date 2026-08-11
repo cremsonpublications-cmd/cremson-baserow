@@ -349,9 +349,9 @@ async def update_teacher(row_id: int, body: dict):
             from db.blogs import log_teacher_edit
             log_teacher_edit(
                 teacher_row_id=row_id,
-                teacher_name=old_teacher.get("Teacher Name") or cleaned_body.get("Teacher Name", ""),
+                teacher_name=old_teacher.get("Teacher Name") or updated_teacher.get("Teacher Name", ""),
                 old_dict=old_teacher,
-                new_dict=cleaned_body,
+                new_dict=updated_teacher,
                 changed_by="Admin"
             )
         except Exception as exc:
