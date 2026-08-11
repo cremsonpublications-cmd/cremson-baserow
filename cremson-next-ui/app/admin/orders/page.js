@@ -657,6 +657,7 @@ export default function AdminOrders() {
   const [loadingPickupId, setLoadingPickupId] = useState(null);
   const [bulkPickupLoading, setBulkPickupLoading] = useState(false);
   const [bulkZipLoading, setBulkZipLoading] = useState(false);
+  const [bulkPdfLoading, setBulkPdfLoading] = useState(false);
 
   const debouncedSearch = useDebounce(search, 400);
 
@@ -781,6 +782,47 @@ export default function AdminOrders() {
     }
   }
 
+  async function downloadReadyToPackLabelsPdf(selectedIds = null) {
+    setBulkPdfLoading(true);
+    const toastId = toast.loading("Merging Ready to Pack shipping labels into PDF...");
+
+    try {
+      const payload = selectedIds && selectedIds.length > 0 ? { order_ids: selectedIds } : { status_filter: "ready_to_pack" };
+      const response = await api.post(
+        "/api/orders/download-labels-pdf",
+        payload,
+        { responseType: "blob" }
+      );
+
+      const blobUrl = URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = "ready_to_pack_shipping_labels.pdf";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+
+      toast.dismiss(toastId);
+      toast.success("Successfully downloaded combined Ready to Pack shipping labels PDF!");
+    } catch (err) {
+      toast.dismiss(toastId);
+      let errMsg = "No Ready to Pack shipping labels found to download.";
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const parsed = JSON.parse(text);
+          if (parsed.detail) errMsg = parsed.detail;
+        } catch (e) {}
+      } else if (err?.response?.data?.detail) {
+        errMsg = err.response.data.detail;
+      }
+      toast.error(errMsg);
+    } finally {
+      setBulkPdfLoading(false);
+    }
+  }
+
   const params = { page, size: PAGE_SIZE };
   if (debouncedSearch) params.search = debouncedSearch;
   if (statusFilter) params.order_status = statusFilter;
@@ -883,6 +925,19 @@ export default function AdminOrders() {
                         <Download className="w-4 h-4 text-emerald-600" />
                         Download All Labels (ZIP)
                       </button>
+                      <button
+                        onClick={() => downloadReadyToPackLabelsPdf()}
+                        disabled={bulkPdfLoading}
+                        className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs hover:shadow transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        title="Download all Ready to Pack shipping labels combined into a single PDF file"
+                      >
+                        {bulkPdfLoading ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <FileText className="w-4 h-4" />
+                        )}
+                        Download Ready to Pack Labels (PDF)
+                      </button>
                       <div className="text-sm font-semibold text-gray-600">Total: {count} orders</div>
                     </div>
                   </div>
@@ -948,16 +1003,18 @@ export default function AdminOrders() {
                       )}
                     </button>
 
-                    {/* Download Selected Labels ZIP */}
+                    {/* Download Selected Labels PDF */}
                     <button
                       onClick={() => {
                         const selectedOrders = orders.filter((o) => selectedOrderIds.includes(o.id));
-                        downloadLabelsAsZip(selectedOrders, "selected_shipping_labels.zip");
+                        const selectedIds = selectedOrders.map((o) => o.order_id || String(o.id));
+                        downloadReadyToPackLabelsPdf(selectedIds);
                       }}
-                      disabled={bulkZipLoading}
+                      disabled={bulkPdfLoading}
                       className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-full shadow-md shadow-emerald-600/20 disabled:opacity-50 transition-all flex items-center gap-2 cursor-pointer"
                     >
-                      <Download className="w-3.5 h-3.5" /> Download Selected Labels (ZIP)
+                      {bulkPdfLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                      Download Selected Labels (PDF)
                     </button>
 
                     {/* Clear Selection */}

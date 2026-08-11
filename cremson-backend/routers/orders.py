@@ -9,6 +9,7 @@ from typing import Optional, List
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel
+from pypdf import PdfWriter
 
 from config import TABLE_IDS
 from services.baserow import BaserowClient
@@ -26,6 +27,11 @@ class OrderStatusUpdate(BaseModel):
 
 class DownloadLabelsRequest(BaseModel):
     order_ids: Optional[List[str]] = None
+
+
+class DownloadLabelsPdfRequest(BaseModel):
+    order_ids: Optional[List[str]] = None
+    status_filter: Optional[str] = "ready_to_pack"
 
 
 @router.post("/download-labels-zip", summary="Bulk download shipping label PDFs in a ZIP file")
@@ -130,6 +136,121 @@ async def download_labels_zip(payload: DownloadLabelsRequest):
         "X-Downloaded-Count": str(count),
     }
     return Response(content=zip_buffer.getvalue(), media_type="application/zip", headers=headers)
+
+
+@router.post("/download-labels-pdf", summary="Bulk download combined Ready to Pack shipping labels PDF")
+async def download_labels_pdf(payload: DownloadLabelsPdfRequest):
+    """
+    Fetches shipping label PDFs for target orders (or all orders in READY_TO_PACK status),
+    merges them into a single multi-page PDF document using pypdf, and returns application/pdf.
+    """
+    rows = await client.get_rows(TABLE_IDS["orders"], size=200, order_by="-order_date")
+    all_orders = rows.get("results", [])
+
+    if payload.order_ids:
+        target_ids = set(str(oid) for oid in payload.order_ids)
+        target_orders = [
+            o for o in all_orders 
+            if str(o.get("id")) in target_ids or str(o.get("order_id")) in target_ids
+        ]
+    else:
+        target_orders = [
+            o for o in all_orders 
+            if (o.get("order_status") or o.get("status") or "").lower().replace(" ", "_") in ("ready_to_pack", "ready_to_pack")
+        ]
+
+    if not target_orders:
+        raise HTTPException(status_code=400, detail="No orders found in 'Ready to Pack' status.")
+
+    writer = PdfWriter()
+    count = 0
+
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as http_client:
+        for order in target_orders:
+            delivery_raw = order.get("delivery") or "{}"
+            try:
+                delivery_data = json.loads(delivery_raw) if isinstance(delivery_raw, str) else (delivery_raw or {})
+            except Exception:
+                delivery_data = {}
+
+            label_url = delivery_data.get("label_url")
+            order_id_str = order.get("order_id") or f"BOOK{order.get('id')}"
+
+            pdf_bytes = None
+            if label_url:
+                try:
+                    resp = await http_client.get(label_url, headers={
+                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    })
+                    if resp.status_code == 200 and resp.content.startswith(b"%PDF"):
+                        pdf_bytes = resp.content
+                except Exception as exc:
+                    logger.warning(f"[Orders PDF] Label fetch warning for {order_id_str}: {exc}")
+
+            # Auto-generate via Shipway if label_url missing or expired (S3 403)
+            if not pdf_bytes:
+                try:
+                    user_info_raw = order.get("user_info") or "{}"
+                    user_info = json.loads(user_info_raw) if isinstance(user_info_raw, str) else (user_info_raw or {})
+                    address_obj = user_info.get("address") if isinstance(user_info.get("address"), dict) else {}
+                    items_raw = order.get("items") or "[]"
+                    items = json.loads(items_raw) if isinstance(items_raw, str) else (items_raw or [])
+
+                    ship_payload = {
+                        "order_id": order_id_str,
+                        "order_date": (order.get("order_date") or "").split(" ")[0] or datetime.now().strftime("%Y-%m-%d"),
+                        "total_amount": order.get("total_amount") or 0,
+                        "items": items,
+                        "customer_name": user_info.get("name") or "Customer",
+                        "customer_email": user_info.get("email") or "",
+                        "customer_phone": user_info.get("phone") or "",
+                        "address": address_obj.get("street") or (user_info.get("address") if isinstance(user_info.get("address"), str) else "") or "",
+                        "address2": address_obj.get("apartment") or "",
+                        "city": address_obj.get("city") or "",
+                        "state": address_obj.get("state") or "",
+                        "pincode": address_obj.get("pincode") or "",
+                    }
+                    
+                    ship_res = await create_shipment(ship_payload)
+                    if ship_res.get("success") and ship_res.get("label_url"):
+                        new_label_url = ship_res["label_url"]
+                        delivery_data.update({
+                            "shipment_id": ship_res.get("shipment_id"),
+                            "awb": ship_res.get("awb"),
+                            "courier": ship_res.get("courier_name"),
+                            "carrier_id": ship_res.get("carrier_id"),
+                            "tracking_url": ship_res.get("tracking_url"),
+                            "label_url": new_label_url,
+                        })
+                        await client.update_row(TABLE_IDS["orders"], order["id"], {"delivery": json.dumps(delivery_data)})
+                        
+                        r_new = await http_client.get(new_label_url)
+                        if r_new.status_code == 200 and r_new.content.startswith(b"%PDF"):
+                            pdf_bytes = r_new.content
+                except Exception as exc:
+                    logger.warning(f"[Orders PDF] Auto-create shipment failed for {order_id_str}: {exc}")
+
+            if pdf_bytes:
+                try:
+                    stream = io.BytesIO(pdf_bytes)
+                    writer.append(stream)
+                    count += 1
+                except Exception as exc:
+                    logger.warning(f"[Orders PDF] Failed to append PDF for {order_id_str}: {exc}")
+
+    if count == 0:
+        raise HTTPException(status_code=400, detail="No valid shipping label PDFs could be generated or merged for Ready to Pack orders.")
+
+    output_stream = io.BytesIO()
+    writer.write(output_stream)
+    merged_bytes = output_stream.getvalue()
+    output_stream.close()
+
+    headers = {
+        "Content-Disposition": 'attachment; filename="ready_to_pack_shipping_labels.pdf"',
+        "X-Downloaded-Count": str(count),
+    }
+    return Response(content=merged_bytes, media_type="application/pdf", headers=headers)
 
 
 # ── List / Get / Patch (unchanged) ────────────────────────────────────────────

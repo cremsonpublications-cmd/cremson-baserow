@@ -8,3 +8,5 @@ python-jose[cryptography]
 aiosmtplib
 email-validator
 python-multipart
+pypdf
+
