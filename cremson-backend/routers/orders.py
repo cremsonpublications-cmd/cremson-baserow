@@ -577,18 +577,19 @@ async def list_orders(
     # Fetch standard orders
     orders_res = await client.get_rows(
         TABLE_IDS["orders"],
-        page=1,
-        size=100,
+        page=page,
+        size=size,
         search=search,
         filters=filters if filters else None,
         contains_filters=contains_filters if contains_filters else None,
         order_by="-order_date",
     )
     standard_orders = orders_res.get("results", [])
+    total_standard_count = orders_res.get("count", 0)
 
-    # Fetch and merge bulk orders
+    # Fetch and merge bulk orders (only on the first page to keep pagination clean)
     bulk_orders_mapped = []
-    if not user_id and not email:
+    if not user_id and not email and page == 1:
         try:
             from routers.bulk_orders import _normalize_bulk_row
             bulk_res = await client.get_rows(
@@ -612,13 +613,9 @@ async def list_orders(
     all_merged = list(standard_orders) + bulk_orders_mapped
     all_merged.sort(key=lambda o: o.get("order_date") or "", reverse=True)
 
-    start_idx = (page - 1) * size
-    end_idx = start_idx + size
-    paginated = all_merged[start_idx:end_idx]
-
     return {
-        "count": len(all_merged),
-        "results": paginated
+        "count": total_standard_count + len(bulk_orders_mapped),
+        "results": all_merged
     }
 
 
