@@ -702,10 +702,10 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal, onOpen
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+                  <div className="flex flex-col gap-2 pt-1">
                     <button
                       onClick={() => onOpenReturnModal(order)}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-all cursor-pointer shadow-2xs"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-all cursor-pointer shadow-sm"
                     >
                       <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
                       {delivery.return_status === "RETURN_INITIATED" || currentStatusLower === "return_initiated" ? "Re-Schedule Return" : "Schedule Return Pickup"}
@@ -713,7 +713,7 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal, onOpen
 
                     <button
                       onClick={() => onOpenRefundModal(order)}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all cursor-pointer shadow-2xs"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all cursor-pointer shadow-sm"
                     >
                       <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
                       {delivery.refund_status === "PROCESSED" ? "Issue Another Refund" : "Issue Razorpay Refund"}
