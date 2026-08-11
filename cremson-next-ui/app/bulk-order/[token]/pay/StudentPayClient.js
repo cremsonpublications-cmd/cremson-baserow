@@ -199,10 +199,12 @@ export default function StudentPaymentPage() {
                 <input
                   type="tel"
                   required
-                  maxLength="10"
+                  minLength={10}
+                  maxLength={10}
+                  pattern="[0-9]{10}"
                   placeholder="Enter 10-digit Phone Number"
                   value={studentPhone}
-                  onChange={(e) => setStudentPhone(e.target.value)}
+                  onChange={(e) => setStudentPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
                   className="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                 />
               </div>
