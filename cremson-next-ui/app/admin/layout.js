@@ -4,6 +4,7 @@ import Link from "next/link";
 import CPLogo from "../../components/CPLogo";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import api from "../../lib/api/axios";
 import {
   LayoutDashboard,
   FolderOpen,
@@ -29,9 +30,9 @@ import {
 
 const coreLinks = [
   { href: "/admin", label: "Dashboard", Icon: LayoutDashboard },
-  { href: "/admin/orders", label: "Orders", Icon: ShoppingCart },
-  { href: "/admin/bulk-orders", label: "Bulk Orders", Icon: Package },
-  { href: "/admin/specimen-requests", label: "Specimen Requests", Icon: FileText },
+  { href: "/admin/orders", label: "Orders", Icon: ShoppingCart, badgeKey: "orders" },
+  { href: "/admin/bulk-orders", label: "Bulk Orders", Icon: Package, badgeKey: "bulkOrders" },
+  { href: "/admin/specimen-requests", label: "Specimen Requests", Icon: FileText, badgeKey: "specimenRequests" },
   { href: "/admin/specimen-books", label: "Specimen Books", Icon: BookOpen },
   { href: "/admin/crm?tab=schools", label: "CRM Database Hub", Icon: Database },
 ];
@@ -65,6 +66,12 @@ export default function AdminLayout({ children }) {
   const [adminExpanded, setAdminExpanded] = useState(false);
   const [uploadExpanded, setUploadExpanded] = useState(false);
 
+  const [badgeCounts, setBadgeCounts] = useState({
+    orders: 0,
+    bulkOrders: 0,
+    specimenRequests: 0,
+  });
+
   const isLoginPage = pathname === "/admin/login";
 
   useEffect(() => {
@@ -72,6 +79,70 @@ export default function AdminLayout({ children }) {
     const token = typeof window !== "undefined" && localStorage.getItem("cremson_admin_token");
     if (!token) { router.replace("/admin/login"); } else { setChecked(true); }
   }, [isLoginPage, router]);
+
+  // Fetch pending counts for notification badges
+  useEffect(() => {
+    if (!checked || isLoginPage) return;
+    let mounted = true;
+
+    async function fetchBadgeCounts() {
+      try {
+        const [ordersRes, bulkRes, specimenRes] = await Promise.allSettled([
+          api.get("/api/orders/?size=200"),
+          api.get("/api/bulk-orders/?size=200"),
+          api.get("/api/specimen-requests?size=200"),
+        ]);
+
+        let ordersCount = 0;
+        if (ordersRes.status === "fulfilled" && ordersRes.value.data) {
+          const items = ordersRes.value.data.results || ordersRes.value.data.items || ordersRes.value.data || [];
+          ordersCount = items.filter(
+            (o) => (o.order_status || o.status || "").toLowerCase() === "ready_to_pack"
+          ).length;
+        }
+
+        let bulkCount = 0;
+        if (bulkRes.status === "fulfilled" && bulkRes.value.data) {
+          const items = Array.isArray(bulkRes.value.data.results)
+            ? bulkRes.value.data.results
+            : Array.isArray(bulkRes.value.data)
+            ? bulkRes.value.data
+            : [];
+          bulkCount = items.filter((o) => {
+            const st = (o.status || "").toLowerCase();
+            return st === "pending" || st === "pending_approval" || st === "created";
+          }).length;
+        }
+
+        let specimenCount = 0;
+        if (specimenRes.status === "fulfilled" && specimenRes.value.data) {
+          const items = Array.isArray(specimenRes.value.data)
+            ? specimenRes.value.data
+            : specimenRes.value.data.results || specimenRes.value.data.items || [];
+          specimenCount = items.filter(
+            (s) => (s.status || "").toLowerCase() === "pending"
+          ).length;
+        }
+
+        if (mounted) {
+          setBadgeCounts({
+            orders: ordersCount,
+            bulkOrders: bulkCount,
+            specimenRequests: specimenCount,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch badge counts:", err);
+      }
+    }
+
+    fetchBadgeCounts();
+    const interval = setInterval(fetchBadgeCounts, 15000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [checked, isLoginPage, pathname]);
 
   function handleLogout() {
     localStorage.removeItem("cremson_admin_token");
@@ -137,21 +208,30 @@ export default function AdminLayout({ children }) {
         <nav className="flex-1 p-4 overflow-y-auto">
           <ul className="space-y-1">
             {/* Core Links */}
-            {coreLinks.map(({ href, label, Icon }) => {
+            {coreLinks.map(({ href, label, Icon, badgeKey }) => {
               const active = isActive(href);
+              const badgeCount = badgeKey ? badgeCounts[badgeKey] || 0 : 0;
+
               return (
                 <li key={href}>
                   <Link
                     href={href}
                     onClick={() => setSidebarOpen(false)}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors text-sm
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left transition-colors text-sm
                       ${active
                         ? "bg-purple-50 text-purple-700 border border-purple-200 font-semibold"
                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium border border-transparent"
                       }`}
                   >
-                    <Icon size={20} aria-hidden="true" />
-                    <span>{label}</span>
+                    <div className="flex items-center space-x-3">
+                      <Icon size={20} aria-hidden="true" />
+                      <span>{label}</span>
+                    </div>
+                    {badgeCount > 0 && (
+                      <span className="bg-red-500 text-white font-bold text-xs px-2 py-0.5 rounded-full shadow-xs">
+                        {badgeCount}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );
