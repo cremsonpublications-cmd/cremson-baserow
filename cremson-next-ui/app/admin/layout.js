@@ -93,7 +93,7 @@ export default function AdminLayout({ children }) {
         const [ordersRes, bulkRes, specimenRes, remindersRes] = await Promise.allSettled([
           api.get("/api/orders/?size=200"),
           api.get("/api/bulk-orders/?size=200"),
-          api.get("/api/specimen-requests?size=200"),
+          api.get("/api/specimen-requests/?size=200"),
           api.get("/api/reminders/?status=pending"),
         ]);
 
