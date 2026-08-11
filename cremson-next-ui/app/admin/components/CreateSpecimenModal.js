@@ -250,7 +250,7 @@ export default function CreateSpecimenModal({ onClose, onSuccess }) {
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
                   placeholder="9876543210"
-                  className="w-full pl-[70px] pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:border-red-500 outline-none"
+                  className="w-full pl-[70px] pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold placeholder:text-slate-400 placeholder:font-normal focus:border-red-500 outline-none"
                 />
               </div>
             </div>

@@ -465,7 +465,7 @@ export default function PublicBulkOrderPage() {
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "") })}
                     placeholder="9876543210"
-                    className="w-full pl-20 pr-4 py-2.5 border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                    className="w-full pl-20 pr-4 py-2.5 border border-slate-300 rounded-xl text-sm font-medium placeholder:text-slate-400 placeholder:font-normal focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                   />
                 </div>
               </div>
