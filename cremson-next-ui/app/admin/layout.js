@@ -26,10 +26,12 @@ import {
   ChevronRight,
   UploadCloud,
   Shield,
+  Bell,
 } from "lucide-react";
 
 const coreLinks = [
   { href: "/admin", label: "Dashboard", Icon: LayoutDashboard },
+  { href: "/admin/reminders", label: "Reminders", Icon: Bell, badgeKey: "reminders" },
   { href: "/admin/orders", label: "Orders", Icon: ShoppingCart, badgeKey: "orders" },
   { href: "/admin/bulk-orders", label: "Bulk Orders", Icon: Package, badgeKey: "bulkOrders" },
   { href: "/admin/specimen-requests", label: "Specimen Requests", Icon: FileText, badgeKey: "specimenRequests" },
@@ -70,6 +72,7 @@ export default function AdminLayout({ children }) {
     orders: 0,
     bulkOrders: 0,
     specimenRequests: 0,
+    reminders: 0,
   });
 
   const isLoginPage = pathname === "/admin/login";
@@ -87,10 +90,11 @@ export default function AdminLayout({ children }) {
 
     async function fetchBadgeCounts() {
       try {
-        const [ordersRes, bulkRes, specimenRes] = await Promise.allSettled([
+        const [ordersRes, bulkRes, specimenRes, remindersRes] = await Promise.allSettled([
           api.get("/api/orders/?size=200"),
           api.get("/api/bulk-orders/?size=200"),
           api.get("/api/specimen-requests?size=200"),
+          api.get("/api/reminders/?status=pending"),
         ]);
 
         let ordersCount = 0;
@@ -124,11 +128,20 @@ export default function AdminLayout({ children }) {
           ).length;
         }
 
+        let remindersCount = 0;
+        if (remindersRes.status === "fulfilled" && remindersRes.value.data) {
+          const items = Array.isArray(remindersRes.value.data.reminders)
+            ? remindersRes.value.data.reminders
+            : [];
+          remindersCount = items.filter((r) => r.is_overdue || r.is_today).length;
+        }
+
         if (mounted) {
           setBadgeCounts({
             orders: ordersCount,
             bulkOrders: bulkCount,
             specimenRequests: specimenCount,
+            reminders: remindersCount,
           });
         }
       } catch (err) {

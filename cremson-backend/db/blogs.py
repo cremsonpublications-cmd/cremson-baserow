@@ -231,6 +231,22 @@ def init_blogs_db():
     """)
     conn.commit()
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS reminders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            notes TEXT,
+            due_date TEXT NOT NULL,
+            due_time TEXT,
+            teacher_name TEXT,
+            school_name TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            completed_at TEXT,
+            created_at TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+
     conn.close()
 
 # Initialize DB on load
