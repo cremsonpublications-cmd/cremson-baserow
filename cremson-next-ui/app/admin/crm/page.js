@@ -694,10 +694,9 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
           {/* Right Side: History Sidebar (Baserow Style) */}
           {isEdit && (
             <div className="w-80 md:w-96 border-l border-gray-200 bg-slate-50/70 flex flex-col text-left shrink-0">
-              {/* Header with Tabs */}
+              {/* Header */}
               <div className="flex items-center justify-between border-b border-gray-200 bg-white px-5 h-14 shrink-0">
-                <div className="flex gap-6 text-xs font-bold text-gray-700 h-full items-center">
-                  <span className="text-gray-400 font-medium cursor-default">Comments</span>
+                <div className="flex text-xs font-bold text-gray-700 h-full items-center">
                   <span className="text-blue-600 border-b-2 border-blue-600 py-4 font-bold flex items-center gap-1.5 cursor-default">
                     History
                     {auditLogs.length > 0 && (
