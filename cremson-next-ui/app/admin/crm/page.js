@@ -728,17 +728,17 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
                       </div>
 
                       {/* Baserow Diff Card */}
-                      <div className="bg-white border border-gray-200/90 rounded-xl p-3 space-y-2.5 shadow-2xs">
+                      <div className="bg-[#f4f5f6] border border-gray-200/80 rounded-xl p-3 space-y-2.5">
                         {Array.isArray(log.changes) && log.changes.length > 0 ? (
                           log.changes.map((change, idx) => (
                             <div key={idx} className="space-y-1">
-                              <span className="font-bold text-gray-700 text-[11px] block">{change.field}</span>
+                              <span className="font-semibold text-gray-600 text-xs block mb-1">{change.field}</span>
                               {change.old && change.old !== "(empty)" && (
-                                <div className="bg-red-50 border border-red-200/80 text-red-900 px-2.5 py-1.5 rounded-lg text-xs font-mono line-through break-all">
+                                <div className="bg-[#f8d7da] text-[#721c24] px-3 py-2 rounded-lg text-xs font-mono line-through font-medium break-all">
                                   {change.old}
                                 </div>
                               )}
-                              <div className="bg-emerald-50 border border-emerald-200/80 text-emerald-900 px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold break-all">
+                              <div className="bg-[#d4edda] text-[#155724] px-3 py-2 rounded-lg text-xs font-mono font-semibold break-all">
                                 {change.new || "(empty)"}
                               </div>
                             </div>
@@ -1826,7 +1826,10 @@ export default function AdminCRMHub() {
         <CRMFormModal
           activeTab={activeTab}
           record={editRecord}
-          onClose={() => setEditRecord(null)}
+          onClose={() => {
+            setEditRecord(null);
+            handleSaved();
+          }}
           onSaved={handleSaved}
         />
       )}

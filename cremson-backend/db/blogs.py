@@ -255,9 +255,9 @@ def format_field_value(val):
     return str(val).strip()
 
 
-def log_teacher_edit(teacher_row_id: int, teacher_name: str, old_dict: dict, new_dict: dict, changed_by: str = "Admin"):
+def log_teacher_edit(teacher_row_id: int, teacher_name: str, old_dict: dict, new_dict: dict, changed_keys: list = None, changed_by: str = "Admin"):
     """
-    Compares old_dict vs new_dict, extracts modified fields, and inserts an audit log entry.
+    Compares old_dict vs new_dict for changed_keys, extracts modified fields, and inserts an audit log entry.
     """
     import json
     from datetime import datetime
@@ -265,8 +265,9 @@ def log_teacher_edit(teacher_row_id: int, teacher_name: str, old_dict: dict, new
     changes = []
     ignore_keys = {"id", "Teacher ID", "created_on", "IdCardUrl", "Teacher", "order", "created_at", "updated_at"}
 
-    # Compare keys present in both dictionaries
-    for key in sorted(new_dict.keys()):
+    target_keys = changed_keys if changed_keys is not None else list(new_dict.keys())
+
+    for key in sorted(target_keys):
         if key in ignore_keys:
             continue
         

@@ -352,6 +352,7 @@ async def update_teacher(row_id: int, body: dict):
                 teacher_name=old_teacher.get("Teacher Name") or updated_teacher.get("Teacher Name", ""),
                 old_dict=old_teacher,
                 new_dict=updated_teacher,
+                changed_keys=list(cleaned_body.keys()),
                 changed_by="Admin"
             )
         except Exception as exc:
