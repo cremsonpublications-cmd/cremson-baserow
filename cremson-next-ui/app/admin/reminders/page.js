@@ -369,85 +369,30 @@ export default function AdminRemindersPage() {
             </div>
 
             <form onSubmit={handleCreateSubmit} className="space-y-4">
+
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Reminder Title / Task <span className="text-red-500">*</span>
+                  Notes <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
+                <textarea
+                  rows={4}
                   required
-                  placeholder="e.g. Call Teacher Arjun regarding specimen book delivery"
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs focus:outline-none focus:border-purple-500"
+                  placeholder="e.g. Call Teacher Arjun regarding specimen book delivery..."
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value, title: e.target.value.slice(0, 80) })}
+                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs focus:outline-none focus:border-purple-500 resize-none"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Reminder Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={form.due_date}
-                    onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Time (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 11:00 AM"
-                    value={form.due_time}
-                    onChange={(e) => setForm({ ...form, due_time: e.target.value })}
-                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Teacher Name (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Arjun Sri"
-                    value={form.teacher_name}
-                    onChange={(e) => setForm({ ...form, teacher_name: e.target.value })}
-                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    School Name (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Kendriya Vidyalaya"
-                    value={form.school_name}
-                    onChange={(e) => setForm({ ...form, school_name: e.target.value })}
-                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Notes / Details
+                  Reminder Date <span className="text-red-500">*</span>
                 </label>
-                <textarea
-                  rows={3}
-                  placeholder="Additional context or notes for this follow-up call..."
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                <input
+                  type="date"
+                  required
+                  value={form.due_date}
+                  onChange={(e) => setForm({ ...form, due_date: e.target.value })}
                   className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs focus:outline-none focus:border-purple-500"
                 />
               </div>
