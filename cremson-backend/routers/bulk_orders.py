@@ -346,6 +346,7 @@ async def approve_bulk_order(row_id: int, body: BulkOrderApprove, bg: Background
         discount_value=body.discount_value,
         final_amount=final_amount,
         order_link=order_link,
+        school=norm["school_name"],
     )
 
     return norm

@@ -393,14 +393,17 @@ async def send_rto(
 
 async def send_bulk_order_received(phone: str, name: str, school: str, order_link: str):
     """Sent to teacher upon bulk order submission."""
-    msg = (
-        f"Hello {name},\n\n"
-        f"Thank you for submitting your Bulk Order request for *{school}* with Cremson Publications! 📚\n\n"
-        "Our admin team is currently reviewing your order request. Once approved, you will receive a WhatsApp notification with your special discounted pricing and payment link.\n\n"
-        f"📌 Track your bulk order status anytime here:\n{order_link}\n\n"
-        "Thank you,\nCremson Publications Team"
+    params = [
+        {"type": "text", "text": name},
+        {"type": "text", "text": school},
+        {"type": "text", "text": order_link},
+    ]
+    await _send_template(
+        phone=phone,
+        template_name="bulk_order_requested_v1",
+        parameters=params,
+        log_tag=f"bulk_order_received name={name}",
     )
-    await _send_text_message(phone, msg, log_tag=f"bulk_order_received name={name}")
 
 
 async def send_bulk_order_admin_notify(admin_phone: str, name: str, school: str, total: float, order_link: str):
@@ -422,27 +425,22 @@ async def send_bulk_order_approved(
     discount_type: str,
     discount_value: float,
     final_amount: float,
-    order_link: str
+    order_link: str,
+    school: str = "School"
 ):
     """Sent to teacher upon admin approval & discount application."""
-    if discount_type == "percentage":
-        savings = (subtotal * discount_value) / 100
-        disc_str = f"{discount_value}% OFF (-₹{savings:,.2f})"
-    else:
-        disc_str = f"Flat ₹{discount_value:,.2f} OFF"
-
-    msg = (
-        f"Great news {name}! 🎉\n\n"
-        f"Your Bulk Order request has been *APPROVED* by Cremson Publications! 📚\n\n"
-        f"📋 *Order Price Breakdown:*\n"
-        f"• Original Subtotal: ₹{subtotal:,.2f}\n"
-        f"• Special Discount: *{disc_str}*\n"
-        f"• 💰 *Final Payable Amount: ₹{final_amount:,.2f}*\n\n"
-        f"You can now view your order, pay directly, or generate individual split payment links for your students:\n\n"
-        f"👉 {order_link}\n\n"
-        f"Thank you for choosing Cremson Publications!"
+    params = [
+        {"type": "text", "text": name},
+        {"type": "text", "text": school},
+        {"type": "text", "text": f"{final_amount:,.2f}"},
+        {"type": "text", "text": order_link},
+    ]
+    await _send_template(
+        phone=phone,
+        template_name="bulk_order_approved_v10",
+        parameters=params,
+        log_tag=f"bulk_order_approved name={name}",
     )
-    await _send_text_message(phone, msg, log_tag=f"bulk_order_approved name={name}")
 
 
 async def send_bulk_order_payment_received(phone: str, name: str, school: str, amount: float, order_link: str):
@@ -461,17 +459,18 @@ async def send_bulk_order_payment_received(phone: str, name: str, school: str, a
 
 async def send_bulk_order_shipped(phone: str, name: str, school: str, awb: str, tracking_link: str, order_link: str):
     """Sent to teacher when bulk order shipment is dispatched via Shipway."""
-    msg = (
-        f"Order Dispatched! 🚚📦\n\n"
-        f"Hello {name},\n"
-        f"Your bulk order for *{school}* has been shipped!\n\n"
-        f"• *AWB Tracking No:* {awb}\n"
-        f"• *Carrier:* Shipway Courier\n\n"
-        f"🔗 *Track Shipment Live:*\n{tracking_link}\n\n"
-        f"📌 *Order Details:*\n{order_link}\n\n"
-        f"Thank you for choosing Cremson Publications!"
+    params = [
+        {"type": "text", "text": name},
+        {"type": "text", "text": school},
+        {"type": "text", "text": awb},
+        {"type": "text", "text": tracking_link},
+    ]
+    await _send_template(
+        phone=phone,
+        template_name="bulk_order_shipped_v1",
+        parameters=params,
+        log_tag=f"bulk_order_shipped name={name}",
     )
-    await _send_text_message(phone, msg, log_tag=f"bulk_order_shipped name={name}")
 
 
 async def send_whatsapp_otp(phone: str, otp: str):
