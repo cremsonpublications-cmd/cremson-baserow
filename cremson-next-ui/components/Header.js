@@ -7,6 +7,7 @@ import CPLogo from "./CPLogo";
 import Link from "next/link";
 import { Menu, Search, X } from "lucide-react";
 import { getApiBaseUrl } from "../lib/api/axios";
+import { navigateToUrl } from "../lib/utils/navigation";
 
 export default function Header() {
   const pathname = usePathname();
@@ -232,7 +233,7 @@ export default function Header() {
                                           onMouseEnter={() => setActiveL1(node)}
                                           onClick={() => {
                                             if (node.url) {
-                                              router.push(node.url);
+                                              navigateToUrl(node.url, router);
                                             }
                                           }}
                                           className={`py-3.5 px-4 flex items-center justify-between cursor-pointer transition-colors ${
@@ -268,7 +269,7 @@ export default function Header() {
                                             }}
                                             onClick={() => {
                                               if (node.url) {
-                                                router.push(node.url);
+                                                navigateToUrl(node.url, router);
                                               }
                                             }}
                                             className={`py-3.5 px-4 flex items-center justify-between cursor-pointer transition-colors ${
@@ -295,16 +296,20 @@ export default function Header() {
                                   {l3Items.length > 0 && (
                                     <div className="flex-1 bg-white flex flex-col divide-y divide-gray-100 overflow-y-auto max-h-[460px]">
                                       {l3Items.map((node) => (
-                                        <Link
+                                        <div
                                           key={node.id}
-                                          href={node.url || "#"}
+                                          onClick={() => {
+                                            if (node.url) {
+                                              navigateToUrl(node.url, router);
+                                            }
+                                          }}
                                           className="py-3 px-5 flex items-center justify-between text-[12.5px] font-semibold text-gray-800 hover:bg-gray-50 hover:text-red-500 transition-colors cursor-pointer"
                                         >
                                           <span>{node.label}</span>
                                           {node.url && (
                                             <span className="text-[12.5px] text-black/50 font-bold font-mono select-none">&gt;</span>
                                           )}
-                                        </Link>
+                                        </div>
                                       ))}
                                     </div>
                                   )}

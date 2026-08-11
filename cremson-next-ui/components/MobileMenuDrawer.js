@@ -7,6 +7,7 @@ import { useApp } from "../context/AppContext";
 import CPLogo from "./CPLogo";
 import { X, ChevronDown, Search, User, LogOut, Package, MapPin, BookOpen, GraduationCap, Home, ShoppingBag, BookMarked, Newspaper, PhoneCall } from "lucide-react";
 import { getApiBaseUrl } from "../lib/api/axios";
+import { navigateToUrl } from "../lib/utils/navigation";
 
 export default function MobileMenuDrawer() {
   const router = useRouter();
@@ -44,7 +45,7 @@ export default function MobileMenuDrawer() {
 
   const handleLinkClick = (href) => {
     setIsMobileMenuOpen(false);
-    if (href) router.push(href);
+    if (href) navigateToUrl(href, router);
   };
 
   const handleSearchSubmit = (e) => {

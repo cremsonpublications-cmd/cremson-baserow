@@ -435,17 +435,17 @@ export default function StudyMaterialsAdminPage() {
               {/* URL Redirect Link */}
               <div>
                 <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wider">
-                  Redirect URL (Optional)
+                  Redirect URL / Full Website Link (Optional)
                 </label>
                 <input
-                  placeholder="e.g. /study-material/... (leave blank for folder)"
-                  className="w-full p-2.5 border border-gray-300 outline-none rounded-lg text-sm text-gray-700 focus:border-primary transition-all"
+                  placeholder="e.g. https://external-site.com/page or /study-material/..."
+                  className="w-full p-2.5 border border-gray-300 outline-none rounded-lg text-sm text-gray-700 focus:border-primary transition-all font-mono"
                   type="text"
                   value={modalUrl}
                   onChange={(e) => setModalUrl(e.target.value)}
                 />
                 <p className="text-[10px] text-gray-400 mt-1">
-                  Leave blank to make this item acts as a nested folder that can contain sub-links.
+                  Enter any full website URL (internal or external starting with https:// or http://) or a relative path. Leave blank to act as a parent folder.
                 </p>
               </div>
 
