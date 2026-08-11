@@ -31,8 +31,8 @@ class DownloadLabelsRequest(BaseModel):
 @router.post("/download-labels-zip", summary="Bulk download shipping label PDFs in a ZIP file")
 async def download_labels_zip(payload: DownloadLabelsRequest):
     """
-    Downloads shipping label PDFs server-side for requested order_ids (or all orders if empty)
-    and returns a ZIP archive file response.
+    Downloads shipping label PDFs server-side for requested order_ids (or all orders if empty).
+    If a label URL is expired (S3 403) or missing, automatically re-registers/fetches a fresh label from Shipway.
     """
     rows = await client.get_rows(TABLE_IDS["orders"], size=200, order_by="-order_date")
     all_orders = rows.get("results", [])
@@ -59,28 +59,75 @@ async def download_labels_zip(payload: DownloadLabelsRequest):
                     delivery_data = {}
 
                 label_url = delivery_data.get("label_url")
-                if not label_url:
-                    continue
-
                 order_id_str = order.get("order_id") or f"BOOK{order.get('id')}"
-                filename = f"shipping_label_{order_id_str}.pdf"
 
-                try:
-                    resp = await http_client.get(label_url, headers={
-                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                    })
-                    if resp.status_code == 200 and resp.content:
-                        zip_file.writestr(filename, resp.content)
-                        count += 1
-                except Exception as exc:
-                    logger.warning(f"[Orders] Failed to download label for order {order_id_str}: {exc}")
+                pdf_bytes = None
+                if label_url:
+                    try:
+                        resp = await http_client.get(label_url, headers={
+                            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                        })
+                        if resp.status_code == 200 and resp.content.startswith(b"%PDF"):
+                            pdf_bytes = resp.content
+                    except Exception as exc:
+                        logger.warning(f"[Orders] Label fetch warning for order {order_id_str}: {exc}")
+
+                # If missing or expired (S3 403), auto-generate via Shipway
+                if not pdf_bytes:
+                    try:
+                        user_info_raw = order.get("user_info") or "{}"
+                        user_info = json.loads(user_info_raw) if isinstance(user_info_raw, str) else (user_info_raw or {})
+                        address_obj = user_info.get("address") if isinstance(user_info.get("address"), dict) else {}
+                        
+                        items_raw = order.get("items") or "[]"
+                        items = json.loads(items_raw) if isinstance(items_raw, str) else (items_raw or [])
+
+                        ship_payload = {
+                            "order_id": order_id_str,
+                            "order_date": (order.get("order_date") or "").split(" ")[0] or datetime.now().strftime("%Y-%m-%d"),
+                            "total_amount": order.get("total_amount") or 0,
+                            "items": items,
+                            "customer_name": user_info.get("name") or "Customer",
+                            "customer_email": user_info.get("email") or "",
+                            "customer_phone": user_info.get("phone") or "",
+                            "address": address_obj.get("street") or (user_info.get("address") if isinstance(user_info.get("address"), str) else "") or "",
+                            "address2": address_obj.get("apartment") or "",
+                            "city": address_obj.get("city") or "",
+                            "state": address_obj.get("state") or "",
+                            "pincode": address_obj.get("pincode") or "",
+                        }
+                        
+                        ship_res = await create_shipment(ship_payload)
+                        if ship_res.get("success") and ship_res.get("label_url"):
+                            new_label_url = ship_res["label_url"]
+                            delivery_data.update({
+                                "shipment_id": ship_res.get("shipment_id"),
+                                "awb": ship_res.get("awb"),
+                                "courier": ship_res.get("courier_name"),
+                                "carrier_id": ship_res.get("carrier_id"),
+                                "tracking_url": ship_res.get("tracking_url"),
+                                "label_url": new_label_url,
+                            })
+                            await client.update_row(TABLE_IDS["orders"], order["id"], {"delivery": json.dumps(delivery_data)})
+                            
+                            r_new = await http_client.get(new_label_url)
+                            if r_new.status_code == 200 and r_new.content.startswith(b"%PDF"):
+                                pdf_bytes = r_new.content
+                    except Exception as exc:
+                        logger.warning(f"[Orders] Auto-create shipment failed for order {order_id_str}: {exc}")
+
+                if pdf_bytes:
+                    filename = f"shipping_label_{order_id_str}.pdf"
+                    zip_file.writestr(filename, pdf_bytes)
+                    count += 1
 
     if count == 0:
-        raise HTTPException(status_code=400, detail="No valid shipping label PDFs found for the selected orders.")
+        raise HTTPException(status_code=400, detail="No valid shipping label PDFs could be generated or fetched for the selected orders.")
 
     zip_buffer.seek(0)
     headers = {
-        "Content-Disposition": 'attachment; filename="shipping_labels.zip"'
+        "Content-Disposition": 'attachment; filename="shipping_labels.zip"',
+        "X-Downloaded-Count": str(count),
     }
     return Response(content=zip_buffer.getvalue(), media_type="application/zip", headers=headers)
 
