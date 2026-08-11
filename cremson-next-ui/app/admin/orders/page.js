@@ -1336,7 +1336,7 @@ export default function AdminOrders() {
                                     if (deliv.label_url) {
                                       window.open(deliv.label_url, "_blank");
                                     } else {
-                                      toast.error(`Shipping label not available for Order #${order.order_id || order.id}`);
+                                      downloadReadyToPackLabelsPdf([order.id]);
                                     }
                                   }}
                                   className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
@@ -1428,7 +1428,7 @@ export default function AdminOrders() {
                                 onClick={() => {
                                   const deliv = safeParseJSON(order.delivery) || {};
                                   if (deliv.label_url) { window.open(deliv.label_url, "_blank"); }
-                                  else { toast.error(`Shipping label not available for Order #${order.order_id || order.id}`); }
+                                  else { downloadReadyToPackLabelsPdf([order.id]); }
                                 }}
                                 className="p-1.5 hover:bg-purple-50 rounded transition-colors cursor-pointer" title="Download Shipping Label"
                               >

@@ -570,7 +570,6 @@ async def verify_bulk_payment(token: str, body: dict, bg: BackgroundTasks):
                 amount=norm["final_amount"],
                 order_link=order_link,
             )
-            bg.add_task(_auto_ship_bulk_order, row_id)
 
         return {"success": True, "status": new_status, "paid_count": paid_count, "split_count": split_count}
     else:
@@ -587,7 +586,6 @@ async def verify_bulk_payment(token: str, body: dict, bg: BackgroundTasks):
             amount=norm["final_amount"],
             order_link=order_link,
         )
-        bg.add_task(_auto_ship_bulk_order, row_id)
 
         return {"success": True, "status": "fully_paid"}
 

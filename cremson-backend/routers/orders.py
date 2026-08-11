@@ -11,7 +11,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from pypdf import PdfWriter
 
-from config import TABLE_IDS
+from config import TABLE_IDS, SITE_URL
 from services.baserow import BaserowClient
 from services.shipway import request_pickup, create_shipment
 from services.whatsapp import send_pickup_requested
@@ -41,7 +41,21 @@ async def download_labels_zip(payload: DownloadLabelsRequest):
     If a label URL is expired (S3 403) or missing, automatically re-registers/fetches a fresh label from Shipway.
     """
     rows = await client.get_rows(TABLE_IDS["orders"], size=200, order_by="-order_date")
-    all_orders = rows.get("results", [])
+    standard_orders = rows.get("results", [])
+
+    bulk_orders_mapped = []
+    try:
+        from routers.bulk_orders import _normalize_bulk_row
+        bulk_res = await client.get_rows(TABLE_IDS["bulk_orders"], size=100)
+        for r in bulk_res.get("results", []):
+            norm = _normalize_bulk_row(r)
+            if norm.get("status") in ["approved", "partially_paid", "fully_paid", "shipped"]:
+                mapped = _map_bulk_to_standard_order(norm)
+                bulk_orders_mapped.append(mapped)
+    except Exception as e:
+        logger.error(f"[Orders] Error merging bulk orders in download_zip: {e}")
+
+    all_orders = list(standard_orders) + bulk_orders_mapped
 
     if payload.order_ids:
         target_ids = set(str(oid) for oid in payload.order_ids)
@@ -114,7 +128,17 @@ async def download_labels_zip(payload: DownloadLabelsRequest):
                                 "tracking_url": ship_res.get("tracking_url"),
                                 "label_url": new_label_url,
                             })
-                            await client.update_row(TABLE_IDS["orders"], order["id"], {"delivery": json.dumps(delivery_data)})
+                            if order.get("is_bulk"):
+                                bulk_id = int(str(order["id"]).split("_")[1])
+                                from routers.bulk_orders import _normalize_bulk_row, _save_bulk_data
+                                bulk_row = await client.get_row(TABLE_IDS["bulk_orders"], bulk_id)
+                                norm = _normalize_bulk_row(bulk_row)
+                                norm["shipway_awb"] = ship_res.get("awb")
+                                norm["shipment_id"] = ship_res.get("shipment_id")
+                                norm["label_url"] = new_label_url
+                                await _save_bulk_data(bulk_id, norm)
+                            else:
+                                await client.update_row(TABLE_IDS["orders"], order["id"], {"delivery": json.dumps(delivery_data)})
                             
                             r_new = await http_client.get(new_label_url)
                             if r_new.status_code == 200 and r_new.content.startswith(b"%PDF"):
@@ -145,7 +169,21 @@ async def download_labels_pdf(payload: DownloadLabelsPdfRequest):
     merges them into a single multi-page PDF document using pypdf, and returns application/pdf.
     """
     rows = await client.get_rows(TABLE_IDS["orders"], size=200, order_by="-order_date")
-    all_orders = rows.get("results", [])
+    standard_orders = rows.get("results", [])
+
+    bulk_orders_mapped = []
+    try:
+        from routers.bulk_orders import _normalize_bulk_row
+        bulk_res = await client.get_rows(TABLE_IDS["bulk_orders"], size=100)
+        for r in bulk_res.get("results", []):
+            norm = _normalize_bulk_row(r)
+            if norm.get("status") in ["approved", "partially_paid", "fully_paid", "shipped"]:
+                mapped = _map_bulk_to_standard_order(norm)
+                bulk_orders_mapped.append(mapped)
+    except Exception as e:
+        logger.error(f"[Orders] Error merging bulk orders in download_pdf: {e}")
+
+    all_orders = list(standard_orders) + bulk_orders_mapped
 
     if payload.order_ids:
         target_ids = set(str(oid) for oid in payload.order_ids)
@@ -222,7 +260,17 @@ async def download_labels_pdf(payload: DownloadLabelsPdfRequest):
                             "tracking_url": ship_res.get("tracking_url"),
                             "label_url": new_label_url,
                         })
-                        await client.update_row(TABLE_IDS["orders"], order["id"], {"delivery": json.dumps(delivery_data)})
+                        if order.get("is_bulk"):
+                            bulk_id = int(str(order["id"]).split("_")[1])
+                            from routers.bulk_orders import _normalize_bulk_row, _save_bulk_data
+                            bulk_row = await client.get_row(TABLE_IDS["bulk_orders"], bulk_id)
+                            norm = _normalize_bulk_row(bulk_row)
+                            norm["shipway_awb"] = ship_res.get("awb")
+                            norm["shipment_id"] = ship_res.get("shipment_id")
+                            norm["label_url"] = new_label_url
+                            await _save_bulk_data(bulk_id, norm)
+                        else:
+                            await client.update_row(TABLE_IDS["orders"], order["id"], {"delivery": json.dumps(delivery_data)})
                         
                         r_new = await http_client.get(new_label_url)
                         if r_new.status_code == 200 and r_new.content.startswith(b"%PDF"):
@@ -264,7 +312,21 @@ async def bulk_request_pickup(payload: BulkPickupRequest, background_tasks: Back
     requests pickup via Shipway, sends WhatsApp notifications, and updates status to PICKUP_REQUESTED.
     """
     rows = await client.get_rows(TABLE_IDS["orders"], size=200, order_by="-order_date")
-    all_orders = rows.get("results", [])
+    standard_orders = rows.get("results", [])
+
+    bulk_orders_mapped = []
+    try:
+        from routers.bulk_orders import _normalize_bulk_row
+        bulk_res = await client.get_rows(TABLE_IDS["bulk_orders"], size=100)
+        for r in bulk_res.get("results", []):
+            norm = _normalize_bulk_row(r)
+            if norm.get("status") in ["approved", "partially_paid", "fully_paid", "shipped"]:
+                mapped = _map_bulk_to_standard_order(norm)
+                bulk_orders_mapped.append(mapped)
+    except Exception as e:
+        logger.error(f"[Orders] Error merging bulk orders in bulk_request_pickup: {e}")
+
+    all_orders = list(standard_orders) + bulk_orders_mapped
 
     if payload.order_ids:
         target_ids = set(str(oid) for oid in payload.order_ids)
@@ -349,14 +411,25 @@ async def bulk_request_pickup(payload: BulkPickupRequest, background_tasks: Back
             delivery_data["pickup_token"] = pickup_res["pickup_token"]
 
         try:
-            await client.update_row(
-                TABLE_IDS["orders"],
-                row_id,
-                {
-                    "order_status": "PICKUP_REQUESTED",
-                    "delivery": json.dumps(delivery_data),
-                },
-            )
+            if order.get("is_bulk"):
+                bulk_id = int(str(order["id"]).split("_")[1])
+                from routers.bulk_orders import _normalize_bulk_row, _save_bulk_data
+                bulk_row = await client.get_row(TABLE_IDS["bulk_orders"], bulk_id)
+                norm = _normalize_bulk_row(bulk_row)
+                norm["status"] = "shipped"
+                norm["shipway_awb"] = delivery_data.get("awb")
+                norm["shipment_id"] = delivery_data.get("shipment_id")
+                norm["label_url"] = delivery_data.get("label_url")
+                await _save_bulk_data(bulk_id, norm)
+            else:
+                await client.update_row(
+                    TABLE_IDS["orders"],
+                    row_id,
+                    {
+                        "order_status": "PICKUP_REQUESTED",
+                        "delivery": json.dumps(delivery_data),
+                    },
+                )
             success_count += 1
 
             # Background task: WhatsApp notification
@@ -367,13 +440,25 @@ async def bulk_request_pickup(payload: BulkPickupRequest, background_tasks: Back
             tracking_url = delivery_data.get("tracking_url") or f"https://cremsonpublications.shipway.com/tracking/forward/{delivery_data.get('awb', '')}/"
 
             if cust_phone:
-                background_tasks.add_task(
-                    _notify_pickup_requested,
-                    phone=cust_phone,
-                    name=cust_name,
-                    order_id=order_id_str,
-                    tracking_url=tracking_url,
-                )
+                if order.get("is_bulk"):
+                    from services.whatsapp import send_bulk_order_shipped
+                    background_tasks.add_task(
+                        send_bulk_order_shipped,
+                        phone=cust_phone,
+                        name=cust_name,
+                        school=order.get("school_name", "School"),
+                        awb=delivery_data.get("awb"),
+                        tracking_link=tracking_url,
+                        order_link=f"{SITE_URL}/bulk-order/{norm['token']}"
+                    )
+                else:
+                    background_tasks.add_task(
+                        _notify_pickup_requested,
+                        phone=cust_phone,
+                        name=cust_name,
+                        order_id=order_id_str,
+                        tracking_url=tracking_url,
+                    )
         except Exception as exc:
             logger.error(f"[Bulk Pickup] Baserow update failed for {order_id_str}: {exc}")
             failed_count += 1
@@ -441,7 +526,8 @@ def _map_bulk_to_standard_order(bulk: dict) -> dict:
         "notes": bulk.get("admin_notes", ""),
         "status": "Shipped" if bulk_status == "shipped" else "Confirmed",
         "awb": bulk.get("shipway_awb") or "",
-        "tracking_url": f"https://shipway.in/track/{bulk.get('shipway_awb')}" if bulk.get("shipway_awb") else ""
+        "tracking_url": f"https://shipway.in/track/{bulk.get('shipway_awb')}" if bulk.get("shipway_awb") else "",
+        "label_url": bulk.get("label_url") or ""
     }
     
     order_date = bulk.get("order_date") or ""
@@ -462,7 +548,7 @@ def _map_bulk_to_standard_order(bulk: dict) -> dict:
         "awb": bulk.get("shipway_awb") or "",
         "courier": "Shipway",
         "tracking_url": f"https://shipway.in/track/{bulk.get('shipway_awb')}" if bulk.get("shipway_awb") else "",
-        "label_url": "",
+        "label_url": bulk.get("label_url") or "",
         "is_bulk": True,
         "school_name": bulk.get("school_name", "")
     }
@@ -610,11 +696,21 @@ async def ready_for_pickup(order_id: str, background_tasks: BackgroundTasks):
     # ── 1. Find order ─────────────────────────────────────────────────────────
     rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
     results = rows.get("results", [])
+    is_bulk = False
+    
     if not results:
-        raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
-
-    order = results[0]
-    row_id: int = order["id"]
+        bulk_rows = await client.get_rows(TABLE_IDS["bulk_orders"], filters={"order_id": order_id})
+        results = bulk_rows.get("results", [])
+        if not results:
+            raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
+        from routers.bulk_orders import _normalize_bulk_row
+        bulk_norm = _normalize_bulk_row(results[0])
+        order = _map_bulk_to_standard_order(bulk_norm)
+        is_bulk = True
+        row_id = bulk_norm["id"]
+    else:
+        order = results[0]
+        row_id = order["id"]
 
     # ── 2. Guard: must be READY_TO_PACK ──────────────────────────────────────
     current_status = order.get("order_status", "")
@@ -726,14 +822,23 @@ async def ready_for_pickup(order_id: str, background_tasks: BackgroundTasks):
         delivery_data["status"] = "Confirmed"
 
         # Update order in Baserow
-        await client.update_row(TABLE_IDS["orders"], row_id, {
-            "shipment_id": shipment_id,
-            "awb": awb,
-            "courier": shipment_result.get("courier_name", ""),
-            "tracking_url": tracking_url,
-            "label_url": label_url,
-            "delivery": json.dumps(delivery_data),
-        })
+        if is_bulk:
+            from routers.bulk_orders import _normalize_bulk_row, _save_bulk_data
+            bulk_row = await client.get_row(TABLE_IDS["bulk_orders"], row_id)
+            norm = _normalize_bulk_row(bulk_row)
+            norm["shipway_awb"] = awb
+            norm["shipment_id"] = shipment_id
+            norm["label_url"] = label_url
+            await _save_bulk_data(row_id, norm)
+        else:
+            await client.update_row(TABLE_IDS["orders"], row_id, {
+                "shipment_id": shipment_id,
+                "awb": awb,
+                "courier": shipment_result.get("courier_name", ""),
+                "tracking_url": tracking_url,
+                "label_url": label_url,
+                "delivery": json.dumps(delivery_data),
+            })
         logger.info(f"[Orders] Order {order_id} auto-registered in Shipway. AWB: {awb}")
 
     # ── 3. Request pickup from Shipway ────────────────────────────────────────
@@ -744,11 +849,22 @@ async def ready_for_pickup(order_id: str, background_tasks: BackgroundTasks):
     now_iso = datetime.now().isoformat()
     delivery_data["status"] = "PICKUP_REQUESTED"
     delivery_data["pickup_requested_at"] = now_iso
-    await client.update_row(TABLE_IDS["orders"], row_id, {
-        "order_status": "PICKUP_REQUESTED",
-        "pickup_requested_at": now_iso,
-        "delivery": json.dumps(delivery_data),
-    })
+    
+    if is_bulk:
+        from routers.bulk_orders import _normalize_bulk_row, _save_bulk_data
+        bulk_row = await client.get_row(TABLE_IDS["bulk_orders"], row_id)
+        norm = _normalize_bulk_row(bulk_row)
+        norm["status"] = "shipped"
+        norm["shipway_awb"] = awb
+        norm["shipment_id"] = shipment_id
+        norm["label_url"] = delivery_data.get("label_url") or label_url
+        await _save_bulk_data(row_id, norm)
+    else:
+        await client.update_row(TABLE_IDS["orders"], row_id, {
+            "order_status": "PICKUP_REQUESTED",
+            "pickup_requested_at": now_iso,
+            "delivery": json.dumps(delivery_data),
+        })
     logger.info(f"[Orders] Order {order_id} → PICKUP_REQUESTED")
 
     # ── 5. Notification (WhatsApp bypassed per request for pickup_requested) ─────
