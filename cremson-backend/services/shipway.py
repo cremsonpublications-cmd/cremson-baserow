@@ -392,7 +392,7 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
 
             carrier = str(awb_resp.get("carrier_id") or awb_resp.get("courier_name") or "")
             label_url = awb_resp.get("shipping_url") or awb_resp.get("label") or ""
-            tracking_url = f"https://app-v1.shipway.com/tracking/forward/{awb}/" if awb else ""
+            tracking_url = f"https://cremsonpublications.shipway.com/tracking/forward/{awb}/" if awb else "https://cremsonpublications.shipway.com/"
             shipment_id = str(
                 data.get("shipment_id")
                 or awb_resp.get("shipment_id")
@@ -507,7 +507,7 @@ async def create_reverse_shipment(order: Dict[str, Any], reason: str = "") -> Di
 
             awb = awb_resp.get("AWB") or awb_resp.get("awb") or data.get("awb") or ""
             carrier = str(awb_resp.get("courier_name") or awb_resp.get("carrier_id") or "Shipway")
-            tracking_url = f"https://shipway.in/track/{awb}" if awb else "https://shipway.in/track"
+            tracking_url = f"https://cremsonpublications.shipway.com/tracking/forward/{awb}/" if awb else "https://cremsonpublications.shipway.com/"
             shipment_id = str(data.get("shipment_id") or awb_resp.get("shipment_id") or awb or ret_order_id)
 
             return {

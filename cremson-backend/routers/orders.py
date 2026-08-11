@@ -364,7 +364,7 @@ async def bulk_request_pickup(payload: BulkPickupRequest, background_tasks: Back
             user_info = json.loads(user_info_raw) if isinstance(user_info_raw, str) else (user_info_raw or {})
             cust_phone = user_info.get("phone") or ""
             cust_name = user_info.get("name") or "Customer"
-            tracking_url = delivery_data.get("tracking_url") or f"https://app-v1.shipway.com/tracking/forward/{delivery_data.get('awb', '')}/"
+            tracking_url = delivery_data.get("tracking_url") or f"https://cremsonpublications.shipway.com/tracking/forward/{delivery_data.get('awb', '')}/"
 
             if cust_phone:
                 background_tasks.add_task(

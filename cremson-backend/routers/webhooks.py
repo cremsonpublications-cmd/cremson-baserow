@@ -183,7 +183,7 @@ async def _process_webhook(payload: Dict[str, Any]) -> None:
             except Exception:
                 delivery_data = {}
             tracking_url: str = (
-                f"https://app-v1.shipway.com/tracking/forward/{awb}/" if awb else (delivery_data.get("tracking_url") or "https://app-v1.shipway.com")
+                f"https://cremsonpublications.shipway.com/tracking/forward/{awb}/" if awb else (delivery_data.get("tracking_url") or "https://cremsonpublications.shipway.com/")
             )
 
             if not phone:

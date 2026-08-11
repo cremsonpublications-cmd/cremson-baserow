@@ -208,7 +208,7 @@ export default function BulkOrderDetailPage() {
                     </div>
 
                     <a
-                      href={`https://shipway.in/track/${order.shipway_awb}`}
+                      href={`https://cremsonpublications.shipway.com/tracking/forward/${order.shipway_awb}/`}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center justify-center gap-2 w-full py-3 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow text-xs sm:text-sm cursor-pointer"

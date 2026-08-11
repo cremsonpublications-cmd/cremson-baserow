@@ -493,7 +493,7 @@ async def _handle_option_my_orders(from_phone: str) -> None:
                 awb = order.get("awb") or deliv.get("awb") or ""
                 tracking_url = order.get("tracking_url") or deliv.get("tracking_url") or ""
                 if awb and not tracking_url:
-                    tracking_url = f"https://app-v1.shipway.com/tracking/forward/{awb}"
+                    tracking_url = f"https://cremsonpublications.shipway.com/tracking/forward/{awb}/"
 
                 matched_items.append({
                     "type": "ORDER",
@@ -529,7 +529,7 @@ async def _handle_option_my_orders(from_phone: str) -> None:
                 awb = spec.get("AWB_Number") or ""
                 tracking_url = spec.get("TrackingLink") or ""
                 if awb and not tracking_url:
-                    tracking_url = f"https://app-v1.shipway.com/tracking/forward/{awb}"
+                    tracking_url = f"https://cremsonpublications.shipway.com/tracking/forward/{awb}/"
 
                 matched_items.append({
                     "type": "SPECIMEN",
@@ -638,7 +638,7 @@ async def _send_order_details_response(from_phone: str, order_id: str) -> None:
                     status_raw = spec.get("DeliveryStatus")
                     status_str = status_raw.get("value") if isinstance(status_raw, dict) else str(status_raw or "Not dispatched")
                     awb = spec.get("AWB_Number") or ""
-                    tracking_url = spec.get("TrackingLink") or (f"https://app-v1.shipway.com/tracking/forward/{awb}" if awb else "")
+                    tracking_url = spec.get("TrackingLink") or (f"https://cremsonpublications.shipway.com/tracking/forward/{awb}/" if awb else "")
 
                     lines = [
                         "📦 Specimen Tracking Details\n",
@@ -692,7 +692,7 @@ async def _send_order_details_response(from_phone: str, order_id: str) -> None:
         tracking_url = order.get("tracking_url") or deliv.get("tracking_url") or ""
 
         if awb and not tracking_url:
-            tracking_url = f"https://app-v1.shipway.com/tracking/forward/{awb}"
+            tracking_url = f"https://cremsonpublications.shipway.com/tracking/forward/{awb}/"
 
         lines = [
             "📦 Order Details\n",

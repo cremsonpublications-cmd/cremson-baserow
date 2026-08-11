@@ -634,9 +634,9 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal, onOpen
                         {(delivery.tracking_url || delivery.awb) && (
                           <a 
                             href={
-                              delivery.tracking_url && delivery.tracking_url.includes("app-v1.shipway.com/tracking/forward/")
-                                ? delivery.tracking_url
-                                : `https://app-v1.shipway.com/tracking/forward/${delivery.awb}/`
+                              delivery.tracking_url
+                                ? delivery.tracking_url.replace("app-v1.shipway.com/tracking/forward/", "cremsonpublications.shipway.com/tracking/forward/").replace("shipway.in/track/", "cremsonpublications.shipway.com/tracking/forward/")
+                                : `https://cremsonpublications.shipway.com/tracking/forward/${delivery.awb}/`
                             } 
                             target="_blank" 
                             rel="noopener noreferrer" 
