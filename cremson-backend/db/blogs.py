@@ -247,6 +247,20 @@ def init_blogs_db():
     """)
     conn.commit()
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS blog_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            blog_slug TEXT NOT NULL,
+            user_name TEXT NOT NULL,
+            user_email TEXT NOT NULL,
+            comment_text TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT,
+            UNIQUE(blog_slug, user_email)
+        )
+    """)
+    conn.commit()
+
     conn.close()
 
 # Initialize DB on load

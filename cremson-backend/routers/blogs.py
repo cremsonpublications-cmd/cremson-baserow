@@ -407,3 +407,123 @@ def unlike_blog(slug_or_id: str):
         raise HTTPException(status_code=404, detail="Blog post not found")
         
     return {"success": True, "likes": row["likes"]}
+
+
+# ─── Blog Comments Endpoints ──────────────────────────────────────────────────
+
+@router.get("/admin/all-comments", summary="Get all comments for admin")
+def get_all_comments_for_admin():
+    """Fetch all blog comments for Admin management."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT c.*, b.title as blog_title 
+        FROM blog_comments c
+        LEFT JOIN blogs b ON c.blog_slug = b.slug
+        ORDER BY c.id DESC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+
+    result = []
+    for r in rows:
+        item = dict(r)
+        if not item.get("blog_title"):
+            item["blog_title"] = item["blog_slug"]
+        result.append(item)
+
+    return result
+
+
+@router.delete("/comments/{comment_id}", summary="Delete comment (Admin)")
+def delete_comment(comment_id: int):
+    """Delete a blog comment permanently by ID."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM blog_comments WHERE id = ?", (comment_id,))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "Comment deleted successfully."}
+
+
+@router.get("/{slug_or_id}/comments", summary="Get comments for a blog post")
+def get_blog_comments(slug_or_id: str):
+    """Fetch comments for a single blog post."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    slug = slug_or_id
+    if slug_or_id.isdigit():
+        cursor.execute("SELECT slug FROM blogs WHERE id = ?", (int(slug_or_id),))
+        row = cursor.fetchone()
+        if row:
+            slug = row["slug"]
+
+    cursor.execute("SELECT * FROM blog_comments WHERE blog_slug = ? ORDER BY id DESC", (slug,))
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [dict(r) for r in rows]
+
+
+@router.post("/{slug_or_id}/comments", summary="Add or edit comment (1 per user per blog)")
+def create_or_update_comment(slug_or_id: str, payload: dict):
+    """
+    Adds a new comment or updates an existing comment if the user has already commented on this blog.
+    Enforces 1 comment per user email per blog post.
+    """
+    from datetime import datetime
+
+    user_name = payload.get("user_name", "").strip()
+    user_email = payload.get("user_email", "").strip().lower()
+    comment_text = payload.get("comment_text", "").strip()
+
+    if not user_name or not user_email or not comment_text:
+        raise HTTPException(status_code=400, detail="Name, Email, and Comment text are required.")
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    slug = slug_or_id
+    if slug_or_id.isdigit():
+        cursor.execute("SELECT slug FROM blogs WHERE id = ?", (int(slug_or_id),))
+        row = cursor.fetchone()
+        if row:
+            slug = row["slug"]
+
+    # Check if comment already exists for this email on this blog
+    cursor.execute("SELECT id FROM blog_comments WHERE blog_slug = ? AND user_email = ?", (slug, user_email))
+    existing = cursor.fetchone()
+
+    now_str = datetime.now().strftime("%d %b %Y, %I:%M %p")
+
+    if existing:
+        # Update existing comment
+        cursor.execute("""
+            UPDATE blog_comments 
+            SET user_name = ?, comment_text = ?, updated_at = ?
+            WHERE id = ?
+        """, (user_name, comment_text, now_str, existing["id"]))
+        comment_id = existing["id"]
+        is_updated = True
+    else:
+        # Create new comment
+        cursor.execute("""
+            INSERT INTO blog_comments (blog_slug, user_name, user_email, comment_text, created_at)
+            VALUES (?, ?, ?, ?, ?)
+        """, (slug, user_name, user_email, comment_text, now_str))
+        comment_id = cursor.lastrowid
+        is_updated = False
+
+    conn.commit()
+
+    cursor.execute("SELECT * FROM blog_comments WHERE id = ?", (comment_id,))
+    updated_row = cursor.fetchone()
+    conn.close()
+
+    return {
+        "success": True,
+        "is_updated": is_updated,
+        "comment": dict(updated_row),
+        "message": "Comment updated successfully!" if is_updated else "Comment posted successfully!"
+    }

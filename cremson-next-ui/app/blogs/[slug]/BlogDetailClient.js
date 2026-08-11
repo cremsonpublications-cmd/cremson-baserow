@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import CPLogo from "../../../components/CPLogo";
 import api from "../../../lib/api/axios";
+import { Heart, Edit3, MessageSquare, Check, Download, FileText, Send } from "lucide-react";
+import { toast } from "sonner";
 
 export default function BlogDetailPage() {
   const { slug } = useParams();
@@ -12,45 +14,88 @@ export default function BlogDetailPage() {
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const [comments, setComments] = useState([
-    {
-      id: 1,
-      author: "Dev Kumar",
-      text: "Honestly, I did not expect this to work, but it totally did. Saved my project!",
-      time: "a year ago",
-    },
-    {
-      id: 2,
-      author: "GreatStack",
-      text: "Hi this blog is must to read",
-      time: "a year ago",
-    },
-  ]);
+  // Comments state
+  const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(true);
 
-  const [newName, setNewName] = useState("");
-  const [newComment, setNewComment] = useState("");
+  // Form State
+  const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [commentText, setCommentText] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
+  // Like State
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
 
+  // Auto-fill user email/name from localStorage if previously used
   useEffect(() => {
-    const fetchPost = async () => {
+    if (typeof window !== "undefined") {
+      const savedName = localStorage.getItem("cremson_blog_user_name") || "";
+      const savedEmail = localStorage.getItem("cremson_blog_user_email") || "";
+      if (savedName) setUserName(savedName);
+      if (savedEmail) setUserEmail(savedEmail);
+    }
+  }, []);
+
+  // Fetch Post Details & Comments
+  useEffect(() => {
+    const fetchPostAndComments = async () => {
       try {
         setLoading(true);
         const res = await api.get(`/api/blogs/${slug}`);
         setPost(res.data);
         setLikeCount(res.data.likes || 0);
+
         const isLikedLocal = localStorage.getItem(`liked_blog_${res.data.id || slug}`) === "true";
         setLiked(isLikedLocal);
+
+        // Fetch comments
+        fetchComments(slug);
       } catch (err) {
         console.error("Failed to load blog post details:", err);
       } finally {
         setLoading(false);
       }
     };
-    fetchPost();
+    fetchPostAndComments();
   }, [slug]);
 
+  const fetchComments = async (blogSlug) => {
+    try {
+      setCommentsLoading(true);
+      const res = await api.get(`/api/blogs/${blogSlug}/comments`);
+      const list = Array.isArray(res.data) ? res.data : [];
+      setComments(list);
+    } catch (err) {
+      console.error("Failed to fetch blog comments:", err);
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  // Check if current user email already commented
+  useEffect(() => {
+    if (userEmail.trim() && comments.length > 0) {
+      const existing = comments.find(
+        (c) => (c.user_email || "").toLowerCase() === userEmail.trim().toLowerCase()
+      );
+      if (existing) {
+        setIsEditing(true);
+        if (!commentText && existing.comment_text) {
+          setCommentText(existing.comment_text);
+        }
+        if (!userName && existing.user_name) {
+          setUserName(existing.user_name);
+        }
+      } else {
+        setIsEditing(false);
+      }
+    }
+  }, [userEmail, comments]);
+
+  // Handle Like / Unlike
   const handleLikeToggle = async () => {
     if (!post) return;
     const blogKey = `liked_blog_${post.id || slug}`;
@@ -78,21 +123,44 @@ export default function BlogDetailPage() {
     }
   };
 
-  const handleCommentSubmit = (e) => {
+  // Handle Comment Submit / Edit
+  const handleCommentSubmit = async (e) => {
     e.preventDefault();
-    if (newName.trim() && newComment.trim()) {
-      setComments((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          author: newName,
-          text: newComment,
-          time: "Just now",
-        },
-      ]);
-      setNewName("");
-      setNewComment("");
+    if (!userName.trim() || !userEmail.trim() || !commentText.trim()) {
+      toast.error("Please fill in Name, Email, and Comment.");
+      return;
     }
+
+    setSubmitting(true);
+    try {
+      // Save name/email locally for convenience
+      localStorage.setItem("cremson_blog_user_name", userName.trim());
+      localStorage.setItem("cremson_blog_user_email", userEmail.trim());
+
+      const res = await api.post(`/api/blogs/${slug}/comments`, {
+        user_name: userName.trim(),
+        user_email: userEmail.trim(),
+        comment_text: commentText.trim(),
+      });
+
+      toast.success(res.data?.message || "Comment posted successfully!");
+      fetchComments(slug);
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Failed to submit comment.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEditUserComment = (existingComment) => {
+    setUserName(existingComment.user_name);
+    setUserEmail(existingComment.user_email);
+    setCommentText(existingComment.comment_text);
+    setIsEditing(true);
+
+    // Scroll to comment form smoothly
+    const formEl = document.getElementById("comment-form");
+    if (formEl) formEl.scrollIntoView({ behavior: "smooth" });
   };
 
   if (loading) {
@@ -116,7 +184,7 @@ export default function BlogDetailPage() {
     );
   }
 
-  // Parse attachments (supports JSON array or fallback to single file)
+  // Parse attachments
   let attachments = [];
   if (post && post.pdf_url) {
     if (post.pdf_url.startsWith("[")) {
@@ -130,13 +198,12 @@ export default function BlogDetailPage() {
     }
   }
 
+  const currentUserEmail = userEmail.trim().toLowerCase();
+
   return (
     <div className="w-full min-h-screen bg-white">
-      {/* Local Toaster (for structure, placeholder) */}
-      <div id="_rht_toaster" style={{ position: "fixed", zIndex: 9999, inset: "16px", pointerEvents: "none" }} />
-
       <div className="relative pb-16">
-        {/* Dynamic Gradient Background replacing Vite's static asset */}
+        {/* Dynamic Gradient Background */}
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 -z-1 opacity-40 w-full max-w-4xl h-[600px] bg-[radial-gradient(circle_at_top,rgba(80,68,229,0.15),transparent_70%)] pointer-events-none" />
 
         {/* Blog Meta & Title Header */}
@@ -148,32 +215,6 @@ export default function BlogDetailPage() {
           <h2 className="my-5 max-w-2xl mx-auto text-lg text-gray-500 font-normal leading-relaxed">
             {post.description}
           </h2>
-
-          {/* Heart / Like Button */}
-          <div className="flex items-center justify-center gap-3 my-6">
-            <button
-              onClick={handleLikeToggle}
-              className={`group flex items-center gap-2.5 px-6 py-2.5 rounded-full border transition-all duration-300 shadow-xs cursor-pointer ${
-                liked
-                  ? "bg-rose-50 border-rose-200 text-rose-600 shadow-rose-100/50"
-                  : "bg-white border-gray-200 text-gray-600 hover:border-rose-300 hover:text-rose-500 hover:bg-rose-50/30"
-              }`}
-              title={liked ? "Unlike this article" : "Like this article"}
-            >
-              <svg
-                className={`w-5 h-5 transition-transform duration-300 group-active:scale-125 ${
-                  liked ? "fill-rose-500 stroke-rose-500 scale-110" : "fill-none stroke-currentColor"
-                }`}
-                viewBox="0 0 24 24"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-              </svg>
-              <span className="font-bold text-sm">{likeCount} {likeCount === 1 ? "Like" : "Likes"}</span>
-            </button>
-          </div>
         </div>
 
         {/* Hero image */}
@@ -182,13 +223,15 @@ export default function BlogDetailPage() {
             <img alt={post.title} className="object-cover w-full h-full" src={post.image || null} />
           </div>
         </div>
-        {/* Content body rendered beautifully */}
+
+        {/* Content body */}
         <div className="mx-5 max-w-4xl md:mx-auto">
           <article
             className="rich-text max-w-3xl mx-auto text-gray-700 leading-relaxed space-y-6 prose prose-slate"
             dangerouslySetInnerHTML={{ __html: post.content }}
           />
 
+          {/* Attachments */}
           {attachments.length > 0 && (
             <div className="max-w-3xl mx-auto mt-10 space-y-4">
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Attached Materials</h3>
@@ -200,9 +243,7 @@ export default function BlogDetailPage() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center shrink-0">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                        </svg>
+                        <FileText className="w-5 h-5" />
                       </div>
                       <div>
                         <h4 className="font-semibold text-gray-800 text-sm">{file.name}</h4>
@@ -217,9 +258,7 @@ export default function BlogDetailPage() {
                       download={file.name || "download.pdf"}
                       className="w-full sm:w-auto px-4 py-2 bg-primary text-white rounded-xl hover:opacity-95 active:scale-95 transition-all text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer shadow-md"
                     >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                      </svg>
+                      <Download className="w-3.5 h-3.5" />
                       Download
                     </a>
                   </div>
@@ -229,175 +268,224 @@ export default function BlogDetailPage() {
           )}
 
           <style jsx global>{`
-            .rich-text h1 {
-              font-size: 1.875rem;
-              font-weight: 700;
-              color: #1f2937;
-              margin-top: 2rem;
-              margin-bottom: 1rem;
-            }
-            .rich-text h2 {
-              font-size: 1.5rem;
-              font-weight: 600;
-              color: #1f2937;
-              margin-top: 1.75rem;
-              margin-bottom: 0.75rem;
-            }
-            .rich-text p {
-              margin-bottom: 1.25rem;
-            }
-            .rich-text strong {
-              font-weight: 600;
-            }
+            .rich-text h1 { font-size: 1.875rem; font-weight: 700; color: #1f2937; margin-top: 2rem; margin-bottom: 1rem; }
+            .rich-text h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; }
+            .rich-text p { margin-bottom: 1.25rem; }
+            .rich-text strong { font-weight: 600; }
           `}</style>
 
           <hr className="my-12 border-gray-150 max-w-3xl mx-auto" />
 
-          {/* Comments list */}
-          <div className="mt-14 mb-10 max-w-3xl mx-auto">
-            <p className="font-semibold text-gray-900 mb-6 text-lg">Comments ({comments.length})</p>
-            <div className="flex flex-col gap-5">
-              {comments.map((comment) => (
-                <div key={comment.id} className="relative bg-primary/[0.02] border border-primary/5 max-w-2xl p-5 rounded-xl text-gray-600 shadow-sm transition-all hover:bg-primary/[0.03]">
-                  <div className="flex items-center gap-3 mb-2.5">
-                    <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-gray-400" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="12" cy="9" r="3" stroke="currentColor" strokeWidth="1.5" />
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" />
-                      <path d="M17.9691 20C17.81 17.1085 16.9247 15 11.9999 15C7.07521 15 6.18991 17.1085 6.03076 20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                    <p className="font-semibold text-gray-800 text-sm">{comment.author}</p>
-                  </div>
-                  <p className="text-sm text-gray-600 max-w-xl ml-9 leading-relaxed">{comment.text}</p>
-                  <div className="absolute right-5 bottom-4 flex items-center gap-2 text-xs text-gray-400">
-                    {comment.time}
-                  </div>
-                </div>
-              ))}
-            </div>
+          {/* ── Bottom Like Button & Heart Counter ── */}
+          <div className="max-w-3xl mx-auto flex items-center justify-center my-8">
+            <button
+              onClick={handleLikeToggle}
+              className={`group flex items-center gap-3 px-8 py-3.5 rounded-full border transition-all duration-300 shadow-md cursor-pointer ${
+                liked
+                  ? "bg-rose-50 border-rose-200 text-rose-600 shadow-rose-100/60"
+                  : "bg-white border-gray-200 text-gray-700 hover:border-rose-300 hover:text-rose-600 hover:bg-rose-50/40"
+              }`}
+              title={liked ? "Unlike this article" : "Like this article"}
+            >
+              <Heart
+                className={`w-6 h-6 transition-all duration-300 group-active:scale-125 ${
+                  liked
+                    ? "fill-rose-500 stroke-rose-500 text-rose-500 scale-110"
+                    : "fill-none stroke-rose-500 text-rose-500"
+                }`}
+              />
+              <span className="font-bold text-base">
+                {likeCount} {likeCount === 1 ? "Like" : "Likes"}
+              </span>
+            </button>
           </div>
 
-          {/* Add comment Form */}
-          <div className="max-w-3xl mx-auto mt-12 bg-gray-50/50 p-6 rounded-2xl border border-gray-100 shadow-sm">
-            <p className="font-semibold mb-4 text-gray-900">Add your comment</p>
-            <form onSubmit={handleCommentSubmit} className="flex flex-col items-start gap-4 max-w-xl">
-              <input
-                placeholder="Name"
-                required
-                className="w-full p-3 border border-gray-300 rounded-lg outline-none bg-white focus:border-primary transition-all text-sm text-gray-700 shadow-sm"
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-              />
-              <textarea
-                placeholder="Comment"
-                required
-                className="w-full p-3 border border-gray-300 rounded-lg outline-none h-32 bg-white focus:border-primary transition-all text-sm text-gray-700 shadow-sm"
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-              />
-              <button
-                type="submit"
-                className="bg-primary text-white rounded-lg p-2.5 px-8 hover:scale-102 hover:opacity-95 active:scale-95 transition-all cursor-pointer text-sm font-medium shadow"
-              >
-                Submit
-              </button>
+          {/* ── Comments List ── */}
+          <div className="mt-12 mb-10 max-w-3xl mx-auto">
+            <div className="flex items-center justify-between mb-6">
+              <p className="font-bold text-gray-900 text-xl flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-primary" />
+                Comments ({comments.length})
+              </p>
+            </div>
+
+            {commentsLoading ? (
+              <div className="p-8 text-center text-gray-400 text-xs">Loading comments...</div>
+            ) : comments.length === 0 ? (
+              <div className="p-8 text-center bg-gray-50/60 rounded-2xl border border-dashed border-gray-200 text-gray-400 text-xs">
+                No comments yet. Be the first to comment!
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {comments.map((comment) => {
+                  const isMyComment = currentUserEmail && (comment.user_email || "").toLowerCase() === currentUserEmail;
+
+                  return (
+                    <div
+                      key={comment.id}
+                      className={`relative bg-white border p-5 rounded-2xl text-gray-600 shadow-xs transition-all ${
+                        isMyComment ? "border-purple-300 bg-purple-50/20" : "border-gray-150"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center">
+                            {(comment.user_name || "A")[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-bold text-gray-800 text-sm flex items-center gap-2">
+                              {comment.user_name}
+                              {isMyComment && (
+                                <span className="bg-purple-100 text-purple-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                                  Your Comment
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-[10px] text-gray-400">{comment.created_at}</p>
+                          </div>
+                        </div>
+
+                        {/* Edit Button for own comment */}
+                        {isMyComment && (
+                          <button
+                            onClick={() => handleEditUserComment(comment)}
+                            className="flex items-center gap-1 text-xs text-purple-600 font-semibold hover:text-purple-800 hover:bg-purple-50 px-3 py-1 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            Edit
+                          </button>
+                        )}
+                      </div>
+
+                      <p className="text-sm text-gray-700 leading-relaxed pl-10 whitespace-pre-wrap font-sans">
+                        {comment.comment_text}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ── Add / Edit Comment Form ── */}
+          <div id="comment-form" className="max-w-3xl mx-auto mt-10 bg-gray-50/70 p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-xs">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
+                {isEditing ? <Edit3 className="w-5 h-5 text-purple-600" /> : <MessageSquare className="w-5 h-5 text-primary" />}
+                {isEditing ? "Edit Your Comment" : "Add your comment"}
+              </h3>
+
+              {isEditing && (
+                <span className="text-xs font-medium text-purple-600 bg-purple-100 px-3 py-1 rounded-full">
+                  1 Comment Per User
+                </span>
+              )}
+            </div>
+
+            <form onSubmit={handleCommentSubmit} className="flex flex-col gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Your Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter your name"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-xl outline-none bg-white focus:border-primary transition-all text-xs text-gray-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Your Email *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="name@example.com"
+                    value={userEmail}
+                    onChange={(e) => setUserEmail(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-xl outline-none bg-white focus:border-primary transition-all text-xs text-gray-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Comment *</label>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Share your thoughts about this article..."
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-xl outline-none bg-white focus:border-primary transition-all text-xs text-gray-800"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-[11px] text-gray-400">
+                  {isEditing ? "Submitting will update your existing comment." : "Each user can post 1 comment per blog."}
+                </p>
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-primary hover:opacity-95 text-white font-semibold rounded-xl px-7 py-2.5 transition-all active:scale-95 cursor-pointer text-xs flex items-center gap-2 shadow-md disabled:opacity-50"
+                >
+                  {submitting ? "Saving..." : isEditing ? "Update Comment" : "Submit Comment"}
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </form>
           </div>
 
           {/* Share article on social media */}
-          <div className="my-24 max-w-3xl mx-auto border-t border-gray-100 pt-10">
-            <p className="font-semibold my-4 text-gray-900">Share this article on social media</p>
+          <div className="my-20 max-w-3xl mx-auto border-t border-gray-150 pt-10">
+            <p className="font-bold my-4 text-gray-900 text-sm uppercase tracking-wider">Share this article</p>
             <div className="flex gap-4">
-              {/* Facebook Share Button */}
               <button
                 onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank')}
                 className="hover:scale-105 transition-all duration-200 cursor-pointer"
                 title="Share on Facebook"
               >
-                <svg width="50" height="50" viewBox="0 0 58 58" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <g filter="url(#fb-shadow)">
-                    <path d="M29 49C41.7025 49 52 38.7025 52 26C52 13.2975 41.7025 3 29 3C16.2975 3 6 13.2975 6 26C6 38.7025 16.2975 49 29 49Z" fill="white" />
-                  </g>
-                  <path d="M30.8078 35.7731H26.5807V26.7731H24.4688V23.2991H26.5807V21.2181C26.5807 18.3891 27.7687 16.7051 31.1617 16.7051H33.9827V20.1751H32.2207C30.9017 20.1751 30.8137 20.6591 30.8137 21.5641L30.8078 23.2991H34.0028L33.6287 26.7691H30.8078V35.7691V35.7731Z" fill="#5044E5" />
-                  <defs>
-                    <filter id="fb-shadow" x="0" y="0" width="58" height="58" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                      <feFlood floodOpacity="0" result="BackgroundImageFix" />
-                      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
-                      <feOffset dy="3" />
-                      <feGaussianBlur stdDeviation="3" />
-                      <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.161 0" />
-                      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_8593_1246" />
-                      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_8593_1246" result="shape" />
-                    </filter>
-                  </defs>
+                <svg width="45" height="45" viewBox="0 0 58 58" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M29 49C41.7025 49 52 38.7025 52 26C52 13.2975 41.7025 3 29 3C16.2975 3 6 13.2975 6 26C6 38.7025 16.2975 49 29 49Z" fill="#5044E5" />
+                  <path d="M30.8078 35.7731H26.5807V26.7731H24.4688V23.2991H26.5807V21.2181C26.5807 18.3891 27.7687 16.7051 31.1617 16.7051H33.9827V20.1751H32.2207C30.9017 20.1751 30.8137 20.6591 30.8137 21.5641L30.8078 23.2991H34.0028L33.6287 26.7691H30.8078V35.7691V35.7731Z" fill="white" />
                 </svg>
               </button>
 
-              {/* Twitter/X Share Button */}
               <button
                 onClick={() => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(post.title)}`, '_blank')}
                 className="hover:scale-105 transition-all duration-200 cursor-pointer"
                 title="Share on Twitter/X"
               >
-                <svg width="50" height="50" viewBox="0 0 59 59" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <g filter="url(#tw-shadow)">
-                    <path d="M29.24 49.48C42.0751 49.48 52.48 39.0751 52.48 26.24C52.48 13.4045 42.0751 3 29.24 3C16.4045 3 6 13.4045 6 26.24C6 39.0751 16.4045 49.48 29.24 49.48Z" fill="white" />
-                  </g>
-                  <path d="M38.7789 20.3267C38.0648 20.6427 37.3074 20.8504 36.5319 20.9427C37.3486 20.4542 37.9599 19.6855 38.2519 18.7797C37.4838 19.2354 36.6433 19.556 35.7669 19.7277C35.2301 19.1557 34.5337 18.7582 33.7682 18.5868C33.0027 18.4154 32.2033 18.4779 31.4738 18.7664C30.7443 19.0548 30.1182 19.5558 29.6769 20.2044C29.2356 20.853 28.9994 21.6193 28.9989 22.4037C28.9983 22.7039 29.0319 23.0032 29.0989 23.2957C27.544 23.2176 26.023 22.8133 24.6344 22.1092C23.2458 21.4051 22.0209 20.4169 21.0389 19.2087C20.5386 20.0698 20.3853 21.0892 20.6101 22.0593C20.8349 23.0294 21.4209 23.8775 22.2489 24.4307C21.6279 24.4116 21.0205 24.2435 20.4779 23.9407V23.9927C20.4783 24.8949 20.7903 25.7692 21.3612 26.4677C21.9322 27.1662 22.7269 27.6459 23.6109 27.8257C23.2749 27.9172 22.9282 27.9632 22.5799 27.9627C22.3346 27.9628 22.0898 27.9393 21.8489 27.8927C22.0991 27.8927 22.5858 29.3497 23.2411 29.8368C23.8964 30.324 24.6876 30.5942 25.5039 30.6097C24.1172 31.6964 22.4057 32.2856 20.6439 32.2827C20.3321 32.2832 20.0206 32.2652 19.7109 32.2287C21.5006 33.3787 23.5837 33.9887 25.7109 33.9857C27.175 33.9956 28.6265 33.7145 29.981 33.1587C31.3356 32.603 32.5663 31.7836 33.6015 30.7484C34.6368 29.7131 35.4561 28.4824 36.0119 27.1279C36.5677 25.7733 36.8488 24.3218 36.8389 22.8577C36.8389 22.6877 36.8389 22.5197 36.8279 22.3517C37.5937 21.7984 38.2547 21.113 38.7799 20.3277L38.7789 20.3267Z" fill="#5044E5" />
-                  <defs>
-                    <filter id="tw-shadow" x="0" y="0" width="58.4766" height="58.48" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                      <feFlood floodOpacity="0" result="BackgroundImageFix" />
-                      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
-                      <feOffset dy="3" />
-                      <feGaussianBlur stdDeviation="3" />
-                      <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.161 0" />
-                      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_8593_1250" />
-                      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_8593_1250" result="shape" />
-                    </filter>
-                  </defs>
+                <svg width="45" height="45" viewBox="0 0 59 59" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M29.24 49.48C42.0751 49.48 52.48 39.0751 52.48 26.24C52.48 13.4045 42.0751 3 29.24 3C16.4045 3 6 13.4045 6 26.24C6 39.0751 16.4045 49.48 29.24 49.48Z" fill="#5044E5" />
+                  <path d="M38.7789 20.3267C38.0648 20.6427 37.3074 20.8504 36.5319 20.9427C37.3486 20.4542 37.9599 19.6855 38.2519 18.7797C37.4838 19.2354 36.6433 19.556 35.7669 19.7277C35.2301 19.1557 34.5337 18.7582 33.7682 18.5868C33.0027 18.4154 32.2033 18.4779 31.4738 18.7664C30.7443 19.0548 30.1182 19.5558 29.6769 20.2044C29.2356 20.853 28.9994 21.6193 28.9989 22.4037C28.9983 22.7039 29.0319 23.0032 29.0989 23.2957C27.544 23.2176 26.023 22.8133 24.6344 22.1092C23.2458 21.4051 22.0209 20.4169 21.0389 19.2087C20.5386 20.0698 20.3853 21.0892 20.6101 22.0593C20.8349 23.0294 21.4209 23.8775 22.2489 24.4307C21.6279 24.4116 21.0205 24.2435 20.4779 23.9407V23.9927C20.4783 24.8949 20.7903 25.7692 21.3612 26.4677C21.9322 27.1662 22.7269 27.6459 23.6109 27.8257C23.2749 27.9172 22.9282 27.9632 22.5799 27.9627C22.3346 27.9628 22.0898 27.9393 21.8489 27.8927C22.0991 27.8927 22.5858 29.3497 23.2411 29.8368C23.8964 30.324 24.6876 30.5942 25.5039 30.6097C24.1172 31.6964 22.4057 32.2856 20.6439 32.2827C20.3321 32.2832 20.0206 32.2652 19.7109 32.2287C21.5006 33.3787 23.5837 33.9887 25.7109 33.9857C27.175 33.9956 28.6265 33.7145 29.981 33.1587C31.3356 32.603 32.5663 31.7836 33.6015 30.7484C34.6368 29.7131 35.4561 28.4824 36.0119 27.1279C36.5677 25.7733 36.8488 24.3218 36.8389 22.8577C36.8389 22.6877 36.8389 22.5197 36.8279 22.3517C37.5937 21.7984 38.2547 21.113 38.7799 20.3277L38.7789 20.3267Z" fill="white" />
                 </svg>
               </button>
 
-              {/* Share/Plus Button */}
               <button
                 onClick={() => {
                   if (navigator.share) {
-                    navigator.share({
-                      title: post.title,
-                      text: post.description,
-                      url: window.location.href,
-                    }).catch(console.error);
+                    navigator.share({ title: post.title, text: post.description, url: window.location.href }).catch(console.error);
                   } else {
                     navigator.clipboard.writeText(window.location.href);
-                    alert("Link copied to clipboard!");
+                    toast.success("Link copied to clipboard!");
                   }
                 }}
                 className="hover:scale-105 transition-all duration-200 cursor-pointer"
                 title="Copy Link"
               >
-                <svg width="50" height="50" viewBox="0 0 59 59" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <g filter="url(#plus-shadow)">
-                    <path d="M29.239 49.478C42.0735 49.478 52.478 39.0735 52.478 26.239C52.478 13.4045 42.0735 3 29.239 3C16.4045 3 6 13.4045 6 26.239C6 39.0735 16.4045 49.478 29.239 49.478Z" fill="white" />
-                  </g>
-                  <path d="M25.2874 33.389C23.3426 33.3991 21.471 32.6475 20.0734 31.295C19.3908 30.6415 18.8476 29.8566 18.4765 28.9876C18.1054 28.1186 17.9141 27.1834 17.9141 26.2385C17.9141 25.2935 18.1054 24.3583 18.4765 23.4893C18.8476 22.6203 19.3908 21.8354 20.0734 21.182C21.436 19.877 23.2384 19.1304 25.1246 19.0896C27.0109 19.0489 28.8438 19.717 30.2614 20.962L28.0894 23.026C27.2994 22.3796 26.3102 22.0263 25.2894 22.026C24.1552 22.0097 23.0609 22.4442 22.2467 23.2341C21.4326 24.024 20.9653 25.1048 20.9474 26.239C20.9664 27.3721 21.4339 28.4515 22.2474 29.2405C23.061 30.0295 24.1542 30.4637 25.2874 30.448C26.1575 30.4517 27.0087 30.1952 27.7319 29.7114C28.455 29.2276 29.0169 28.5386 29.3454 27.733H25.1944V24.746H32.4944C32.75 25.9176 32.7004 27.1353 32.3501 28.2823C31.9999 29.4292 31.3609 30.4669 30.4944 31.296C29.0984 32.6464 27.2297 33.3975 25.2874 33.389ZM38.5874 29.27H36.7204V26.782H34.1544V24.972H36.7204V22.483H38.5874V24.972H41.1534V26.782H38.5874V29.271V29.27Z" fill="#5044E5" />
-                  <defs>
-                    <filter id="plus-shadow" x="0" y="0" width="58.4766" height="58.478" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                      <feFlood floodOpacity="0" result="BackgroundImageFix" />
-                      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
-                      <feOffset dy="3" />
-                      <feGaussianBlur stdDeviation="3" />
-                      <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.161 0" />
-                      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_8593_1254" />
-                      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_8593_1254" result="shape" />
-                    </filter>
-                  </defs>
+                <svg width="45" height="45" viewBox="0 0 59 59" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M29.239 49.478C42.0735 49.478 52.478 39.0735 52.478 26.239C52.478 13.4045 42.0735 3 29.239 3C16.4045 3 6 13.4045 6 26.239C6 39.0735 16.4045 49.478 29.239 49.478Z" fill="#5044E5" />
+                  <path d="M25.2874 33.389C23.3426 33.3991 21.471 32.6475 20.0734 31.295C19.3908 30.6415 18.8476 29.8566 18.4765 28.9876C18.1054 28.1186 17.9141 27.1834 17.9141 26.2385C17.9141 25.2935 18.1054 24.3583 18.4765 23.4893C18.8476 22.6203 19.3908 21.8354 20.0734 21.182C21.436 19.877 23.2384 19.1304 25.1246 19.0896C27.0109 19.0489 28.8438 19.717 30.2614 20.962L28.0894 23.026C27.2994 22.3796 26.3102 22.0263 25.2894 22.026C24.1552 22.0097 23.0609 22.4442 22.2467 23.2341C21.4326 24.024 20.9653 25.1048 20.9474 26.239C20.9664 27.3721 21.4339 28.4515 22.2474 29.2405C23.061 30.0295 24.1542 30.4637 25.2874 30.448C26.1575 30.4517 27.0087 30.1952 27.7319 29.7114C28.455 29.2276 29.0169 28.5386 29.3454 27.733H25.1944V24.746H32.4944C32.75 25.9176 32.7004 27.1353 32.3501 28.2823C31.9999 29.4292 31.3609 30.4669 30.4944 31.296C29.0984 32.6464 27.2297 33.3975 25.2874 33.389ZM38.5874 29.27H36.7204V26.782H34.1544V24.972H36.7204V22.483H38.5874V24.972H41.1534V26.782H38.5874V29.271V29.27Z" fill="white" />
                 </svg>
               </button>
             </div>
           </div>
         </div>
 
-        {/* Local Footer (consistent brand) */}
+        {/* Local Footer */}
         <div className="px-6 md:px-16 lg:px-24 xl:px-32 bg-primary/[0.02] border-t border-gray-100 mt-20">
           <div className="flex flex-col md:flex-row items-start justify-between gap-10 py-10 border-b border-gray-500/10 text-gray-500">
             <div className="space-y-4">
