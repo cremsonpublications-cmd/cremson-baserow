@@ -193,34 +193,26 @@ export default function AdminDashboard() {
               >
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold text-xs text-gray-900">{item.title}</span>
+                    <span className="font-semibold text-xs text-gray-800 leading-relaxed max-w-xl">{item.notes || item.title}</span>
 
                     {item.is_overdue && (
-                      <span className="bg-red-500 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                      <span className="bg-red-500 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-0.5 animate-pulse">
                         <AlertCircle className="w-3 h-3" />
                         Overdue by {item.overdue_days} {item.overdue_days === 1 ? "day" : "days"}
                       </span>
                     )}
 
                     {item.is_today && (
-                      <span className="bg-amber-500 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="bg-amber-500 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-0.5">
                         <Clock className="w-3 h-3" />
                         Due Today
                       </span>
                     )}
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                    {item.teacher_name && <span>Teacher: <strong>{item.teacher_name}</strong></span>}
-                    {item.school_name && <span>School: <strong>{item.school_name}</strong></span>}
+                  <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
                     <span>Due: <strong>{item.due_date}</strong> {item.due_time ? `at ${item.due_time}` : ""}</span>
                   </div>
-
-                  {item.notes && (
-                    <p className="text-xs text-gray-600 bg-white/80 p-2 rounded-lg border border-gray-100 mt-1">
-                      {item.notes}
-                    </p>
-                  )}
                 </div>
 
                 <button

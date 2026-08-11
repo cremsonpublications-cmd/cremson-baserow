@@ -270,13 +270,13 @@ export default function AdminRemindersPage() {
             >
               <div className="space-y-2 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className={`text-base font-bold text-gray-900 ${item.status === "completed" ? "line-through text-gray-500" : ""}`}>
-                    {item.title}
+                  <h3 className={`text-sm font-semibold text-gray-800 leading-relaxed max-w-2xl ${item.status === "completed" ? "line-through text-gray-400 font-normal" : ""}`}>
+                    {item.notes || item.title}
                   </h3>
 
                   {/* Overdue Badge */}
                   {item.status === "pending" && item.is_overdue && (
-                    <span className="bg-red-500 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-xs animate-pulse">
+                    <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-xs animate-pulse">
                       <AlertCircle className="w-3 h-3" />
                       Overdue by {item.overdue_days} {item.overdue_days === 1 ? "day" : "days"}
                     </span>
@@ -284,7 +284,7 @@ export default function AdminRemindersPage() {
 
                   {/* Due Today Badge */}
                   {item.status === "pending" && item.is_today && (
-                    <span className="bg-amber-500 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                    <span className="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-xs">
                       <Clock className="w-3 h-3" />
                       Due Today
                     </span>
@@ -292,38 +292,18 @@ export default function AdminRemindersPage() {
 
                   {/* Completed Badge */}
                   {item.status === "completed" && (
-                    <span className="bg-emerald-100 text-emerald-800 text-[11px] font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-0.5">
                       <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                       Completed
                     </span>
                   )}
                 </div>
 
-                {/* Sub details: Teacher / School / Notes */}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">
-                  {item.teacher_name && (
-                    <span className="flex items-center gap-1 font-medium text-gray-700">
-                      <User className="w-3.5 h-3.5 text-purple-600" />
-                      Teacher: {item.teacher_name}
-                    </span>
-                  )}
-                  {item.school_name && (
-                    <span className="flex items-center gap-1 font-medium text-gray-700">
-                      <Building2 className="w-3.5 h-3.5 text-blue-600" />
-                      School: {item.school_name}
-                    </span>
-                  )}
-                  <span className="flex items-center gap-1 text-gray-500">
-                    <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                    Due: {item.due_date} {item.due_time ? `at ${item.due_time}` : ""}
-                  </span>
+                {/* Sub details: Date only */}
+                <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                  <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                  <span>Due: <strong>{item.due_date}</strong> {item.due_time ? `at ${item.due_time}` : ""}</span>
                 </div>
-
-                {item.notes && (
-                  <p className="text-xs text-gray-600 bg-gray-50 p-2.5 rounded-xl border border-gray-100 font-sans">
-                    {item.notes}
-                  </p>
-                )}
               </div>
 
               {/* Action Buttons */}
