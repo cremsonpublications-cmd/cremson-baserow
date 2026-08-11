@@ -253,6 +253,140 @@ async def download_labels_pdf(payload: DownloadLabelsPdfRequest):
     return Response(content=merged_bytes, media_type="application/pdf", headers=headers)
 
 
+class BulkPickupRequest(BaseModel):
+    order_ids: Optional[List[str]] = None
+
+
+@router.post("/bulk-request-pickup", summary="Bulk request courier pickup for Ready to Pack orders")
+async def bulk_request_pickup(payload: BulkPickupRequest, background_tasks: BackgroundTasks):
+    """
+    Finds all orders in READY_TO_PACK status (or matching passed order_ids),
+    requests pickup via Shipway, sends WhatsApp notifications, and updates status to PICKUP_REQUESTED.
+    """
+    rows = await client.get_rows(TABLE_IDS["orders"], size=200, order_by="-order_date")
+    all_orders = rows.get("results", [])
+
+    if payload.order_ids:
+        target_ids = set(str(oid) for oid in payload.order_ids)
+        target_orders = [
+            o for o in all_orders 
+            if str(o.get("id")) in target_ids or str(o.get("order_id")) in target_ids
+        ]
+    else:
+        target_orders = [
+            o for o in all_orders 
+            if (o.get("order_status") or o.get("status") or "").lower().replace(" ", "_") in ("ready_to_pack", "ready_to_pack")
+        ]
+
+    if not target_orders:
+        raise HTTPException(status_code=400, detail="No orders found in 'Ready to Pack' status to request pickup.")
+
+    success_count = 0
+    failed_count = 0
+
+    for order in target_orders:
+        order_id_str = order.get("order_id") or f"BOOK{order.get('id')}"
+        row_id = order["id"]
+
+        delivery_raw = order.get("delivery") or "{}"
+        try:
+            delivery_data = json.loads(delivery_raw) if isinstance(delivery_raw, str) else (delivery_raw or {})
+        except Exception:
+            delivery_data = {}
+
+        # Get or create shipment
+        shipment_id = delivery_data.get("shipment_id") or delivery_data.get("awb")
+        if not shipment_id:
+            try:
+                user_info_raw = order.get("user_info") or "{}"
+                user_info = json.loads(user_info_raw) if isinstance(user_info_raw, str) else (user_info_raw or {})
+                address_obj = user_info.get("address") if isinstance(user_info.get("address"), dict) else {}
+                items_raw = order.get("items") or "[]"
+                items = json.loads(items_raw) if isinstance(items_raw, str) else (items_raw or [])
+
+                ship_payload = {
+                    "order_id": order_id_str,
+                    "order_date": (order.get("order_date") or "").split(" ")[0] or datetime.now().strftime("%Y-%m-%d"),
+                    "total_amount": order.get("total_amount") or 0,
+                    "items": items,
+                    "customer_name": user_info.get("name") or "Customer",
+                    "customer_email": user_info.get("email") or "",
+                    "customer_phone": user_info.get("phone") or "",
+                    "address": address_obj.get("street") or (user_info.get("address") if isinstance(user_info.get("address"), str) else "") or "",
+                    "address2": address_obj.get("apartment") or "",
+                    "city": address_obj.get("city") or "",
+                    "state": address_obj.get("state") or "",
+                    "pincode": address_obj.get("pincode") or "",
+                }
+                
+                ship_res = await create_shipment(ship_payload)
+                if ship_res.get("success"):
+                    shipment_id = ship_res.get("shipment_id") or ship_res.get("awb")
+                    delivery_data.update({
+                        "shipment_id": ship_res.get("shipment_id"),
+                        "awb": ship_res.get("awb"),
+                        "courier": ship_res.get("courier_name"),
+                        "carrier_id": ship_res.get("carrier_id"),
+                        "tracking_url": ship_res.get("tracking_url"),
+                        "label_url": ship_res.get("label_url"),
+                    })
+            except Exception as exc:
+                logger.error(f"[Bulk Pickup] Shipment create failed for {order_id_str}: {exc}")
+
+        # Request pickup via Shipway
+        pickup_res = {"success": True}
+        if shipment_id:
+            try:
+                pickup_res = await request_pickup(shipment_id)
+            except Exception as exc:
+                logger.error(f"[Bulk Pickup] Shipway request_pickup exception for {order_id_str}: {exc}")
+
+        # Update order status to PICKUP_REQUESTED
+        now_iso = datetime.now().isoformat()
+        delivery_data["status"] = "PICKUP_REQUESTED"
+        delivery_data["pickup_requested_at"] = now_iso
+        if pickup_res.get("pickup_token"):
+            delivery_data["pickup_token"] = pickup_res["pickup_token"]
+
+        try:
+            await client.update_row(
+                TABLE_IDS["orders"],
+                row_id,
+                {
+                    "order_status": "PICKUP_REQUESTED",
+                    "delivery": json.dumps(delivery_data),
+                },
+            )
+            success_count += 1
+
+            # Background task: WhatsApp notification
+            user_info_raw = order.get("user_info") or "{}"
+            user_info = json.loads(user_info_raw) if isinstance(user_info_raw, str) else (user_info_raw or {})
+            cust_phone = user_info.get("phone") or ""
+            cust_name = user_info.get("name") or "Customer"
+            tracking_url = delivery_data.get("tracking_url") or f"https://app-v1.shipway.com/tracking/forward/{delivery_data.get('awb', '')}/"
+
+            if cust_phone:
+                background_tasks.add_task(
+                    _notify_pickup_requested,
+                    phone=cust_phone,
+                    name=cust_name,
+                    order_id=order_id_str,
+                    tracking_url=tracking_url,
+                )
+        except Exception as exc:
+            logger.error(f"[Bulk Pickup] Baserow update failed for {order_id_str}: {exc}")
+            failed_count += 1
+
+    return {
+        "success": True,
+        "processed_count": len(target_orders),
+        "success_count": success_count,
+        "failed_count": failed_count,
+        "message": f"Successfully requested pickup & notified WhatsApp for {success_count} order(s).",
+    }
+
+
 # ── List / Get / Patch (unchanged) ────────────────────────────────────────────
 
 

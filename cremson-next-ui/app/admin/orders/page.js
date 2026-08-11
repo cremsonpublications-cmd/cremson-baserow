@@ -698,6 +698,26 @@ export default function AdminOrders() {
     }
   }
 
+  async function handleBulkReadyForPickupAll() {
+    setBulkPickupLoading(true);
+    const toastId = toast.loading("Requesting courier pickup & sending WhatsApp alerts for all Ready to Pack orders...");
+
+    try {
+      const response = await api.post("/api/orders/bulk-request-pickup", {});
+      const msg = response?.data?.message || `Successfully requested pickup for orders!`;
+      toast.dismiss(toastId);
+      toast.success(msg);
+      setSelectedOrderIds([]);
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+    } catch (err) {
+      toast.dismiss(toastId);
+      const errMsg = err?.response?.data?.detail || "Failed to request pickup for Ready to Pack orders.";
+      toast.error(errMsg);
+    } finally {
+      setBulkPickupLoading(false);
+    }
+  }
+
   async function handleBulkPackedAndRequestPickup() {
     const selectedOrders = orders.filter((o) => selectedOrderIds.includes(o.id));
     const eligibleOrders = selectedOrders.filter((o) => {
@@ -711,31 +731,23 @@ export default function AdminOrders() {
     }
 
     setBulkPickupLoading(true);
-    let successCount = 0;
-    let failCount = 0;
     const toastId = toast.loading(`Requesting pickup for ${eligibleOrders.length} order(s)...`);
 
-    for (const order of eligibleOrders) {
-      const orderId = order.order_id || order.id;
-      try {
-        await adminMarkReadyForPickup(orderId);
-        successCount++;
-      } catch (err) {
-        failCount++;
-      }
+    try {
+      const orderIds = eligibleOrders.map((o) => o.order_id || String(o.id));
+      const response = await api.post("/api/orders/bulk-request-pickup", { order_ids: orderIds });
+      const msg = response?.data?.message || `Successfully requested pickup for ${eligibleOrders.length} order(s)!`;
+      toast.dismiss(toastId);
+      toast.success(msg);
+      setSelectedOrderIds([]);
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+    } catch (err) {
+      toast.dismiss(toastId);
+      const errMsg = err?.response?.data?.detail || "Failed to request pickup for selected orders.";
+      toast.error(errMsg);
+    } finally {
+      setBulkPickupLoading(false);
     }
-
-    toast.dismiss(toastId);
-    if (successCount > 0) {
-      toast.success(`Successfully requested pickup & notified WhatsApp for ${successCount} order(s)!`);
-    }
-    if (failCount > 0) {
-      toast.error(`Failed pickup request for ${failCount} order(s).`);
-    }
-
-    setSelectedOrderIds([]);
-    queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-    setBulkPickupLoading(false);
   }
 
   async function downloadLabelsAsZip(ordersList, zipFilename = "shipping_labels.zip") {
@@ -929,6 +941,20 @@ export default function AdminOrders() {
                           <FileText className="w-4 h-4" />
                         )}
                         Download Ready to Pack Labels (PDF)
+                      </button>
+
+                      <button
+                        onClick={handleBulkReadyForPickupAll}
+                        disabled={bulkPickupLoading}
+                        className="px-4 py-2 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 active:bg-orange-800 rounded-xl shadow-xs hover:shadow transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        title="Request courier pickup & send WhatsApp notifications for all Ready to Pack orders"
+                      >
+                        {bulkPickupLoading ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Truck className="w-4 h-4" />
+                        )}
+                        Ready For Pickup
                       </button>
                       <div className="text-sm font-semibold text-gray-600">Total: {count} orders</div>
                     </div>
