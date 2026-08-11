@@ -218,8 +218,64 @@ def init_blogs_db():
         ])
         conn.commit()
 
+    # Create teacher_audit_logs table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS teacher_audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            teacher_row_id INTEGER NOT NULL,
+            teacher_name TEXT,
+            changed_at TEXT NOT NULL,
+            changed_by TEXT DEFAULT 'Admin',
+            changes_json TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+
     conn.close()
 
 # Initialize DB on load
 init_blogs_db()
+
+
+def log_teacher_edit(teacher_row_id: int, teacher_name: str, old_dict: dict, new_dict: dict, changed_by: str = "Admin"):
+    """
+    Compares old_dict vs new_dict, extracts modified fields, and inserts an audit log entry.
+    """
+    import json
+    from datetime import datetime
+
+    changes = []
+    ignore_keys = {"id", "Teacher ID", "created_on", "IdCardUrl", "Teacher"}
+
+    all_keys = set(old_dict.keys()).union(new_dict.keys()) - ignore_keys
+
+    for key in sorted(all_keys):
+        old_val = str(old_dict.get(key) or "").strip()
+        new_val = str(new_dict.get(key) or "").strip()
+
+        if old_val != new_val:
+            changes.append({
+                "field": key,
+                "old": old_val if old_val else "(empty)",
+                "new": new_val if new_val else "(empty)"
+            })
+
+    if not changes:
+        return
+
+    changed_at = datetime.now().strftime("%d %b %Y, %I:%M %p")
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO teacher_audit_logs (teacher_row_id, teacher_name, changed_at, changed_by, changes_json)
+            VALUES (?, ?, ?, ?, ?)
+        """, (teacher_row_id, teacher_name or f"Teacher #{teacher_row_id}", changed_at, changed_by, json.dumps(changes)))
+        conn.commit()
+        conn.close()
+    except Exception as exc:
+        print("[Teacher Audit Log] Error inserting audit log:", exc)
+
+
 

@@ -630,6 +630,17 @@ function TeacherHistoryModal({ teacher, onClose }) {
     enabled: Boolean(teacherId || email || phone),
   });
 
+  const { data: auditData } = useQuery({
+    queryKey: ["teacher-audit-history", teacherId],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/crm/teachers/${teacherId}/history`);
+      return data;
+    },
+    enabled: Boolean(teacherId),
+  });
+
+  const auditLogs = auditData?.logs || [];
+
   useEffect(() => {
     if (historyData?.teacher?.specimen_limit !== undefined) {
       setSpecimenLimit(historyData.teacher.specimen_limit);
@@ -881,6 +892,54 @@ function TeacherHistoryModal({ teacher, onClose }) {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </div>
+
+              {/* Edit Audit History Timeline Section */}
+              <div className="space-y-3 pt-5 border-t border-slate-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <History className="w-4 h-4 text-purple-600" /> Edit Audit History ({auditLogs.length})
+                  </h3>
+                </div>
+
+                {auditLogs.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    No edit history logs recorded yet. Any future changes made to this teacher profile will be logged here with exact timestamp & diff.
+                  </p>
+                ) : (
+                  <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                    {auditLogs.map((log) => (
+                      <div key={log.id} className="p-4 bg-purple-50/40 border border-purple-100 rounded-2xl space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-purple-600"></span>
+                            Edited by {log.changed_by || "Admin"}
+                          </span>
+                          <span className="text-[11px] font-semibold text-slate-500 bg-white px-2.5 py-0.5 rounded-full border border-purple-100 shadow-xs">
+                            {log.changed_at}
+                          </span>
+                        </div>
+
+                        <div className="space-y-1.5 pt-1">
+                          {log.changes.map((change, idx) => (
+                            <div key={idx} className="text-xs bg-white p-2.5 rounded-xl border border-purple-100/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-slate-700">
+                              <span className="font-bold text-slate-900 min-w-[120px]">{change.field}:</span>
+                              <div className="flex items-center gap-2 text-xs flex-wrap font-mono">
+                                <span className="px-2 py-0.5 bg-rose-50 text-rose-700 rounded border border-rose-100 line-through">
+                                  {change.old}
+                                </span>
+                                <span className="text-slate-400 font-bold">→</span>
+                                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 rounded border border-emerald-200 font-bold">
+                                  {change.new}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

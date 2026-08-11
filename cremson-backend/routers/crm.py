@@ -298,12 +298,67 @@ async def create_teacher(body: dict):
     cleaned_body = sanitize_payload(body, [])
     return await client.create_row(TABLE_IDS["teacher"], cleaned_body)
 
+@router.get("/teachers/{row_id}/history", summary="Get teacher edit audit history")
+async def get_teacher_audit_history(row_id: int):
+    """Return all historical edit audit log entries for a teacher."""
+    try:
+        from db.blogs import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM teacher_audit_logs 
+            WHERE teacher_row_id = ? 
+            ORDER BY id DESC
+        """, (row_id,))
+        rows = cursor.fetchall()
+        conn.close()
+
+        logs = []
+        for r in rows:
+            item = dict(r)
+            try:
+                item["changes"] = json.loads(item["changes_json"])
+            except Exception:
+                item["changes"] = []
+            logs.append(item)
+
+        return {"teacher_id": row_id, "logs": logs}
+    except Exception as exc:
+        logger.error(f"[Teacher Audit History] Error fetching history for {row_id}: {exc}")
+        return {"teacher_id": row_id, "logs": []}
+
+
 @router.patch("/teachers/{row_id}", summary="Update teacher")
 async def update_teacher(row_id: int, body: dict):
     validate_teacher_fields(body)
     await validate_teacher_schools(body, row_id)
     cleaned_body = sanitize_payload(body, [])
-    return await client.update_row(TABLE_IDS["teacher"], row_id, cleaned_body)
+
+    # Fetch previous values for diff logging
+    old_teacher = {}
+    try:
+        old_teacher = await client.get_row(TABLE_IDS["teacher"], row_id)
+    except Exception:
+        pass
+
+    updated_teacher = await client.update_row(TABLE_IDS["teacher"], row_id, cleaned_body)
+
+    # Log audit entry
+    if old_teacher:
+        try:
+            from db.blogs import log_teacher_edit
+            log_teacher_edit(
+                teacher_row_id=row_id,
+                teacher_name=old_teacher.get("Teacher Name") or cleaned_body.get("Teacher Name", ""),
+                old_dict=old_teacher,
+                new_dict=cleaned_body,
+                changed_by="Admin"
+            )
+        except Exception as exc:
+            logger.warning(f"[Teacher Audit Log] Error logging edit: {exc}")
+
+    return updated_teacher
+
 
 @router.delete("/teachers/{row_id}", summary="Delete teacher")
 async def delete_teacher(row_id: int):
@@ -319,6 +374,18 @@ async def approve_teacher(row_id: int):
     teacher_name = teacher.get("Teacher Name", "") or "Teacher"
     
     updated_teacher = await client.update_row(TABLE_IDS["teacher"], row_id, {"Status": "Approved"})
+
+    try:
+        from db.blogs import log_teacher_edit
+        log_teacher_edit(
+            teacher_row_id=row_id,
+            teacher_name=teacher_name,
+            old_dict={"Status": teacher.get("Status", "Pending Approval")},
+            new_dict={"Status": "Approved"},
+            changed_by="Admin"
+        )
+    except Exception as exc:
+        logger.warning(f"[Teacher Audit Log] Error logging approval: {exc}")
     
     if email:
         try:
