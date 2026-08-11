@@ -40,9 +40,10 @@ export default function TeachingResourcePostsPage() {
   };
 
   const copyLink = (slug) => {
-    const link = `/teaching-resource/${slug}`;
-    navigator.clipboard.writeText(link).then(() => {
-      toast.success("Link copied! Paste it as the redirect URL in the navigation tree.");
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const fullLink = `${origin}/teaching-resource/${slug}`;
+    navigator.clipboard.writeText(fullLink).then(() => {
+      toast.success("Full website URL copied to clipboard! Paste it into the navigation tree.");
     }).catch(() => {
       toast.error("Failed to copy link.");
     });
