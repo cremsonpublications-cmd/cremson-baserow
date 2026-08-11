@@ -47,7 +47,6 @@ import {
 const TABS = [
   { id: "schools", label: "Schools", singularLabel: "School", icon: Building2, endpoint: "/api/crm/schools", baserowUrl: "http://200.141.5.200/database/279/table/876/3619" },
   { id: "teachers", label: "Teachers", singularLabel: "Teacher", icon: GraduationCap, endpoint: "/api/crm/teachers", baserowUrl: "http://200.141.5.200/database/279/table/877/3620" },
-  { id: "specimen", label: "Specimen Requests", singularLabel: "Specimen Request", icon: FileText, endpoint: "/api/specimen-requests", baserowUrl: "http://200.141.5.200/database/279/table/878/3624" },
   { id: "books", label: "CRM Books Catalog", singularLabel: "CRM Book", icon: BookOpen, endpoint: "/api/crm/books", baserowUrl: "http://200.141.5.200/database/279/table/879/3628" },
   { id: "subjects", label: "Subjects", singularLabel: "Subject", icon: BookMarked, endpoint: "/api/crm/subjects", baserowUrl: "http://200.141.5.200/database/279/table/880/3629" },
 ];
