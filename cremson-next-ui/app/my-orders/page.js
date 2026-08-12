@@ -276,10 +276,10 @@ export default function MyOrdersPage() {
                       <h4 className="font-semibold text-gray-900 text-sm hover:text-blue-600 transition-colors line-clamp-2">
                         {item.title}
                       </h4>
-                      <p className="text-[11px] text-gray-400 mt-1">
+                      <p className="text-xs text-gray-400 mt-1">
                         Qty: {item.quantity} | Order #{item.orderId}
                       </p>
-                      <p className="text-[11px] text-gray-400">
+                      <p className="text-xs text-gray-400">
                         Ordered on: {item.orderDate}
                       </p>
                     </div>
@@ -290,7 +290,7 @@ export default function MyOrdersPage() {
                     <p className="font-bold text-gray-900 text-sm">
                       ₹{parseFloat(item.price * item.quantity).toFixed(2)}
                     </p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">
+                    <p className="text-xs text-gray-400 mt-0.5">
                       (₹{parseFloat(item.price).toFixed(2)} each)
                     </p>
                   </div>
@@ -303,7 +303,7 @@ export default function MyOrdersPage() {
                         {statusText === "Delivered" ? `Delivered on ${item.expectedDelivery}` : statusText}
                       </span>
                     </div>
-                    <p className="text-[11px] text-gray-500 mt-1 ml-4 leading-relaxed">
+                    <p className="text-xs text-gray-500 mt-1 ml-4 leading-relaxed">
                       {statusDesc}
                     </p>
                     {item.trackingUrl ? (
@@ -312,13 +312,13 @@ export default function MyOrdersPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="text-blue-600 hover:text-blue-800 text-[11px] font-bold mt-2 ml-4 flex items-center gap-0.5 cursor-pointer"
+                        className="text-blue-600 hover:text-blue-800 text-xs font-bold mt-2 ml-4 flex items-center gap-0.5 cursor-pointer"
                       >
                         <Truck className="w-3.5 h-3.5" />
                         Track Shipment
                       </a>
                     ) : (
-                      <button className="text-blue-600 hover:text-blue-800 text-[11px] font-bold mt-2 ml-4 flex items-center gap-0.5 cursor-pointer">
+                      <button className="text-blue-600 hover:text-blue-800 text-xs font-bold mt-2 ml-4 flex items-center gap-0.5 cursor-pointer">
                         <Eye className="w-3.5 h-3.5" />
                         View Details
                       </button>
@@ -337,12 +337,12 @@ export default function MyOrdersPage() {
           {/* Overlay click to close */}
           <div className="absolute inset-0" onClick={() => setSelectedOrder(null)} />
 
-          <div className="relative w-full max-w-lg bg-[#f1f3f6] h-full shadow-2xl flex flex-col z-10 animate-slideLeft">
+          <div className="relative w-full sm:max-w-lg bg-[#f1f3f6] h-full shadow-2xl flex flex-col z-10 animate-slideLeft">
 
             {/* Drawer Header */}
             <div className="p-4 bg-white border-b border-gray-200 flex items-center justify-between">
               <div>
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Order Details</span>
+                <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Order Details</span>
                 <h2 className="text-base font-bold text-gray-950 mt-0.5">#{selectedOrder.id}</h2>
               </div>
               <button
@@ -386,7 +386,7 @@ export default function MyOrdersPage() {
                     <div className="w-7 h-7 rounded-full bg-green-500 text-white flex items-center justify-center font-bold">
                       <CheckCircle2 className="w-4 h-4" />
                     </div>
-                    <span className="text-[10px] font-bold text-gray-700 mt-1.5">Placed</span>
+                    <span className="text-xs font-bold text-gray-700 mt-1.5">Placed</span>
                   </div>
 
                   {/* Step 2: Shipped */}
@@ -401,7 +401,7 @@ export default function MyOrdersPage() {
                         <Truck className="w-3.5 h-3.5" />
                       )}
                     </div>
-                    <span className={`text-[10px] font-bold mt-1.5 ${selectedOrder.status === "Shipped" || selectedOrder.status === "Delivered" ? "text-gray-700" : "text-gray-400"
+                    <span className={`text-xs font-bold mt-1.5 ${selectedOrder.status === "Shipped" || selectedOrder.status === "Delivered" ? "text-gray-700" : "text-gray-400"
                       }`}>Shipped</span>
                   </div>
 
@@ -413,7 +413,7 @@ export default function MyOrdersPage() {
                       }`}>
                       <CheckCircle2 className="w-4 h-4" />
                     </div>
-                    <span className={`text-[10px] font-bold mt-1.5 ${selectedOrder.status === "Delivered" ? "text-gray-700" : "text-gray-400"
+                    <span className={`text-xs font-bold mt-1.5 ${selectedOrder.status === "Delivered" ? "text-gray-700" : "text-gray-400"
                       }`}>Delivered</span>
                   </div>
                 </div>
@@ -444,7 +444,7 @@ export default function MyOrdersPage() {
                         )}
                         <div>
                           <p className="font-bold text-gray-900 leading-snug line-clamp-2">{item.title}</p>
-                          <p className="text-[10px] text-gray-500 mt-0.5">Quantity: {item.quantity}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">Quantity: {item.quantity}</p>
                         </div>
                       </div>
                       <span className="font-bold text-gray-900">
@@ -477,7 +477,7 @@ export default function MyOrdersPage() {
                 <ShieldCheck className="w-4.5 h-4.5 text-green-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-bold text-gray-900">Razorpay Secure Payment</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">Payment ID: {selectedOrder.payment_id || "N/A"}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Payment ID: {selectedOrder.payment_id || "N/A"}</p>
                 </div>
               </div>
 

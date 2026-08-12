@@ -3,13 +3,15 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, CreditCard, ShieldCheck, BookOpen, Building2 } from "lucide-react";
+import { CheckCircle2, CreditCard, ShieldCheck, BookOpen, Building2, Loader2, PackageCheck, AlertTriangle } from "lucide-react";
 import api from "@/lib/api/axios";
 
 export default function StudentPaymentPage() {
   const { token, studentToken } = useParams();
   const [payLoading, setPayLoading] = useState(false);
   const [error, setError] = useState("");
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
+  const [verifyingStep, setVerifyingStep] = useState("");
 
   const { data: order, isLoading, refetch } = useQuery({
     queryKey: ["bulk-order-student-pay", token, studentToken],
@@ -84,6 +86,8 @@ export default function StudentPaymentPage() {
           name: student_name,
         },
         handler: async function (response) {
+          setVerifyingPayment(true);
+          setVerifyingStep("Verifying payment signature with bank...");
           try {
             await api.post(`/api/bulk-orders/${token}/verify-payment`, {
               razorpay_order_id: response.razorpay_order_id,
@@ -91,8 +95,13 @@ export default function StudentPaymentPage() {
               razorpay_signature: response.razorpay_signature,
               student_token: studentToken,
             });
-            refetch();
+            setVerifyingStep("Payment confirmed successfully! Refreshing...");
+            setTimeout(() => {
+              setVerifyingPayment(false);
+              refetch();
+            }, 2000);
           } catch (err) {
+            setVerifyingPayment(false);
             alert("Payment verification failed. Please contact support.");
           }
         },
@@ -167,6 +176,48 @@ export default function StudentPaymentPage() {
           </div>
         )}
       </div>
+
+      {/* Non-dismissable Payment Verification Overlay Modal */}
+      {verifyingPayment && (
+        <div
+          className="fixed inset-0 bg-black/75 backdrop-blur-md z-[99999] flex items-center justify-center p-4 select-none"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <div
+            className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-gray-100 text-center space-y-6 animate-in fade-in zoom-in duration-200 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Animated Status Indicator */}
+            <div className="relative w-20 h-20 mx-auto flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-4 border-purple-200 animate-ping opacity-25" />
+              <div className="w-16 h-16 bg-gradient-to-tr from-purple-600 to-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-xl shadow-purple-500/20 transform rotate-3">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xl font-extrabold text-gray-900">
+                Verifying Payment
+              </h3>
+              <div className="flex items-center justify-center gap-2 text-sm font-semibold text-purple-600">
+                <PackageCheck className="w-4 h-4 animate-bounce" />
+                <span className="animate-pulse">{verifyingStep}</span>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-4 text-xs text-amber-800 flex items-start gap-3 text-left">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="font-medium leading-relaxed">
+                <strong className="block text-amber-900 mb-0.5">Do not close or refresh this page</strong>
+                We are securely confirming your transaction.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -79,7 +79,7 @@ export default function WishlistDrawer() {
                         <h4 className="font-bold text-gray-900 text-sm leading-tight line-clamp-2 pr-4">
                           {product.title}
                         </h4>
-                        <span className="text-[11px] text-gray-500 font-medium block">
+                        <span className="text-xs text-gray-500 font-medium block">
                           Class: {product.class} • ₹{product.price}
                         </span>
                       </div>
@@ -90,13 +90,13 @@ export default function WishlistDrawer() {
                             addToCart(product);
                             toggleWishlist(product);
                           }}
-                          className="px-3 py-1.5 bg-orange-500 hover:bg-red-600 text-white text-[10px] font-bold rounded-full transition-colors active:scale-95 shadow-sm"
+                          className="px-3 py-1.5 bg-orange-500 hover:bg-red-600 text-white text-xs font-bold rounded-full transition-colors active:scale-95 shadow-sm"
                         >
                           Move to Cart
                         </button>
                         <button
                           onClick={() => toggleWishlist(product)}
-                          className="px-3 py-1.5 border border-gray-200 hover:bg-gray-100 text-gray-600 text-[10px] font-bold rounded-full transition-all active:scale-95"
+                          className="px-3 py-1.5 border border-gray-200 hover:bg-gray-100 text-gray-600 text-xs font-bold rounded-full transition-all active:scale-95"
                         >
                           Remove
                         </button>

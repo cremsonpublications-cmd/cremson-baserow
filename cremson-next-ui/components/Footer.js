@@ -55,8 +55,8 @@ export default function Footer() {
                       <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
                     </svg>
                     <div>
-                      <span className="text-xs md:text-lg font-semibold text-gray-900">Phone: </span>
-                      <a href="tel:011-4578594" className="text-blue-600 hover:text-blue-800 font-medium transition-colors text-xs md:text-base">011-4578594</a>
+                      <span className="text-sm md:text-lg font-semibold text-gray-900">Phone: </span>
+                      <a href="tel:011-4578594" className="text-blue-600 hover:text-blue-800 font-medium transition-colors text-sm md:text-base">011-4578594</a>
                     </div>
                   </div>
 
@@ -66,8 +66,8 @@ export default function Footer() {
                       <path d="M12 18h.01"></path>
                     </svg>
                     <div>
-                      <span className="text-xs md:text-lg font-semibold text-gray-900 block mb-1">Mobile: </span>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs md:text-base">
+                      <span className="text-sm md:text-lg font-semibold text-gray-900 block mb-1">Mobile: </span>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm md:text-base">
                         <a href="tel:+917982645175" className="text-blue-600 hover:text-blue-800 font-medium transition-colors">+91 79826 45175</a>
                         <span className="text-gray-300">•</span>
                         <a href="tel:+919871757937" className="text-blue-600 hover:text-blue-800 font-medium transition-colors">+91 98717 57937</a>
@@ -85,8 +85,8 @@ export default function Footer() {
                       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
                     </svg>
                     <div>
-                      <span className="text-xs md:text-lg font-semibold text-gray-900">Email: </span>
-                      <a href="mailto:info@cremsonpublications.com" className="text-blue-600 hover:text-blue-800 font-medium transition-colors text-xs md:text-base">info@cremsonpublications.com</a>
+                      <span className="text-sm md:text-lg font-semibold text-gray-900">Email: </span>
+                      <a href="mailto:info@cremsonpublications.com" className="text-blue-600 hover:text-blue-800 font-medium transition-colors text-sm md:text-base break-all">info@cremsonpublications.com</a>
                     </div>
                   </div>
                 </div>
@@ -107,7 +107,7 @@ export default function Footer() {
             </div>
 
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-              <div className="h-[300px] md:h-[500px] relative">
+              <div className="h-[220px] sm:h-[300px] md:h-[500px] relative">
                 <iframe title="Cremson Publications Location" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3501.674920656613!2d77.243199!3d28.6489313!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390cfdb930b05529%3A0xc91931c5625f55a3!2sCremson%20Publications%204578%2F15%2C%20Ansari%20Rd%20opp.%20Happy%20School%2C%20Daryaganj%20New%20Delhi%2C%20Delhi%2C%20110002!5e0!3m2!1sen!2sin!4v1750450282497!5m2!1sen!2sin" className="w-full h-full rounded-lg" allowFullScreen="" loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>
               </div>
             </div>
@@ -119,7 +119,7 @@ export default function Footer() {
         <div className="absolute bottom-0 w-full h-1/2 bg-[#F0F0F0]"></div>
         <div className="px-4">
           <div className="relative grid grid-cols-1 md:grid-cols-2 py-9 md:py-11 px-6 md:px-16 max-w-7xl mx-auto bg-black rounded-[20px]">
-            <p className="font-integralCF font-bold text-[32px] md:text-[40px] text-white mb-9 md:mb-0 text-left">STAY UP TO DATE ABOUT OUR LATEST OFFERS</p>
+            <p className="font-integralCF font-bold text-xl sm:text-[28px] md:text-[40px] text-white mb-6 md:mb-0 text-left">STAY UP TO DATE ABOUT OUR LATEST OFFERS</p>
             <div className="flex items-center w-full">
               <form onSubmit={handleSubscribe} className="flex flex-col w-full max-w-[349px] mx-auto">
                 <div className="input-group focus-within:shadow-lg pl-4 transition-all relative items-center w-full rounded-full overflow-hidden flex bg-white mb-[14px]">

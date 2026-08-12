@@ -235,7 +235,7 @@ export default function CartPage() {
 
   return (
     <main className="pb-20">
-      <div className="max-w-7xl mx-auto px-6 md:px-10 xl:px-12 mt-6">
+      <div className="max-w-7xl mx-auto px-4 md:px-10 xl:px-12 mt-6">
         {/* Breadcrumbs */}
         <nav aria-label="breadcrumb" className="mb-4 sm:mb-6 text-left">
           <ol className="flex flex-wrap items-center gap-1.5 break-words text-sm text-gray-500 sm:gap-2.5">
@@ -253,7 +253,7 @@ export default function CartPage() {
           </ol>
         </nav>
 
-        <h2 className="font-integralCF font-bold text-[32px] md:text-[40px] text-black uppercase mb-5 md:mb-6 text-left">
+        <h2 className="font-integralCF font-bold text-2xl sm:text-[32px] md:text-[40px] text-black uppercase mb-5 md:mb-6 text-left">
           your cart
         </h2>
 
@@ -334,7 +334,7 @@ export default function CartPage() {
                                   )}
                                 </div>
                                 {isBulkApplied && (
-                                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 w-fit mt-0.5">
+                                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 w-fit mt-0.5">
                                     Bulk Price Override
                                   </span>
                                 )}
@@ -419,7 +419,7 @@ export default function CartPage() {
                           {appliedCoupon.code} Applied
                         </span>
                         {appliedCoupon.applicableProducts?.length > 0 && (
-                          <span className="text-[10px] text-green-700 font-medium">
+                          <span className="text-xs text-green-700 font-medium">
                             Valid on: {getProductTitles(appliedCoupon.applicableProducts)}
                           </span>
                         )}
@@ -488,16 +488,16 @@ export default function CartPage() {
                           >
                             <div className="flex items-center justify-between font-bold">
                               <span className={isDisabled ? "text-gray-400 font-mono" : "text-orange-600 font-mono"}>{coupon.code}</span>
-                              {!isDisabled && <span className="text-[10px] text-orange-500 font-medium">Click to apply</span>}
+                              {!isDisabled && <span className="text-xs text-orange-500 font-medium">Click to apply</span>}
                             </div>
                             <p className={isDisabled ? "text-gray-400" : "text-gray-600"}>{coupon.description}</p>
                             {hasProductRestriction && (
-                              <p className={`text-[10px] font-medium ${!hasEligibleInCart ? "text-amber-600 font-semibold" : "text-amber-700"}`}>
+                              <p className={`text-xs font-medium ${!hasEligibleInCart ? "text-amber-600 font-semibold" : "text-amber-700"}`}>
                                 📦 Valid only for: <span className="font-bold underline">{getProductTitles(coupon.applicableProducts)}</span>{!hasEligibleInCart ? " (add to cart to apply)" : ""}
                               </p>
                             )}
                             {coupon.minOrder && (
-                              <p className="text-[10px] text-gray-500 italic">* Requires order minimum of ₹{coupon.minOrder}</p>
+                              <p className="text-xs text-gray-500 italic">* Requires order minimum of ₹{coupon.minOrder}</p>
                             )}
                           </div>
                         );

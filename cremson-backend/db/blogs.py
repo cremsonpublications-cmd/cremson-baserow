@@ -231,6 +231,19 @@ def init_blogs_db():
     """)
     conn.commit()
 
+    # Create school_audit_logs table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS school_audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            school_row_id INTEGER NOT NULL,
+            school_name TEXT,
+            changed_at TEXT NOT NULL,
+            changed_by TEXT DEFAULT 'Admin',
+            changes_json TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS reminders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -345,6 +358,69 @@ def log_teacher_edit(teacher_row_id: int, teacher_name: str, old_dict: dict, new
         conn.close()
     except Exception as exc:
         print("[Teacher Audit Log] Error inserting audit log:", exc)
+
+
+def log_school_edit(school_row_id: int, school_name: str, old_dict: dict, new_dict: dict, changed_keys: list = None, changed_by: str = "Admin"):
+    """
+    Compares old_dict vs new_dict for changed_keys, extracts modified fields, and inserts an audit log entry for a school.
+    """
+    import json
+    from datetime import datetime
+
+    changes = []
+    ignore_keys = {"id", "School ID", "created_on", "Teacher", "order", "created_at", "updated_at"}
+
+    target_keys = changed_keys if changed_keys is not None else list(new_dict.keys())
+
+    for key in sorted(target_keys):
+        if key in ignore_keys:
+            continue
+        
+        old_raw = old_dict.get(key)
+        new_raw = new_dict.get(key)
+        
+        old_val = format_field_value(old_raw)
+        new_val = format_field_value(new_raw)
+
+        if old_val != new_val:
+            changes.append({
+                "field": key,
+                "old": old_val if old_val else "(empty)",
+                "new": new_val if new_val else "(empty)"
+            })
+
+    if not changes:
+        return
+
+    changes_json_str = json.dumps(changes)
+    changed_at = datetime.now().strftime("%d %b %Y, %I:%M %p")
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check if identical changes were just logged for this school
+        cursor.execute("""
+            SELECT changes_json FROM school_audit_logs 
+            WHERE school_row_id = ? 
+            ORDER BY id DESC LIMIT 1
+        """, (school_row_id,))
+        last_row = cursor.fetchone()
+        if last_row:
+            last_changes = last_row["changes_json"]
+            if last_changes == changes_json_str:
+                conn.close()
+                return
+
+        cursor.execute("""
+            INSERT INTO school_audit_logs (school_row_id, school_name, changed_at, changed_by, changes_json)
+            VALUES (?, ?, ?, ?, ?)
+        """, (school_row_id, school_name or f"School #{school_row_id}", changed_at, changed_by, changes_json_str))
+        conn.commit()
+        conn.close()
+    except Exception as exc:
+        print("[School Audit Log] Error inserting audit log:", exc)
+
 
 
 

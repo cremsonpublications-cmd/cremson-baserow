@@ -147,12 +147,81 @@ async def update_school(row_id: int, body: dict):
         for r in results:
             if r.get("SchoolName", "").strip().lower() == school_name.strip().lower() and r.get("id") != row_id:
                 raise HTTPException(status_code=400, detail="A school with this name already exists.")
-    return await client.update_row(TABLE_IDS["school"], row_id, cleaned_body)
+
+    # Fetch previous values for diff logging
+    old_school = {}
+    try:
+        old_school = await client.get_row(TABLE_IDS["school"], row_id)
+    except Exception:
+        pass
+
+    updated_school = await client.update_row(TABLE_IDS["school"], row_id, cleaned_body)
+
+    # Log audit entry
+    if old_school:
+        try:
+            from db.blogs import log_school_edit
+            log_school_edit(
+                school_row_id=row_id,
+                school_name=old_school.get("SchoolName") or updated_school.get("SchoolName", ""),
+                old_dict=old_school,
+                new_dict=updated_school,
+                changed_keys=list(cleaned_body.keys()),
+                changed_by="Admin"
+            )
+        except Exception as exc:
+            logger.warning(f"[School Audit Log] Error logging edit: {exc}")
+
+    return updated_school
+
+
+@router.get("/schools/{row_id}/history", summary="Get school edit audit history")
+async def get_school_audit_history(row_id: int):
+    """Return all historical edit audit log entries for a school."""
+    try:
+        import json
+        from db.blogs import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM school_audit_logs 
+            WHERE school_row_id = ? 
+            ORDER BY id DESC
+        """, (row_id,))
+        rows = cursor.fetchall()
+        conn.close()
+
+        logs = []
+        for r in rows:
+            item = dict(r)
+            raw_changes = item.get("changes_json") or "[]"
+            parsed_changes = []
+            if isinstance(raw_changes, str):
+                try:
+                    res = json.loads(raw_changes)
+                    if isinstance(res, str):
+                        res = json.loads(res)
+                    if isinstance(res, list):
+                        parsed_changes = res
+                except Exception:
+                    parsed_changes = []
+            elif isinstance(raw_changes, list):
+                parsed_changes = raw_changes
+
+            item["changes"] = parsed_changes
+            logs.append(item)
+
+        return {"school_id": row_id, "logs": logs}
+    except Exception as exc:
+        logger.error(f"[School Audit History] Error fetching history for {row_id}: {exc}")
+        return {"school_id": row_id, "logs": []}
+
 
 @router.delete("/schools/{row_id}", summary="Delete school")
 async def delete_school(row_id: int):
     await client.delete_row(TABLE_IDS["school"], row_id)
     return {"message": "School deleted successfully"}
+
 
 
 # ------------------- TEACHER ROUTER -------------------

@@ -100,7 +100,7 @@ export default function MobileMenuDrawer() {
               placeholder="Search books..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl bg-gray-50 text-xs focus:outline-none focus:ring-2 focus:ring-red-500/20 text-gray-900"
+              className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 text-gray-900"
             />
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
           </form>
@@ -180,7 +180,7 @@ export default function MobileMenuDrawer() {
                         }}
                         className="flex items-center justify-between py-2 px-2 rounded-lg font-bold text-gray-700 hover:text-red-600 hover:bg-red-50/50 cursor-pointer"
                       >
-                        <span className="uppercase text-[11px] tracking-wide">{root.label}</span>
+                        <span className="uppercase text-xs tracking-wide">{root.label}</span>
                         {children.length > 0 && (
                           <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                         )}
@@ -202,7 +202,7 @@ export default function MobileMenuDrawer() {
                                   <div
                                     key={sub.id}
                                     onClick={() => sub.url && handleLinkClick(sub.url)}
-                                    className="pl-3 py-1 text-gray-500 hover:text-red-500 cursor-pointer text-[11px]"
+                                    className="pl-3 py-1 text-gray-500 hover:text-red-500 cursor-pointer text-xs"
                                   >
                                     • {sub.label}
                                   </div>
@@ -249,7 +249,7 @@ export default function MobileMenuDrawer() {
                         }}
                         className="flex items-center justify-between py-2 px-2 rounded-lg font-bold text-gray-700 hover:text-red-600 hover:bg-red-50/50 cursor-pointer"
                       >
-                        <span className="uppercase text-[11px] tracking-wide">{root.label}</span>
+                        <span className="uppercase text-xs tracking-wide">{root.label}</span>
                         {children.length > 0 && (
                           <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                         )}
@@ -271,7 +271,7 @@ export default function MobileMenuDrawer() {
                                   <div
                                     key={sub.id}
                                     onClick={() => sub.url && handleLinkClick(sub.url)}
-                                    className="pl-3 py-1 text-gray-500 hover:text-red-500 cursor-pointer text-[11px]"
+                                    className="pl-3 py-1 text-gray-500 hover:text-red-500 cursor-pointer text-xs"
                                   >
                                     • {sub.label}
                                   </div>

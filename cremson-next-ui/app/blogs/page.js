@@ -65,12 +65,12 @@ export default function BlogsPage() {
       <div id="_rht_toaster" style={{ position: "fixed", zIndex: 9999, inset: "16px", pointerEvents: "none" }} />
 
       {/* Hero section */}
-      <div className="mx-8 sm:mx-16 xl:mx-24 relative overflow-hidden">
-        <div className="text-center mt-12 mb-6">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">
+      <div className="mx-4 sm:mx-8 xl:mx-24 relative overflow-hidden">
+        <div className="text-center mt-8 sm:mt-12 mb-6">
+          <h1 className="text-2xl sm:text-3xl sm:text-4xl font-bold text-gray-900 mb-6">
             Cremson Blogs
           </h1>
-          <form onSubmit={handleSearchSubmit} className="flex justify-between max-w-lg max-sm:scale-75 mx-auto border border-gray-300 bg-white rounded-xl overflow-hidden shadow-sm focus-within:border-primary transition-all">
+          <form onSubmit={handleSearchSubmit} className="flex justify-between max-w-lg mx-auto border border-gray-300 bg-white rounded-xl overflow-hidden shadow-sm focus-within:border-primary transition-all">
             <input
               placeholder="Search for blogs..."
               value={searchQuery}
@@ -126,7 +126,7 @@ export default function BlogsPage() {
         )}
 
         {/* Blog grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8 mb-24 mx-8 sm:mx-16 xl:mx-40">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-8 mb-24 mx-4 sm:mx-8 xl:mx-40">
           {loading ? (
             <div className="col-span-full py-12 text-center flex flex-col items-center justify-center gap-3">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

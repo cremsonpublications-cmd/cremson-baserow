@@ -380,14 +380,17 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
 
   const tabLabel = TABS.find(t => t.id === activeTab)?.label || "Record";
 
+  const showHistory = isEdit && (activeTab === "teachers" || activeTab === "schools");
+
   const { data: auditData, isLoading: loadingHistory, refetch: refetchAudit } = useQuery({
-    queryKey: ["teacher-audit-history", record?.id],
+    queryKey: [`${activeTab}-audit-history`, record?.id],
     queryFn: async () => {
       if (!record?.id) return { logs: [] };
-      const { data } = await api.get(`/api/crm/teachers/${record.id}/history`);
+      const endpoint = activeTab === "teachers" ? "teachers" : "schools";
+      const { data } = await api.get(`/api/crm/${endpoint}/${record.id}/history`);
       return data;
     },
-    enabled: Boolean(isEdit && record?.id),
+    enabled: Boolean(showHistory && record?.id),
   });
 
   const auditLogs = auditData?.logs || [];
@@ -536,7 +539,7 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className={`bg-white rounded-2xl border border-gray-200 shadow-2xl w-full max-h-[90vh] flex flex-col overflow-hidden transition-all ${isEdit ? "max-w-5xl md:max-w-6xl" : "max-w-2xl"}`}>
+      <div className={`bg-white rounded-2xl border border-gray-200 shadow-2xl w-full max-h-[90vh] flex flex-col overflow-hidden transition-all ${showHistory ? "max-w-5xl md:max-w-6xl" : "max-w-2xl"}`}>
         {/* Header with Auto-Save Status */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
           <div className="flex items-center gap-3">
@@ -677,7 +680,7 @@ function CRMFormModal({ activeTab, record, onClose, onSaved }) {
           </form>
 
           {/* Right Side: History Sidebar (Baserow Style) */}
-          {isEdit && (
+          {showHistory && (
             <div className="w-80 md:w-96 border-l border-gray-200 bg-slate-50/70 flex flex-col text-left shrink-0">
               {/* Header */}
               <div className="flex items-center justify-between border-b border-gray-200 bg-white px-5 h-14 shrink-0">

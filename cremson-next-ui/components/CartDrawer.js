@@ -80,7 +80,7 @@ export default function CartDrawer() {
                       <h4 className="font-bold text-gray-900 text-sm leading-tight line-clamp-2">
                         {product.title}
                       </h4>
-                      <span className="text-[11px] text-gray-500 font-medium">
+                      <span className="text-xs text-gray-500 font-medium">
                         Class: {product.class}
                       </span>
                     </div>

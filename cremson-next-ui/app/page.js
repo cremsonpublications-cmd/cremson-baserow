@@ -97,9 +97,9 @@ export default function Home() {
       </section>
 
       {/* BEST SELLING BOOKS SECTION */}
-      <main className="my-4 sm:my-[72px] p-1">
+      <main className="my-6 sm:my-[72px] p-1">
         <section className="max-w-7xl mx-auto text-center">
-          <h2 className="font-integralCF text-[32px] md:text-5xl mb-8 md:mb-14 capitalize" style={{ opacity: 1, transform: "none" }}>
+          <h2 className="font-integralCF text-2xl sm:text-[32px] md:text-5xl mb-6 sm:mb-10 md:mb-14 capitalize" style={{ opacity: 1, transform: "none" }}>
             Best Selling Books
           </h2>
           <div style={{ opacity: 1, transform: "none" }}>
@@ -169,7 +169,7 @@ export default function Home() {
                         </div>
 
                         <div className="mb-1">
-                          <strong className="text-black xl:text-xl line-clamp-2 leading-tight hover:text-orange-500 transition-colors duration-200 cursor-pointer">
+                          <strong className="text-sm sm:text-base xl:text-xl line-clamp-2 leading-tight hover:text-orange-500 transition-colors duration-200 cursor-pointer">
                             {book.title}
                           </strong>
                         </div>
@@ -210,9 +210,9 @@ export default function Home() {
 
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-2.5 sm:gap-0 mt-auto">
                           <div className="flex items-center space-x-[5px] xl:space-x-2.5">
-                            <span className="font-bold text-black text-xl xl:text-2xl">₹{book.price}</span>
+                            <span className="font-bold text-black text-base sm:text-xl xl:text-2xl">₹{book.price}</span>
                             {book.originalPrice && (
-                              <span className="font-bold text-black/40 line-through text-xl xl:text-2xl">
+                              <span className="font-bold text-black/40 line-through text-base sm:text-xl xl:text-2xl">
                                 ₹{book.originalPrice}
                               </span>
                             )}

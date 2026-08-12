@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Package, Clock, CheckCircle2, Copy, Share2, Users, CreditCard, Truck, ExternalLink, ShieldCheck } from "lucide-react";
+import { Package, Clock, CheckCircle2, Copy, Share2, Users, CreditCard, Truck, ExternalLink, ShieldCheck, Loader2, PackageCheck, AlertTriangle } from "lucide-react";
 import api from "@/lib/api/axios";
 
 export default function BulkOrderDetailPage() {
@@ -14,6 +14,8 @@ export default function BulkOrderDetailPage() {
   const [payLoading, setPayLoading] = useState(false);
   const [copiedLink, setCopiedLink] = useState("");
   const [error, setError] = useState("");
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
+  const [verifyingStep, setVerifyingStep] = useState("");
 
   const { data: order, isLoading, refetch } = useQuery({
     queryKey: ["bulk-order-detail", token],
@@ -57,14 +59,21 @@ export default function BulkOrderDetailPage() {
           contact: phone,
         },
         handler: async function (response) {
+          setVerifyingPayment(true);
+          setVerifyingStep("Verifying payment signature with bank...");
           try {
             await api.post(`/api/bulk-orders/${token}/verify-payment`, {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
             });
-            refetch();
+            setVerifyingStep("Order placed successfully! Refreshing...");
+            setTimeout(() => {
+              setVerifyingPayment(false);
+              refetch();
+            }, 2000);
           } catch (err) {
+            setVerifyingPayment(false);
             alert("Payment verification failed. Please contact support.");
           }
         },
@@ -184,7 +193,7 @@ export default function BulkOrderDetailPage() {
           {/* Fully Paid & Shipping Status Banner */}
           {(isFullyPaid || isShipped) && (
             <div className="mt-6 bg-emerald-50/70 border border-emerald-200 rounded-2xl p-5 sm:p-6 space-y-4">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between border-b border-emerald-100 pb-2.5">
                   <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
                     <Package className="w-4 h-4 text-emerald-600" /> Shipment Status
@@ -419,6 +428,48 @@ export default function BulkOrderDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Non-dismissable Payment & Order Verification Overlay Modal */}
+      {verifyingPayment && (
+        <div
+          className="fixed inset-0 bg-black/75 backdrop-blur-md z-[99999] flex items-center justify-center p-4 select-none"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <div
+            className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-gray-100 text-center space-y-6 animate-in fade-in zoom-in duration-200 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Animated Status Indicator */}
+            <div className="relative w-20 h-20 mx-auto flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-4 border-purple-200 animate-ping opacity-25" />
+              <div className="w-16 h-16 bg-gradient-to-tr from-purple-600 to-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-xl shadow-purple-500/20 transform rotate-3">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xl font-extrabold text-gray-900">
+                Verifying Payment & Placing Order
+              </h3>
+              <div className="flex items-center justify-center gap-2 text-sm font-semibold text-purple-600">
+                <PackageCheck className="w-4 h-4 animate-bounce" />
+                <span className="animate-pulse">{verifyingStep}</span>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-4 text-xs text-amber-800 flex items-start gap-3 text-left">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="font-medium leading-relaxed">
+                <strong className="block text-amber-900 mb-0.5">Do not close or refresh this page</strong>
+                We are securely confirming your transaction and communicating with shipping providers.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
