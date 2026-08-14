@@ -46,6 +46,8 @@ const ORDER_STATUSES = [
   { value: "pickup_requested", label: "Pickup Requested" },
   { value: "shipped", label: "Shipped" },
   { value: "delivered", label: "Delivered" },
+  { value: "dispatched", label: "Dispatched (Specimen)" },
+  { value: "rto", label: "Rejected (Specimen)" },
   { value: "return_initiated", label: "Return Initiated" },
   { value: "refunded", label: "Refunded" },
 ];
@@ -1394,6 +1396,7 @@ export default function AdminOrders() {
                         const priceInfo = safeParseJSON(order.order_summary) || {};
                         const amount = priceInfo.grandTotal || order.total_amount || 0;
                         const dateFormatted = (order.order_date || order.created_at || "").slice(0, 10);
+                        const isSpecimenRequest = Boolean(order.is_specimen_request);
                         const deliveryStatusRaw = (order.order_status ?? order.status ?? "shipped").toLowerCase();
                         const paymentObj = safeParseJSON(order.payment) || {};
                         const orderIdStr = String(order.order_id || "");
@@ -1418,6 +1421,10 @@ export default function AdminOrders() {
                           delivColorClass = "bg-rose-100 text-rose-800";
                         } else if (deliveryStatusRaw === "return_initiated" || deliveryStatusRaw === "return initiated") {
                           delivColorClass = "bg-red-100 text-red-800";
+                        } else if (deliveryStatusRaw === "dispatched") {
+                          delivColorClass = "bg-teal-100 text-teal-800";
+                        } else if (deliveryStatusRaw === "rto") {
+                          delivColorClass = "bg-rose-100 text-rose-800";
                         }
 
                         const deliveryStatusDisplay = deliveryStatusRaw.replace(/_/g, " ");
@@ -1430,10 +1437,16 @@ export default function AdminOrders() {
                           >
                             <td className="px-6 py-4 text-xs font-semibold text-gray-900">
                               #{order.order_id || `BOOK${order.id}`}
+                              {isSpecimenRequest && (
+                                <span className="ml-1.5 text-[9px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full border border-purple-200 align-middle">SPEC REQUEST</span>
+                              )}
                             </td>
                             <td className="px-6 py-4">
                               <div className="text-xs font-semibold text-gray-900">{uInfo.name || "Customer"}</div>
                               <div className="text-xs text-gray-500 mt-0.5">{uInfo.email || "customer@gmail.com"}</div>
+                              {isSpecimenRequest && uInfo.school && (
+                                <div className="text-[10px] text-purple-600 font-medium mt-0.5">🏫 {uInfo.school}</div>
+                              )}
                             </td>
                             <td className="px-6 py-4 text-xs text-gray-600 whitespace-nowrap">
                               {uInfo.phone || "—"}
@@ -1462,8 +1475,8 @@ export default function AdminOrders() {
                             </td>
                             <td className="px-6 py-4 text-right whitespace-nowrap">
                               <div className="flex items-center justify-end space-x-2 text-purple-600">
-                                {/* Orange Packed & Request Pickup Button */}
-                                {["ready_to_pack", "ready to pack"].includes(deliveryStatusRaw) && (
+                                {/* Packed & Request Pickup Button — only for ready_to_pack non-specimen rows */}
+                                {["ready_to_pack", "ready to pack"].includes(deliveryStatusRaw) && !isSpecimenRequest && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();

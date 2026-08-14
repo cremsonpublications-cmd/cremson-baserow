@@ -671,12 +671,126 @@ async def list_orders(
         except Exception as e:
             logger.error(f"[Orders] Error merging bulk orders: {e}")
 
+    # Fetch and merge specimen requests (pending/rejected ones not yet in Table 762)
+    specimen_orders_mapped = []
+    if not user_id and not email and page == 1:
+        try:
+            # Build set of existing SPEC order IDs already in Table 762 (approved ones)
+            approved_spec_ids = set()
+            for o in list(standard_orders) + bulk_orders_mapped:
+                oid = str(o.get("order_id") or "")
+                if oid.startswith("SPEC-"):
+                    approved_spec_ids.add(oid)
+
+            spec_res = await client.get_rows(
+                TABLE_IDS["specimen_requests"],
+                size=200,
+                order_by="-SpecimenID",
+            )
+
+            def _extract_val(v):
+                if isinstance(v, list):
+                    return " ".join(str(i.get("value", "")) if isinstance(i, dict) else str(i) for i in v).strip()
+                if isinstance(v, dict):
+                    return str(v.get("value", "")).strip()
+                return str(v or "").strip()
+
+            spec_status_map = {
+                "pending": "pending",
+                "dispatched": "dispatched",
+                "rto": "rto",
+                "rejected": "rto",
+                "approved": "dispatched",
+            }
+
+            for sr in spec_res.get("results", []):
+                spec_row_id = sr.get("id") or sr.get("SpecimenID")
+                potential_order_id = f"SPEC-{spec_row_id}"
+
+                # Skip if this request is already approved and has an order in Table 762
+                if potential_order_id in approved_spec_ids:
+                    continue
+
+                raw_status = (sr.get("DeliveryStatus") or "Pending").strip().lower()
+                mapped_status = spec_status_map.get(raw_status, raw_status)
+
+                # Apply order_status filter if set
+                if order_status:
+                    filter_key = order_status.lower()
+                    if filter_key not in ("pending", "dispatched", "rto") or mapped_status != filter_key:
+                        # Only include specimen rows if the filter matches their status
+                        if mapped_status != filter_key:
+                            continue
+
+                teacher_name = _extract_val(sr.get("Teacheer Name")) or _extract_val(sr.get("Teacher Name")) or ""
+                email_val = _extract_val(sr.get("Email")) or ""
+                phone_val = _extract_val(sr.get("Phone")) or ""
+                school_val = _extract_val(sr.get("School Name")) or ""
+                city_val = _extract_val(sr.get("City")) or ""
+                pincode_val = _extract_val(sr.get("PinCode")) or ""
+                full_address = sr.get("Full_Address") or ""
+                books_requested = sr.get("BooksRequested") or ""
+                created_at = sr.get("created_on") or sr.get("CreatedOn") or ""
+
+                # Apply search filter
+                if search:
+                    search_lower = search.lower()
+                    if (search_lower not in teacher_name.lower() and
+                        search_lower not in school_val.lower() and
+                        search_lower not in phone_val.lower()):
+                        continue
+
+                # Apply date filter
+                if start_date and end_date and created_at:
+                    date_part = str(created_at).split("T")[0].split(" ")[0]
+                    if not (start_date <= date_part <= end_date):
+                        continue
+
+                user_info = json.dumps({
+                    "name": teacher_name or "Teacher",
+                    "email": email_val,
+                    "phone": phone_val,
+                    "school": school_val,
+                    "address": {
+                        "street": full_address or school_val,
+                        "city": city_val,
+                        "pincode": pincode_val,
+                        "country": "India"
+                    }
+                })
+
+                payment = json.dumps({
+                    "method": "SPECIMEN (Free)",
+                    "status": "Specimen Copy",
+                    "amount": 0
+                })
+
+                specimen_orders_mapped.append({
+                    "id": f"spec_req_{spec_row_id}",
+                    "order_id": f"SPEC-REQ-{spec_row_id}",
+                    "order_status": mapped_status,
+                    "order_date": created_at,
+                    "user_info": user_info,
+                    "items": json.dumps([{"name": b.strip(), "quantity": 1} for b in books_requested.split(",") if b.strip()]),
+                    "order_summary": json.dumps({"grandTotal": 0}),
+                    "payment": payment,
+                    "delivery": json.dumps({"status": mapped_status}),
+                    "total_amount": 0,
+                    "payment_status": "Specimen Copy",
+                    "is_specimen_request": True,
+                    "specimen_request_id": spec_row_id,
+                    "books_requested": books_requested,
+                    "school_name": school_val,
+                })
+        except Exception as e:
+            logger.error(f"[Orders] Error merging specimen requests: {e}")
+
     # Merge and sort
-    all_merged = list(standard_orders) + bulk_orders_mapped
+    all_merged = list(standard_orders) + bulk_orders_mapped + specimen_orders_mapped
     all_merged.sort(key=lambda o: o.get("order_date") or "", reverse=True)
 
     return {
-        "count": total_standard_count + len(bulk_orders_mapped),
+        "count": total_standard_count + len(bulk_orders_mapped) + len(specimen_orders_mapped),
         "results": all_merged
     }
 
