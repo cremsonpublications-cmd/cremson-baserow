@@ -18,6 +18,7 @@ async def list_users(
         page=page,
         size=size,
         search=search,
+        order_by="-id",
     )
 
 
