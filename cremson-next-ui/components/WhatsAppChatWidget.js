@@ -532,22 +532,20 @@ export default function WhatsAppChatWidget() {
         <button
           type="button"
           onClick={handleToggle}
-          className="relative bg-[#25D366] hover:bg-[#20ba5a] active:bg-[#1caa52] text-white w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 transform hover:scale-105 cursor-pointer border-2 border-white/30"
+          className="relative w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center transition-all duration-300 transform hover:scale-105 cursor-pointer"
           aria-label="Toggle WhatsApp Support Chat"
         >
-          <span className="absolute -inset-1 rounded-full bg-[#25D366]/40 animate-ping opacity-75 pointer-events-none" />
-
           {hasUnread && !isOpen && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-[11px] font-bold text-white shadow-md">
+            <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-[11px] font-bold text-white shadow-md z-10">
               1
             </span>
           )}
 
-            <img
-              src={whatsappIcon.src}
-              alt="WhatsApp Support"
-              className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
-            />
+          <img
+            src={whatsappIcon.src}
+            alt="WhatsApp Support"
+            className="w-full h-full object-contain"
+          />
         </button>
       </div>
     </div>
