@@ -68,6 +68,9 @@ export default function AdminLayout({ children }) {
   const [adminExpanded, setAdminExpanded] = useState(false);
   const [uploadExpanded, setUploadExpanded] = useState(false);
 
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUserLoading, setCurrentUserLoading] = useState(true);
+
   const [badgeCounts, setBadgeCounts] = useState({
     orders: 0,
     bulkOrders: 0,
@@ -76,6 +79,68 @@ export default function AdminLayout({ children }) {
   });
 
   const isLoginPage = pathname === "/admin/login";
+
+  useEffect(() => {
+    if (!checked || isLoginPage) {
+      setCurrentUserLoading(false);
+      return;
+    }
+    setCurrentUserLoading(true);
+    api.get("/api/auth/me")
+      .then(res => {
+        setCurrentUser(res.data);
+      })
+      .catch(err => {
+        console.error("Failed to load user info:", err);
+      })
+      .finally(() => {
+        setCurrentUserLoading(false);
+      });
+  }, [checked, isLoginPage]);
+
+  function hasPermissionForLink(href) {
+    if (isLoginPage) return true;
+    if (!currentUser) {
+      // While loading profile, allow access
+      return true;
+    }
+    const role = currentUser.role?.toLowerCase();
+    if (role === "superadmin" || role === "admin") return true;
+
+    const userPerms = currentUser.permissions || [];
+
+    if (href.startsWith("/admin/orders") || href.startsWith("/admin/bulk-orders") || href.startsWith("/admin/specimen-requests") || href.startsWith("/admin/reminders") || href.startsWith("/admin/specimen-books")) {
+      return userPerms.includes("orders:write") || userPerms.includes("orders:read");
+    }
+    if (href.startsWith("/admin/crm")) {
+      return userPerms.includes("crm:write") || userPerms.includes("crm:read");
+    }
+    if (href.startsWith("/admin/categories") || href.startsWith("/admin/products")) {
+      return userPerms.includes("products:write") || userPerms.includes("products:read");
+    }
+    if (href.startsWith("/admin/users")) {
+      return userPerms.includes("users:write") || userPerms.includes("users:read");
+    }
+    if (href.startsWith("/admin/settings")) {
+      return userPerms.includes("settings:write");
+    }
+    if (
+      href.startsWith("/admin/blogs") || 
+      href.startsWith("/admin/addBlog") || 
+      href.startsWith("/admin/listBlog") || 
+      href.startsWith("/admin/comments") || 
+      href.startsWith("/admin/teaching-resources") || 
+      href.startsWith("/admin/teaching-resource-posts") || 
+      href.startsWith("/admin/study-materials") || 
+      href.startsWith("/admin/study-material-posts") || 
+      href.startsWith("/admin/reviews") || 
+      href.startsWith("/admin/banners") || 
+      href.startsWith("/admin/coupons")
+    ) {
+      return userPerms.includes("blogs:write") || userPerms.includes("blogs:read");
+    }
+    return true;
+  }
 
   useEffect(() => {
     if (isLoginPage) { setChecked(true); return; }
@@ -177,15 +242,21 @@ export default function AdminLayout({ children }) {
     }
   }, [pathname]);
 
+  const visibleCoreLinks = coreLinks.filter(({ href }) => hasPermissionForLink(href));
+  const visibleAdminLinks = adminLinks.filter(({ href }) => hasPermissionForLink(href));
+  const visibleUploadLinks = uploadLinks.filter(({ href }) => hasPermissionForLink(href));
+
   if (isLoginPage) return <>{children}</>;
 
-  if (!checked) {
+  if (!checked || (currentUserLoading && !isLoginPage)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
+
+  const isAllowed = hasPermissionForLink(pathname);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-800">
@@ -221,7 +292,7 @@ export default function AdminLayout({ children }) {
         <nav className="flex-1 p-4 overflow-y-auto">
           <ul className="space-y-1">
             {/* Core Links */}
-            {coreLinks.map(({ href, label, Icon, badgeKey }) => {
+            {visibleCoreLinks.map(({ href, label, Icon, badgeKey }) => {
               const active = isActive(href);
 
               return (
@@ -245,86 +316,90 @@ export default function AdminLayout({ children }) {
             })}
 
             {/* Admin collapsible section */}
-            <li>
-              <button
-                onClick={() => setAdminExpanded(!adminExpanded)}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left text-sm font-semibold transition-colors
-                  ${adminLinks.some(link => isActive(link.href))
-                    ? "text-purple-700 bg-purple-50/50"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                  }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <Shield size={20} className={adminLinks.some(link => isActive(link.href)) ? "text-purple-700" : "text-gray-500"} />
-                  <span>Admin</span>
-                </div>
-                {adminExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              </button>
-              {adminExpanded && (
-                <ul className="ml-6 pl-3 border-l border-gray-200 space-y-1 mt-1">
-                  {adminLinks.map(({ href, label, Icon }) => {
-                    const active = isActive(href);
-                    return (
-                      <li key={href}>
-                        <Link
-                          href={href}
-                          onClick={() => setSidebarOpen(false)}
-                          className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors text-sm
-                            ${active
-                              ? "bg-purple-50 text-purple-700 font-semibold"
-                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium"
-                            }`}
-                        >
-                          <Icon size={16} aria-hidden="true" />
-                          <span>{label}</span>
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </li>
+            {visibleAdminLinks.length > 0 && (
+              <li>
+                <button
+                  onClick={() => setAdminExpanded(!adminExpanded)}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left text-sm font-semibold transition-colors
+                    ${visibleAdminLinks.some(link => isActive(link.href))
+                      ? "text-purple-700 bg-purple-50/50"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <Shield size={20} className={visibleAdminLinks.some(link => isActive(link.href)) ? "text-purple-700" : "text-gray-500"} />
+                    <span>Admin</span>
+                  </div>
+                  {adminExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </button>
+                {adminExpanded && (
+                  <ul className="ml-6 pl-3 border-l border-gray-200 space-y-1 mt-1">
+                    {visibleAdminLinks.map(({ href, label, Icon }) => {
+                      const active = isActive(href);
+                      return (
+                        <li key={href}>
+                          <Link
+                            href={href}
+                            onClick={() => setSidebarOpen(false)}
+                            className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors text-sm
+                              ${active
+                                ? "bg-purple-50 text-purple-700 font-semibold"
+                                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium"
+                              }`}
+                          >
+                            <Icon size={16} aria-hidden="true" />
+                            <span>{label}</span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </li>
+            )}
 
             {/* Upload collapsible section */}
-            <li>
-              <button
-                onClick={() => setUploadExpanded(!uploadExpanded)}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left text-sm font-semibold transition-colors
-                  ${uploadLinks.some(link => isActive(link.href))
-                    ? "text-purple-700 bg-purple-50/50"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                  }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <UploadCloud size={20} className={uploadLinks.some(link => isActive(link.href)) ? "text-purple-700" : "text-gray-500"} />
-                  <span>Upload</span>
-                </div>
-                {uploadExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              </button>
-              {uploadExpanded && (
-                <ul className="ml-6 pl-3 border-l border-gray-200 space-y-1 mt-1">
-                  {uploadLinks.map(({ href, label, Icon }) => {
-                    const active = isActive(href);
-                    return (
-                      <li key={href}>
-                        <Link
-                          href={href}
-                          onClick={() => setSidebarOpen(false)}
-                          className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors text-sm
-                            ${active
-                              ? "bg-purple-50 text-purple-700 font-semibold"
-                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium"
-                            }`}
-                        >
-                          <Icon size={16} aria-hidden="true" />
-                          <span>{label}</span>
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </li>
+            {visibleUploadLinks.length > 0 && (
+              <li>
+                <button
+                  onClick={() => setUploadExpanded(!uploadExpanded)}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left text-sm font-semibold transition-colors
+                    ${visibleUploadLinks.some(link => isActive(link.href))
+                      ? "text-purple-700 bg-purple-50/50"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <UploadCloud size={20} className={visibleUploadLinks.some(link => isActive(link.href)) ? "text-purple-700" : "text-gray-500"} />
+                    <span>Upload</span>
+                  </div>
+                  {uploadExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </button>
+                {uploadExpanded && (
+                  <ul className="ml-6 pl-3 border-l border-gray-200 space-y-1 mt-1">
+                    {visibleUploadLinks.map(({ href, label, Icon }) => {
+                      const active = isActive(href);
+                      return (
+                        <li key={href}>
+                          <Link
+                            href={href}
+                            onClick={() => setSidebarOpen(false)}
+                            className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors text-sm
+                              ${active
+                                ? "bg-purple-50 text-purple-700 font-semibold"
+                                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium"
+                              }`}
+                          >
+                            <Icon size={16} aria-hidden="true" />
+                            <span>{label}</span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </li>
+            )}
           </ul>
         </nav>
 
@@ -363,7 +438,25 @@ export default function AdminLayout({ children }) {
         </header>
 
         <main className="flex-1 overflow-y-auto">
-          {children}
+          {isAllowed ? (
+            children
+          ) : (
+            <div className="flex flex-col items-center justify-center min-h-[75vh] text-center p-6 space-y-4">
+              <div className="w-16 h-16 bg-red-50 border border-red-100 text-red-500 rounded-2xl flex items-center justify-center">
+                <Shield className="w-8 h-8 stroke-[2.5]" />
+              </div>
+              <h2 className="text-xl font-extrabold text-gray-900">Access Denied</h2>
+              <p className="text-sm text-gray-500 max-w-md leading-relaxed">
+                You do not have the required permissions to view this section. Please contact your system administrator if you believe this is an error.
+              </p>
+              <button
+                onClick={() => router.replace("/admin")}
+                className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-md text-xs transition-colors cursor-pointer"
+              >
+                Go to Dashboard
+              </button>
+            </div>
+          )}
         </main>
       </div>
     </div>
