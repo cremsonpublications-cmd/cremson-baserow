@@ -25,6 +25,12 @@ from services.whatsapp import (
 )
 from services.shipway import create_shipment
 from config import TABLE_IDS, WHATSAPP_MAIN_PHONE
+from services.email import (
+    send_bulk_order_received_email,
+    send_bulk_order_approved_email,
+    send_bulk_order_payment_received_email,
+    send_bulk_order_shipped_email,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -274,6 +280,14 @@ async def create_bulk_order(body: BulkOrderCreate, bg: BackgroundTasks):
         school=body.school_name,
         order_link=order_link,
     )
+    if body.email:
+        bg.add_task(
+            send_bulk_order_received_email,
+            to_email=body.email,
+            name=body.contact_name,
+            school=body.school_name,
+            order_link=order_link,
+        )
     bg.add_task(
         send_bulk_order_admin_notify,
         admin_phone=WHATSAPP_MAIN_PHONE,
@@ -373,6 +387,15 @@ async def approve_bulk_order(row_id: int, body: BulkOrderApprove, bg: Background
         order_link=order_link,
         school=norm["school_name"],
     )
+    if norm.get("email"):
+        bg.add_task(
+            send_bulk_order_approved_email,
+            to_email=norm["email"],
+            name=norm["contact_name"],
+            school=norm["school_name"],
+            total=final_amount,
+            payment_link=order_link,
+        )
 
     return norm
 
@@ -540,6 +563,18 @@ async def _auto_ship_bulk_order(row_id: int):
                 tracking_link=f"https://shipway.in/track/{awb}",
                 order_link=order_link,
             )
+            if norm.get("email"):
+                try:
+                    await send_bulk_order_shipped_email(
+                        to_email=norm["email"],
+                        name=norm["contact_name"],
+                        school=norm["school_name"],
+                        awb=awb,
+                        tracking_link=f"https://shipway.in/track/{awb}",
+                        order_link=order_link,
+                    )
+                except Exception as mail_err:
+                    logger.error(f"[BulkOrder] Auto-ship Email failed: {mail_err}")
             logger.info(f"[BulkOrder] Auto-shipped order row {row_id} with AWB {awb}")
         else:
             logger.error(f"[BulkOrder] Auto-ship Shipway creation failed for row {row_id}: {result.get('error')}")
@@ -596,6 +631,15 @@ async def verify_bulk_payment(token: str, body: dict, bg: BackgroundTasks):
                 amount=norm["final_amount"],
                 order_link=order_link,
             )
+            if norm.get("email"):
+                bg.add_task(
+                    send_bulk_order_payment_received_email,
+                    to_email=norm["email"],
+                    name=norm["contact_name"],
+                    school=norm["school_name"],
+                    amount=norm["final_amount"],
+                    order_link=order_link,
+                )
 
         return {"success": True, "status": new_status, "paid_count": paid_count, "split_count": split_count}
     else:
@@ -612,6 +656,15 @@ async def verify_bulk_payment(token: str, body: dict, bg: BackgroundTasks):
             amount=norm["final_amount"],
             order_link=order_link,
         )
+        if norm.get("email"):
+            bg.add_task(
+                send_bulk_order_payment_received_email,
+                to_email=norm["email"],
+                name=norm["contact_name"],
+                school=norm["school_name"],
+                amount=norm["final_amount"],
+                order_link=order_link,
+            )
 
         return {"success": True, "status": "fully_paid"}
 
@@ -670,6 +723,16 @@ async def ship_bulk_order(row_id: int, bg: BackgroundTasks):
         tracking_link=tracking_link,
         order_link=order_link,
     )
+    if norm.get("email"):
+        bg.add_task(
+            send_bulk_order_shipped_email,
+            to_email=norm["email"],
+            name=norm["contact_name"],
+            school=norm["school_name"],
+            awb=awb,
+            tracking_link=tracking_link,
+            order_link=order_link,
+        )
 
     return {"success": True, "awb": awb, "status": "shipped"}
 

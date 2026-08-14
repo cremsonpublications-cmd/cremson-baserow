@@ -186,6 +186,22 @@ async def _process_webhook(payload: Dict[str, Any]) -> None:
                 f"https://cremsonpublications.shipway.com/tracking/forward/{awb}/" if awb else (delivery_data.get("tracking_url") or "https://cremsonpublications.shipway.com/")
             )
 
+            # Email status notification
+            email: str = user_info.get("email") or ""
+            if email and status in ("PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "RTO"):
+                try:
+                    from services.email import send_shipment_status_email
+                    await send_shipment_status_email(
+                        to_email=email,
+                        customer_name=name,
+                        order_id=str(effective_order_id),
+                        status_key=status,
+                        tracking_url=tracking_url,
+                    )
+                    logger.info(f"[Webhook] Email sent for status={status} to order={effective_order_id}")
+                except Exception as mail_err:
+                    logger.error(f"[Webhook] Email status notification failed: {mail_err}")
+
             if not phone:
                 logger.warning(
                     f"[Webhook] No phone for order={effective_order_id} — skipping WhatsApp"

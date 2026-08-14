@@ -144,11 +144,20 @@ async def create_specimen_request(body: dict, user: dict = Depends(current_user)
     # Send WhatsApp notification to teacher
     try:
         from services.whatsapp import send_specimen_received_whatsapp
+        from services.email import send_specimen_received_email
         books_str = body.get("BooksRequested") or ""
         b_list = [b.strip() for b in books_str.split(",") if b.strip()]
         count_str = str(len(b_list)) if b_list else "1"
         user_phone = user.get("phone") or ""
         user_name = user.get("name") or "Educator"
+        user_email = user.get("email") or ""
+        
+        if user_email:
+            try:
+                await send_specimen_received_email(user_email, user_name, int(count_str))
+            except Exception as mail_err:
+                print("Warning: Failed to send Email specimen received notification:", mail_err)
+                
         if user_phone:
             await send_specimen_received_whatsapp(user_phone, user_name, count_str)
     except Exception as w_err:
@@ -434,7 +443,22 @@ async def approve_specimen_request(row_id: int):
         existing_id = existing_orders["results"][0].get("id")
         await client.update_row(TABLE_IDS["orders"], existing_id, order_record)
 
-    # Step 5: Send WhatsApp Notification ONLY with valid AWB & tracking link!
+    # Step 5: Send WhatsApp & Email Notification ONLY with valid AWB & tracking link!
+    if email and awb:
+        try:
+            from services.email import send_shipment_created_email
+            await send_shipment_created_email(
+                to_email=email,
+                customer_name=teacher_name or "Teacher",
+                order_id=order_id,
+                awb=awb,
+                courier_name=courier,
+                tracking_url=tracking_url,
+            )
+            logger.info(f"[Specimen Approval] Email notification sent successfully to {email}")
+        except Exception as mail_err:
+            logger.error(f"[Specimen Approval] Email send_shipment_created error: {mail_err}")
+
     if phone and awb:
         try:
             from services.whatsapp import send_shipment_created
@@ -469,6 +493,7 @@ async def reject_specimen_request(row_id: int):
 
     if row:
         phone = ""
+        email = ""
         teacher_name = "Teacher"
         books_requested = row.get("BooksRequested") or ""
 
@@ -481,6 +506,21 @@ async def reject_specimen_request(row_id: int):
         if t_names and isinstance(t_names, list) and len(t_names) > 0:
             t_obj = t_names[0]
             teacher_name = t_obj.get("value") if isinstance(t_obj, dict) else str(t_obj)
+
+        emails = row.get("Email", [])
+        if emails and isinstance(emails, list) and len(emails) > 0:
+            e_obj = emails[0]
+            email = e_obj.get("value") if isinstance(e_obj, dict) else str(e_obj)
+        elif emails:
+            email = str(emails)
+
+        if email:
+            try:
+                from services.email import send_specimen_rejected_email
+                await send_specimen_rejected_email(email, teacher_name, books_requested)
+                logger.info(f"[Specimen Rejection] Email notification sent successfully to {email}")
+            except Exception as mail_err:
+                logger.error(f"[Specimen Rejection] Email notification error for #{row_id}: {mail_err}")
 
         if phone:
             try:

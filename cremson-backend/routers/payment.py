@@ -170,10 +170,29 @@ async def _create_shipway_shipment(
     except Exception as err:
         logger.error(f"[Shipway BG] Baserow update failed for order={order_id}: {err}")
 
-    # WhatsApp: notify customer that shipment is created (only if Shipway succeeded)
+    # WhatsApp & Email: notify customer that shipment is created (only if Shipway succeeded)
     if result["success"]:
         phone = user_info.get("phone") or user_info.get("whatsapp_phone") or ""
+        email = user_info.get("email") or ""
         name = user_info.get("name", "Customer")
+        
+        # Email Dispatch
+        if email:
+            try:
+                from services.email import send_shipment_created_email
+                await send_shipment_created_email(
+                    to_email=email,
+                    customer_name=name,
+                    order_id=order_id,
+                    awb=result.get("awb", ""),
+                    courier_name=result.get("courier_name", ""),
+                    tracking_url=result.get("tracking_url", ""),
+                )
+                logger.info(f"[Shipway BG] Email shipment created sent successfully to {email}")
+            except Exception as mail_err:
+                logger.error(f"[Shipway BG] Email send_shipment_created failed: {mail_err}")
+
+        # WhatsApp Dispatch
         if phone:
             try:
                 await send_shipment_created(
@@ -320,13 +339,29 @@ async def verify_payment(body: VerifyPaymentRequest, background_tasks: Backgroun
         baserow_row_id = created_row.get("id", 0)
         logger.info(f"[Payment] Order saved: order_id={order_id} row_id={baserow_row_id}")
 
-        # ── Step 3: WhatsApp — single combined order & payment confirmation ──
+        # ── Step 3: WhatsApp & Email — single combined order & payment confirmation ──
         try:
             user_info = body.user_info or {}
             phone = user_info.get("phone", "") or user_info.get("whatsapp_phone", "")
+            email = user_info.get("email", "")
             name = user_info.get("name", "Customer")
             total = body.order_summary.get("grandTotal", 0) if body.order_summary else 0
             item_count = sum(i.get("quantity", 1) for i in (body.items or []))
+
+            if email:
+                try:
+                    from services.email import send_order_confirmation_email
+                    await send_order_confirmation_email(
+                        to_email=email,
+                        customer_name=name,
+                        order_id=order_id,
+                        total_amount=total,
+                        transaction_id=body.razorpay_payment_id,
+                        items=body.items,
+                    )
+                    logger.info(f"[Payment] Email order confirmation sent successfully to {email}")
+                except Exception as mail_err:
+                    logger.error(f"[Payment] Email order confirmation failed: {mail_err}")
 
             if phone:
                 await send_order_confirmation(
@@ -388,12 +423,37 @@ class PaymentFailedRequest(BaseModel):
 async def payment_failed(body: PaymentFailedRequest):
     """Called by the frontend when a payment fails on Razorpay."""
     try:
+        email = ""
+        if body.order_id and body.order_id != "DRAFT":
+            try:
+                client = BaserowClient()
+                rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": body.order_id})
+                results = rows.get("results", [])
+                if results:
+                    user_info_raw = results[0].get("user_info", "{}")
+                    user_info = json.loads(user_info_raw) if isinstance(user_info_raw, str) else (user_info_raw or {})
+                    email = user_info.get("email") or ""
+            except Exception as e:
+                logger.error(f"[Payment] Failed to get email for payment_failed order: {e}")
+
         await send_payment_failed(
             phone=body.phone,
             customer_name=body.name,
             order_id=body.order_id,
             amount=body.amount,
         )
+
+        if email:
+            try:
+                from services.email import send_payment_failed_email
+                await send_payment_failed_email(
+                    to_email=email,
+                    customer_name=body.name,
+                    order_id=body.order_id,
+                    amount=body.amount,
+                )
+            except Exception as mail_err:
+                logger.error(f"[Payment] Email send_payment_failed failed: {mail_err}")
     except Exception as exc:
         logger.error(f"[Payment] send_payment_failed error: {exc}")
     return {"success": True}

@@ -90,6 +90,14 @@ class ResetPasswordRequest(BaseModel):
     email: EmailStr
     otp: str
     new_password: str
+    phone: Optional[str] = None
+    phone_otp: Optional[str] = None
+
+
+class SendWhatsAppVerifyOtpRequest(BaseModel):
+    email: EmailStr
+    phone: str
+    otp: str  # The email OTP that verified their identity
 
 
 class ChangePasswordRequest(BaseModel):
@@ -795,14 +803,19 @@ async def get_teacher_history(teacher_id: Optional[int] = None, email: Optional[
 async def forgot_password(body: ForgotPasswordRequest):
     user = await get_user_by_email(body.email)
     if not user or not int(user.get("is_verified") or 0):
-        return {"message": "If this email is registered, you will receive a reset code."}
+        # Return success look-alike to prevent user enumeration, but with has_phone=True as default
+        return {"message": "If this email is registered, you will receive a reset code.", "has_phone": True}
 
     otp = make_otp()
     await save_otp(body.email, otp, otp_expires_at())
 
-    await send_otp_to_user(body.email, user["name"], user.get("phone", ""), otp)
+    try:
+        await send_verification_email(body.email, user.get("name") or "User", otp)
+    except Exception as e:
+        print(f"Failed to send email OTP: {e}")
 
-    return {"message": "Password reset code sent to your WhatsApp."}
+    has_phone = bool(user.get("phone"))
+    return {"message": "Password reset code sent to your email.", "has_phone": has_phone}
 
 
 @router.post("/reset-password")
@@ -810,23 +823,87 @@ async def reset_password(body: ResetPasswordRequest):
     if len(body.new_password) < 8:
         raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
 
-    record = await get_valid_otp(body.email, body.otp)
-    if not record:
+    # 1. Verify email OTP
+    email_record = await get_valid_otp(body.email, body.otp)
+    if not email_record:
         raise HTTPException(status_code=400, detail="Invalid or expired reset code")
 
     user = await get_user_by_email(body.email)
     if not user:
         raise HTTPException(status_code=404, detail="Account not found")
 
-    await consume_otp(record["id"])
+    # 2. If phone is provided, verify phone OTP
+    if body.phone:
+        p_clean = "".join(filter(str.isdigit, str(body.phone)))
+        if len(p_clean) == 12 and p_clean.startswith("91"):
+            p_clean = p_clean[2:]
+        if len(p_clean) != 10:
+            raise HTTPException(status_code=400, detail="Phone number must be exactly 10 digits.")
 
+        if not body.phone_otp:
+            raise HTTPException(status_code=400, detail="Phone verification OTP is required")
+
+        phone_key = f"phone_verify_{p_clean}_{body.email}"
+        phone_record = await get_valid_otp(phone_key, body.phone_otp)
+        if not phone_record:
+            raise HTTPException(status_code=400, detail="Invalid or expired WhatsApp OTP code")
+
+        # Consume phone OTP
+        await consume_otp(phone_record["id"])
+
+    # 3. Consume email OTP
+    await consume_otp(email_record["id"])
+
+    # 4. Hash new password
     loop = asyncio.get_event_loop()
     new_hash = await loop.run_in_executor(None, partial(pwd_ctx.hash, body.new_password))
 
+    # 5. Update user password and phone in Baserow
     client = BaserowClient()
-    await client.update_row(TABLE_IDS["auth_users"], user["id"], {"password_hash": new_hash})
+    update_data = {"password_hash": new_hash}
+    if body.phone:
+        p_clean = "".join(filter(str.isdigit, str(body.phone)))
+        if len(p_clean) == 12 and p_clean.startswith("91"):
+            p_clean = p_clean[2:]
+        update_data["phone"] = p_clean
+
+    await client.update_row(TABLE_IDS["auth_users"], user["id"], update_data)
 
     return {"message": "Password reset successfully. You can now sign in."}
+
+
+@router.post("/send-whatsapp-verify-otp")
+async def send_whatsapp_verify_otp(body: SendWhatsAppVerifyOtpRequest):
+    # 1. Validate email OTP first
+    email_record = await get_valid_otp(body.email, body.otp)
+    if not email_record:
+        raise HTTPException(status_code=400, detail="Session invalid or email OTP expired. Please request reset code again.")
+    
+    # 2. Clean phone number
+    p_clean = "".join(filter(str.isdigit, str(body.phone)))
+    if len(p_clean) == 12 and p_clean.startswith("91"):
+        p_clean = p_clean[2:]
+    if len(p_clean) != 10:
+        raise HTTPException(status_code=400, detail="Phone number must be exactly 10 digits.")
+
+    # 3. Check if phone number is already taken by another verified user
+    existing_phone = await get_user_by_phone(body.phone)
+    if existing_phone and existing_phone.get("email") != body.email:
+        raise HTTPException(status_code=409, detail="An account with this phone number already exists.")
+
+    # 4. Generate phone OTP and save it
+    phone_key = f"phone_verify_{p_clean}_{body.email}"
+    phone_otp = make_otp()
+    await save_otp(phone_key, phone_otp, otp_expires_at())
+
+    # 5. Send WhatsApp OTP
+    try:
+        from services.whatsapp import send_whatsapp_otp
+        await send_whatsapp_otp(body.phone, phone_otp)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send WhatsApp verification: {str(e)}")
+
+    return {"message": "WhatsApp verification code sent successfully."}
 
 
 @router.post("/send-change-password-otp")
