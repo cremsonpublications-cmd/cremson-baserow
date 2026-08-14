@@ -28,7 +28,8 @@ import {
   ChevronDown,
   Copy,
   Pen,
-  Upload
+  Upload,
+  Download
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
@@ -2147,6 +2148,98 @@ function AdminProductsContent() {
     return new Date(dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   }
 
+  async function handleExportCSV() {
+    try {
+      const toastId = toast.loading("Preparing CSV export...");
+      
+      let allExportProducts = [];
+      let currentPage = 1;
+      let totalFetched = 0;
+      let totalCount = 1;
+      
+      while (totalFetched < totalCount) {
+        const exportParams = {
+          page: currentPage,
+          size: 200,
+        };
+        if (debouncedSearch) exportParams.search = debouncedSearch;
+        if (status) exportParams.status = status;
+        if (activeFilter) exportParams.is_active = activeFilter;
+        if (typeFilter === "combo") exportParams.is_combo = true;
+        if (typeFilter === "normal") exportParams.is_combo = false;
+        
+        const { data: resData } = await api.get("/api/products/", { params: exportParams });
+        const results = resData?.results ?? resData?.items ?? [];
+        
+        allExportProducts = [...allExportProducts, ...results];
+        totalCount = resData?.count ?? resData?.total ?? 0;
+        totalFetched += results.length;
+        currentPage += 1;
+        
+        if (results.length === 0) {
+          break;
+        }
+      }
+      
+      toast.dismiss(toastId);
+      
+      if (allExportProducts.length === 0) {
+        toast.error("No products found to export.");
+        return;
+      }
+      
+      const headers = [
+        "Product ID",
+        "Product Name",
+        "Author",
+        "MRP (INR)",
+        "Price (INR)",
+        "Category",
+        "Stock Status",
+        "ISBN",
+        "SKU",
+        "Dimension",
+        "Weight",
+        "Active Status"
+      ];
+      
+      const rows = allExportProducts.map((p) => {
+        return [
+          p.id,
+          p.name || "",
+          p.author || "",
+          p.mrp || 0,
+          p.price || 0,
+          p.category_name || p.category || "",
+          p.stock_status || "in_stock",
+          p.isbn || "",
+          p.sku || "",
+          p.dimension || "",
+          p.weight || "",
+          p.is_active ? "Active" : "Inactive"
+        ];
+      });
+      
+      const csvContent = [
+        headers.join(","),
+        ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))
+      ].join("\n");
+      
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `products_export_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("CSV exported successfully!");
+    } catch (error) {
+      console.error("CSV Export failed:", error);
+      toast.error("Failed to export CSV.");
+    }
+  }
+
   function openAdd() {
     setEditProduct(null);
     setModalOpen(true);
@@ -2244,6 +2337,13 @@ function AdminProductsContent() {
               >
                 <Layers className="w-5 h-5 mr-2" aria-hidden="true" />
                 Add Combo / Bundle
+              </button>
+              <button
+                onClick={handleExportCSV}
+                className="inline-flex items-center px-4 py-2.5 border border-gray-300 rounded-lg font-medium bg-white text-gray-900 hover:bg-gray-50 active:bg-gray-100 text-sm cursor-pointer shadow-sm"
+              >
+                <Download className="w-5 h-5 mr-2" aria-hidden="true" />
+                Export CSV
               </button>
             </div>
 
