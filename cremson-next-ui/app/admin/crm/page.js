@@ -1379,7 +1379,7 @@ export default function AdminCRMHub() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       {/* Page Title & Inline Limit Settings */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-start gap-4 mb-8 mt-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 mt-0">
         <h2 className="text-2xl font-semibold text-gray-900 my-0 py-0">CRM Database</h2>
         {activeTab === "teachers" && teacherStats && (
           <div className="flex items-center gap-2">
