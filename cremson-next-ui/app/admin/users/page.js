@@ -1,6 +1,7 @@
 "use client";
  
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../../lib/api/axios";
 import { toast } from "sonner";
@@ -72,6 +73,24 @@ export default function AdminUsers() {
   const [saving, setSaving] = useState(false);
   const [submittingError, setSubmittingError] = useState("");
   const [showFormPassword, setShowFormPassword] = useState(true);
+
+  const router = useRouter();
+
+  // Admin-only guard: redirect staff users who land here directly via URL
+  useEffect(() => {
+    const token = localStorage.getItem("admin_token");
+    if (!token) { router.replace("/admin/login"); return; }
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      const role = (payload.role || "").toLowerCase();
+      if (role !== "admin" && role !== "superadmin") {
+        toast.error("Access Denied: Only the main administrator can manage users.");
+        router.replace("/admin");
+      }
+    } catch {
+      router.replace("/admin/login");
+    }
+  }, []);
 
   const debouncedSearch = useDebounce(search, 400);
 

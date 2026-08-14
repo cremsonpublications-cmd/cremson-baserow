@@ -7,11 +7,24 @@ import re
 from services.baserow import BaserowClient
 from config import TABLE_IDS
 from db.auth import create_user, get_user_by_email, get_user_by_phone, update_user_profile_admin
-from routers.auth import require_permissions
+from routers.auth import require_permissions, current_user
 
 router = APIRouter()
 client = BaserowClient()
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def require_admin_only():
+    """Dependency: only main admin (role=admin/superadmin) can access. Staff are blocked."""
+    async def dependency(user=Depends(current_user)):
+        role = user.get("role", "").lower()
+        if role not in ("admin", "superadmin"):
+            raise HTTPException(
+                status_code=403,
+                detail="Access Denied: Only the main administrator can manage user accounts."
+            )
+        return user
+    return dependency
 
 
 class CreateUserRequest(BaseModel):
@@ -31,7 +44,7 @@ class UpdateUserRequest(BaseModel):
     permissions: List[str] = []
 
 
-@router.get("/", summary="List users", dependencies=[Depends(require_permissions(["users:read"]))])
+@router.get("/", summary="List users", dependencies=[Depends(require_admin_only())])
 async def list_users(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(100, ge=1, le=200, description="Rows per page"),
@@ -118,7 +131,7 @@ async def list_users(
     }
 
 
-@router.post("/", summary="Create a new admin/staff user", dependencies=[Depends(require_permissions(["users:write"]))])
+@router.post("/", summary="Create a new admin/staff user", dependencies=[Depends(require_admin_only())])
 async def admin_create_user(body: CreateUserRequest):
     # 1. Check if email/phone exists
     existing = await get_user_by_email(body.email)
@@ -150,7 +163,7 @@ async def admin_create_user(body: CreateUserRequest):
     return user
 
 
-@router.patch("/{row_id}", summary="Update an admin/staff user profile and permissions", dependencies=[Depends(require_permissions(["users:write"]))])
+@router.patch("/{row_id}", summary="Update an admin/staff user profile and permissions", dependencies=[Depends(require_admin_only())])
 async def admin_update_user(row_id: str, body: UpdateUserRequest):
     if str(row_id).startswith("new_"):
         try:
@@ -192,7 +205,7 @@ async def admin_update_user(row_id: str, body: UpdateUserRequest):
         raise HTTPException(status_code=400, detail=f"Failed to update user: {e}")
 
 
-@router.delete("/{row_id}", summary="Delete a user", dependencies=[Depends(require_permissions(["users:write"]))])
+@router.delete("/{row_id}", summary="Delete a user", dependencies=[Depends(require_admin_only())])
 async def delete_user(row_id: str):
     if str(row_id).startswith("new_"):
         try:
@@ -209,7 +222,7 @@ async def delete_user(row_id: str):
     return {"message": "User deleted successfully"}
 
 
-@router.get("/{row_id}", summary="Get a single user", dependencies=[Depends(require_permissions(["users:read"]))])
+@router.get("/{row_id}", summary="Get a single user", dependencies=[Depends(require_admin_only())])
 async def get_user(row_id: str):
     """Return a single user by Baserow row ID or auth user ID."""
     if str(row_id).startswith("new_"):

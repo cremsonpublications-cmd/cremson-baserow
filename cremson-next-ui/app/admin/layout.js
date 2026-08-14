@@ -119,7 +119,8 @@ export default function AdminLayout({ children }) {
       return userPerms.includes("products:write") || userPerms.includes("products:read");
     }
     if (href.startsWith("/admin/users")) {
-      return userPerms.includes("users:write") || userPerms.includes("users:read");
+      // Users page: only the main admin can see/access this
+      return role === "superadmin" || role === "admin";
     }
     if (href.startsWith("/admin/settings")) {
       return userPerms.includes("settings:write");
