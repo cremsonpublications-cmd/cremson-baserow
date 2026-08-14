@@ -19,9 +19,12 @@ async def list_users(
         size=size,
         search=search,
     )
-    # Sort newest (highest row id) first
+    # Sort by most-recent login first
     if isinstance(res, dict) and "results" in res:
-        res["results"] = sorted(res["results"], key=lambda u: u.get("id", 0), reverse=True)
+        def _login_ts(u):
+            val = u.get("last_sign_in_at") or u.get("last_login") or ""
+            return val  # ISO strings sort lexicographically = chronologically
+        res["results"] = sorted(res["results"], key=_login_ts, reverse=True)
     return res
 
 
