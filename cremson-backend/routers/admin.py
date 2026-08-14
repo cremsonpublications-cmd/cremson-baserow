@@ -45,7 +45,8 @@ async def admin_login(body: AdminLoginRequest):
         }
 
     # 2. Check database admin/staff accounts
-    from db.auth import get_user_by_email, pwd_ctx
+    from db.auth import get_user_by_email
+    from routers.auth import pwd_ctx
     import asyncio
     from functools import partial
     
