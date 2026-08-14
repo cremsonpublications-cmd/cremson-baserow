@@ -543,17 +543,11 @@ export default function WhatsAppChatWidget() {
             </span>
           )}
 
-          {isOpen ? (
-            <svg className="w-7 h-7 stroke-current" fill="none" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          ) : (
             <img
               src={whatsappIcon.src}
               alt="WhatsApp Support"
               className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
             />
-          )}
         </button>
       </div>
     </div>
