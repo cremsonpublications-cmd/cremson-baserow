@@ -1380,6 +1380,7 @@ export default function AdminOrders() {
                       <tr>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">ORDER ID</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">CUSTOMER</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">PHONE</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">DATE</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">DELIVERY STATUS</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">PAYMENT STATUS</th>
@@ -1431,8 +1432,11 @@ export default function AdminOrders() {
                               #{order.order_id || `BOOK${order.id}`}
                             </td>
                             <td className="px-6 py-4">
-                              <div className="text-xs font-semibold text-gray-900">{uInfo.name || "Alex Bsbu"}</div>
-                              <div className="text-xs text-gray-500 mt-0.5">{uInfo.email || uInfo.phone || "customer@gmail.com"}</div>
+                              <div className="text-xs font-semibold text-gray-900">{uInfo.name || "Customer"}</div>
+                              <div className="text-xs text-gray-500 mt-0.5">{uInfo.email || "customer@gmail.com"}</div>
+                            </td>
+                            <td className="px-6 py-4 text-xs text-gray-600 whitespace-nowrap">
+                              {uInfo.phone || "—"}
                             </td>
                             <td className="px-6 py-4 text-xs text-gray-600 whitespace-nowrap">
                               {dateFormatted || "2026-07-28"}
