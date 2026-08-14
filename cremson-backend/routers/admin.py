@@ -22,14 +22,59 @@ class AdminLoginRequest(BaseModel):
 
 @router.post("/login")
 async def admin_login(body: AdminLoginRequest):
-    if body.email.lower().strip() != ADMIN_EMAIL or body.password != ADMIN_PASSWORD:
-        raise HTTPException(status_code=401, detail="Invalid admin credentials")
+    email_clean = body.email.lower().strip()
+    
+    # 1. Check hardcoded admin credentials
+    if email_clean == ADMIN_EMAIL and body.password == ADMIN_PASSWORD:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=TOKEN_EXPIRE)
+        token = jwt.encode(
+            {
+                "sub": "admin",
+                "email": ADMIN_EMAIL,
+                "role": "admin",
+                "is_admin": True,
+                "exp": expire,
+            },
+            JWT_SECRET,
+            algorithm=JWT_ALGORITHM,
+        )
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "admin": {"email": ADMIN_EMAIL, "name": "Admin"},
+        }
+
+    # 2. Check database admin/staff accounts
+    from db.auth import get_user_by_email, pwd_ctx
+    import asyncio
+    from functools import partial
+    
+    user = await get_user_by_email(email_clean)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid admin/staff credentials")
+        
+    role = user.get("role", "customer").lower()
+    if role not in ("admin", "superadmin", "staff"):
+        raise HTTPException(status_code=403, detail="Access Denied: You do not have admin or staff privileges.")
+        
+    loop = asyncio.get_event_loop()
+    password_ok = await loop.run_in_executor(
+        None, partial(pwd_ctx.verify, body.password, user["password_hash"])
+    )
+    if not password_ok:
+        raise HTTPException(status_code=401, detail="Invalid admin/staff credentials")
+        
+    if not int(user.get("is_verified") or 0):
+        raise HTTPException(status_code=403, detail="Account email not verified.")
 
     expire = datetime.now(timezone.utc) + timedelta(minutes=TOKEN_EXPIRE)
     token = jwt.encode(
         {
-            "sub": "admin",
-            "email": ADMIN_EMAIL,
+            "sub": str(user["id"]),
+            "email": user["email"],
+            "name": user["name"],
+            "role": role,
+            "permissions": user.get("permissions", []),
             "is_admin": True,
             "exp": expire,
         },
@@ -39,7 +84,7 @@ async def admin_login(body: AdminLoginRequest):
     return {
         "access_token": token,
         "token_type": "bearer",
-        "admin": {"email": ADMIN_EMAIL, "name": "Admin"},
+        "admin": {"email": user["email"], "name": user["name"], "role": role},
     }
 
 

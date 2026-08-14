@@ -251,7 +251,7 @@ export default function AdminLayout({ children }) {
   if (!checked || (currentUserLoading && !isLoginPage)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-red-700 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -302,7 +302,7 @@ export default function AdminLayout({ children }) {
                     onClick={() => setSidebarOpen(false)}
                     className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left transition-colors text-sm
                       ${active
-                        ? "bg-purple-50 text-purple-700 border border-purple-200 font-semibold"
+                        ? "bg-red-50 text-red-700 border border-red-200 font-semibold"
                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium border border-transparent"
                       }`}
                   >
@@ -322,12 +322,12 @@ export default function AdminLayout({ children }) {
                   onClick={() => setAdminExpanded(!adminExpanded)}
                   className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left text-sm font-semibold transition-colors
                     ${visibleAdminLinks.some(link => isActive(link.href))
-                      ? "text-purple-700 bg-purple-50/50"
+                      ? "text-red-700 bg-red-50/50"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     }`}
                 >
                   <div className="flex items-center space-x-3">
-                    <Shield size={20} className={visibleAdminLinks.some(link => isActive(link.href)) ? "text-purple-700" : "text-gray-500"} />
+                    <Shield size={20} className={visibleAdminLinks.some(link => isActive(link.href)) ? "text-red-700" : "text-gray-500"} />
                     <span>Admin</span>
                   </div>
                   {adminExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -343,7 +343,7 @@ export default function AdminLayout({ children }) {
                             onClick={() => setSidebarOpen(false)}
                             className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors text-sm
                               ${active
-                                ? "bg-purple-50 text-purple-700 font-semibold"
+                                ? "bg-red-50 text-red-700 font-semibold"
                                 : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium"
                               }`}
                           >
@@ -365,12 +365,12 @@ export default function AdminLayout({ children }) {
                   onClick={() => setUploadExpanded(!uploadExpanded)}
                   className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left text-sm font-semibold transition-colors
                     ${visibleUploadLinks.some(link => isActive(link.href))
-                      ? "text-purple-700 bg-purple-50/50"
+                      ? "text-red-700 bg-red-50/50"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     }`}
                 >
                   <div className="flex items-center space-x-3">
-                    <UploadCloud size={20} className={visibleUploadLinks.some(link => isActive(link.href)) ? "text-purple-700" : "text-gray-500"} />
+                    <UploadCloud size={20} className={visibleUploadLinks.some(link => isActive(link.href)) ? "text-red-700" : "text-gray-500"} />
                     <span>Upload</span>
                   </div>
                   {uploadExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -386,7 +386,7 @@ export default function AdminLayout({ children }) {
                             onClick={() => setSidebarOpen(false)}
                             className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors text-sm
                               ${active
-                                ? "bg-purple-50 text-purple-700 font-semibold"
+                                ? "bg-red-50 text-red-700 font-semibold"
                                 : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium"
                               }`}
                           >
@@ -451,7 +451,7 @@ export default function AdminLayout({ children }) {
               </p>
               <button
                 onClick={() => router.replace("/admin")}
-                className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-md text-xs transition-colors cursor-pointer"
+                className="px-5 py-2.5 bg-red-700 hover:bg-red-800 text-white font-bold rounded-xl shadow-md text-xs transition-colors cursor-pointer"
               >
                 Go to Dashboard
               </button>

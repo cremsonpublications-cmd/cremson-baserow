@@ -138,7 +138,20 @@ def otp_expires_at() -> str:
 async def current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)):
     try:
         payload = jwt.decode(creds.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user_id = int(payload["sub"])
+        sub = payload.get("sub")
+        # Hardcoded superadmin token has sub="admin" (not a numeric user ID)
+        if sub == "admin" and payload.get("is_admin"):
+            return {
+                "id": 0,
+                "email": payload.get("email", "cremsonpublications@gmail.com"),
+                "name": "Admin",
+                "role": "superadmin",
+                "is_active": 1,
+                "is_verified": 1,
+                "is_approved": 1,
+                "permissions": [],
+            }
+        user_id = int(sub)
     except (JWTError, KeyError, ValueError):
         raise HTTPException(status_code=401, detail="Session expired. Please sign in again.")
     user = await get_user_by_id(user_id)
