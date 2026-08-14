@@ -22,11 +22,25 @@ export default function ForgotPasswordPage() {
   const [countdown, setCountdown] = useState(0);
   const inputs = useRef([]);
 
+  // Legacy user fields
+  const [hasPhone, setHasPhone] = useState(true);
+  const [phone, setPhone] = useState("");
+  const [phoneOtp, setPhoneOtp] = useState(["", "", "", "", "", ""]);
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [phoneCountdown, setPhoneCountdown] = useState(0);
+  const phoneInputs = useRef([]);
+
   useEffect(() => {
     if (countdown <= 0) return;
     const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
     return () => clearTimeout(t);
   }, [countdown]);
+
+  useEffect(() => {
+    if (phoneCountdown <= 0) return;
+    const t = setTimeout(() => setPhoneCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [phoneCountdown]);
 
   // ── Step 1: Send OTP ──────────────────────────────────────────────────────
   async function handleSendOTP(e) {
@@ -34,7 +48,8 @@ export default function ForgotPasswordPage() {
     setError("");
     setLoading(true);
     try {
-      await api.post("/api/auth/forgot-password", { email });
+      const { data } = await api.post("/api/auth/forgot-password", { email });
+      setHasPhone(data.has_phone ?? true);
       setStep(2);
       setCountdown(60);
       setTimeout(() => inputs.current[0]?.focus(), 100);
@@ -50,7 +65,8 @@ export default function ForgotPasswordPage() {
     setError("");
     setLoading(true);
     try {
-      await api.post("/api/auth/forgot-password", { email });
+      const { data } = await api.post("/api/auth/forgot-password", { email });
+      setHasPhone(data.has_phone ?? true);
       setCountdown(60);
       setOtp(["", "", "", "", "", ""]);
       inputs.current[0]?.focus();
@@ -61,18 +77,59 @@ export default function ForgotPasswordPage() {
     }
   }
 
+  // ── Send WhatsApp Verify OTP for Legacy Users ─────────────────────────────
+  async function handleSendPhoneOTP() {
+    setError("");
+    if (!phone || phone.length !== 10) {
+      setError("Please enter a valid 10-digit WhatsApp number.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const code = otp.join("");
+      await api.post("/api/auth/send-whatsapp-verify-otp", {
+        email,
+        phone,
+        otp: code,
+      });
+      setPhoneOtpSent(true);
+      setPhoneCountdown(60);
+      setTimeout(() => phoneInputs.current[0]?.focus(), 100);
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Failed to send WhatsApp verification code. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // ── Step 2: Verify OTP + reset password ──────────────────────────────────
   async function handleReset(e) {
     e.preventDefault();
     setError("");
     const code = otp.join("");
-    if (code.length < 6) { setError("Please enter all 6 digits"); return; }
+    if (code.length < 6) { setError("Please enter all 6 digits of the reset code"); return; }
     if (newPassword.length < 8) { setError("Password must be at least 8 characters"); return; }
     if (newPassword !== confirmPassword) { setError("Passwords do not match"); return; }
 
+    const payload = { email, otp: code, new_password: newPassword };
+
+    if (!hasPhone) {
+      if (!phone || phone.length !== 10) {
+        setError("Please register your WhatsApp number.");
+        return;
+      }
+      const pCode = phoneOtp.join("");
+      if (pCode.length < 6) {
+        setError("Please enter all 6 digits of the WhatsApp verification code");
+        return;
+      }
+      payload.phone = phone;
+      payload.phone_otp = pCode;
+    }
+
     setLoading(true);
     try {
-      await api.post("/api/auth/reset-password", { email, otp: code, new_password: newPassword });
+      await api.post("/api/auth/reset-password", payload);
       router.push("/auth/signin?reset=1");
     } catch (err) {
       setError(err?.response?.data?.detail || "Reset failed. Check the code and try again.");
@@ -188,6 +245,73 @@ export default function ForgotPasswordPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Legacy User WhatsApp Verification */}
+                {!hasPhone && (
+                  <div className="p-4 bg-purple-50/40 border border-purple-100 rounded-2xl space-y-4">
+                    <div>
+                      <h4 className="text-xs font-bold text-purple-950 uppercase tracking-wider">Link WhatsApp Number</h4>
+                      <p className="text-[10px] text-purple-700 mt-1 leading-relaxed">
+                        Your account is missing a registered phone number. Please link and verify your WhatsApp number to complete password reset.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">WhatsApp Mobile Number</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                            placeholder="10-digit number"
+                            disabled={phoneOtpSent || loading}
+                            className="flex-1 px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSendPhoneOTP}
+                            disabled={phoneCountdown > 0 || loading || phone.length !== 10}
+                            className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer whitespace-nowrap"
+                          >
+                            {phoneCountdown > 0 ? `Resend in ${phoneCountdown}s` : phoneOtpSent ? "Resend" : "Send OTP"}
+                          </button>
+                        </div>
+                      </div>
+
+                      {phoneOtpSent && (
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-700 uppercase tracking-wider mb-2">WhatsApp OTP Code</label>
+                          <div className="flex justify-between gap-1.5">
+                            {phoneOtp.map((digit, idx) => (
+                              <input
+                                key={idx}
+                                ref={(el) => (phoneInputs.current[idx] = el)}
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={1}
+                                value={digit}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (!/^\d?$/.test(val)) return;
+                                  const next = [...phoneOtp];
+                                  next[idx] = val;
+                                  setPhoneOtp(next);
+                                  if (val && idx < 5) phoneInputs.current[idx + 1]?.focus();
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Backspace" && !phoneOtp[idx] && idx > 0) phoneInputs.current[idx - 1]?.focus();
+                                }}
+                                className="w-10 h-12 text-center text-lg font-bold border-2 rounded-xl focus:outline-none focus:border-purple-500 transition-all bg-white"
+                                style={{ borderColor: digit ? "#7c3aed" : "#e5e7eb" }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* New password */}
                 <div>
