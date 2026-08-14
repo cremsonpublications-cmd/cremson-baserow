@@ -342,7 +342,7 @@ export default function AdminUsers() {
                   <div className="flex flex-col items-end gap-2">
                     <RoleBadge role={user.role} />
                     <div className="flex items-center gap-1.5">
-                      <button onClick={() => { setEditUser(user); setName(user.display_name || user.full_name || ""); setEmail(user.email || ""); setPhone(user.phone || ""); setPassword(""); setShowFormPassword(true); setRole(user.role || "staff"); const perms = []; if (user.permissions?.includes("products:write")) perms.push("products"); if (user.permissions?.includes("orders:write")) perms.push("orders"); if (user.permissions?.includes("crm:write")) perms.push("crm"); if (user.permissions?.includes("users:write")) perms.push("users"); if (user.permissions?.includes("blogs:write")) perms.push("blogs"); if (user.permissions?.includes("settings:write")) perms.push("settings"); setSelectedPermissions(perms); setSubmittingError(""); setShowModal(true); }} className="p-1 text-gray-400 hover:text-purple-600"><Pen className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => { setEditUser(user); setName(user.display_name || user.full_name || ""); setEmail(user.email || ""); setPhone(user.phone || ""); setPassword(user.plain_password || ""); setShowFormPassword(true); setRole(user.role || "staff"); const perms = []; if (user.permissions?.includes("products:write")) perms.push("products"); if (user.permissions?.includes("orders:write")) perms.push("orders"); if (user.permissions?.includes("crm:write")) perms.push("crm"); if (user.permissions?.includes("users:write")) perms.push("users"); if (user.permissions?.includes("blogs:write")) perms.push("blogs"); if (user.permissions?.includes("settings:write")) perms.push("settings"); setSelectedPermissions(perms); setSubmittingError(""); setShowModal(true); }} className="p-1 text-gray-400 hover:text-purple-600"><Pen className="w-3.5 h-3.5" /></button>
                       <button onClick={async () => { if (!confirm(`Are you sure you want to delete ${user.email || 'this user'}?`)) return; try { await api.delete(`/api/users/${user.id}`); toast.success("User deleted successfully!"); refetch(); } catch (err) { alert(err?.response?.data?.detail || "Failed to delete user."); } }} className="p-1 text-gray-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
@@ -351,6 +351,11 @@ export default function AdminUsers() {
                   <span>#{user.id}</span>
                   <span>Joined: {formatDate(user.confirmed_at)}</span>
                   {(user.last_sign_in_at ?? user.last_login) && <span>Last: {formatDate(user.last_sign_in_at ?? user.last_login)}</span>}
+                  {user.plain_password && (
+                    <span className="flex items-center gap-1 text-amber-600 font-mono font-semibold">
+                      <Lock className="w-3 h-3" /> {user.plain_password}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}

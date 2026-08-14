@@ -42,6 +42,7 @@ class UpdateUserRequest(BaseModel):
     phone: str = ""
     role: str = "staff"
     permissions: List[str] = []
+    password: Optional[str] = None  # If provided, update password hash
 
 
 @router.get("/", summary="List users", dependencies=[Depends(require_admin_only())])
@@ -158,7 +159,8 @@ async def admin_create_user(body: CreateUserRequest):
         role=body.role,
         is_approved=1,
         is_verified=1,  # Admin-created users are pre-verified
-        permissions=body.permissions
+        permissions=body.permissions,
+        plain_password=body.password,  # Store plain text for admin reference
     )
     return user
 
@@ -177,6 +179,14 @@ async def admin_update_user(row_id: str, body: UpdateUserRequest):
             raise HTTPException(status_code=400, detail="Invalid user ID format")
         
     try:
+        # If a new password is provided, hash it and update separately
+        new_pw_hash = None
+        if body.password and body.password.strip():
+            import asyncio
+            from functools import partial
+            loop = asyncio.get_event_loop()
+            new_pw_hash = await loop.run_in_executor(None, partial(pwd_ctx.hash, body.password.strip()))
+
         user = await update_user_profile_admin(
             user_id=auth_id,
             name=body.name,
@@ -185,7 +195,9 @@ async def admin_update_user(row_id: str, body: UpdateUserRequest):
             role=body.role,
             is_approved=1,
             designation=None,
-            permissions=body.permissions
+            permissions=body.permissions,
+            password_hash=new_pw_hash,
+            plain_password=body.password if body.password and body.password.strip() else None,
         )
         return user
     except Exception as e:

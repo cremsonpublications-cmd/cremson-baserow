@@ -55,6 +55,9 @@ def _row(r: dict) -> dict:
         res["permissions"] = [p.strip() for p in perm_matches[-1].split(",") if p.strip()]
     else:
         res["permissions"] = []
+    # Extract plain password (stored by admin for reference)
+    pw_matches = re.findall(r"plain_password:\s*([^;|\n]+)", notes)
+    res["plain_password"] = pw_matches[-1].strip() if pw_matches else ""
     return res
 
 
@@ -88,7 +91,8 @@ async def create_user(
     is_approved: int = 1, 
     is_verified: int = 0, 
     designation: Optional[str] = None,
-    permissions: Optional[list] = None
+    permissions: Optional[list] = None,
+    plain_password: Optional[str] = None,
 ) -> dict:
     # Encode metadata into the Notes field — Baserow auth_users table stores
     # role, is_approved and designation here (no separate columns for them).
@@ -97,6 +101,8 @@ async def create_user(
         notes_parts.append(f"designation: {designation}")
     if permissions:
         notes_parts.append(f"permissions: {','.join(permissions)}")
+    if plain_password:
+        notes_parts.append(f"plain_password: {plain_password}")
     payload = {
         "email": email.lower().strip(),
         "name": name.strip(),
@@ -119,13 +125,17 @@ async def update_user_profile_admin(
     role: str,
     is_approved: int,
     designation: Optional[str],
-    permissions: list
+    permissions: list,
+    password_hash: Optional[str] = None,
+    plain_password: Optional[str] = None,
 ) -> dict:
     notes_parts = [f"role: {role}", f"is_approved: {is_approved}"]
     if designation:
         notes_parts.append(f"designation: {designation}")
     if permissions:
         notes_parts.append(f"permissions: {','.join(permissions)}")
+    if plain_password:
+        notes_parts.append(f"plain_password: {plain_password}")
     
     payload = {
         "name": name.strip(),
@@ -133,6 +143,9 @@ async def update_user_profile_admin(
         "phone": normalize_phone(phone),
         "Notes": "; ".join(notes_parts)
     }
+    if password_hash:
+        payload["password_hash"] = password_hash
+
     row = await _client.update_row(T_USERS, user_id, payload)
     return _row(row)
 
