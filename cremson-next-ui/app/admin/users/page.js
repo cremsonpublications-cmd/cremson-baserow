@@ -231,7 +231,7 @@ export default function AdminUsers() {
                   </div>
                   <RoleBadge role={user.role} />
                 </div>
-                <div className="flex flex-wrap gap-3 text-xs text-gray-450 mt-1">
+                <div className="flex flex-wrap gap-3 text-xs text-gray-400 mt-1">
                   <span>#{user.id}</span>
                   <span>Joined: {formatDate(user.confirmed_at)}</span>
                   {(user.last_sign_in_at ?? user.last_login) && <span>Last: {formatDate(user.last_sign_in_at ?? user.last_login)}</span>}
