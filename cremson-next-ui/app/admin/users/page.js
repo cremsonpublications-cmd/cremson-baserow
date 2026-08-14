@@ -308,16 +308,7 @@ export default function AdminUsers() {
                           <Pen className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={async () => {
-                            if (!confirm(`Are you sure you want to delete ${user.email || 'this user'}?`)) return;
-                            try {
-                              await api.delete(`/api/users/${user.id}`);
-                              toast.success("User deleted successfully!");
-                              refetch();
-                            } catch (err) {
-                              alert(err?.response?.data?.detail || "Failed to delete user.");
-                            }
-                          }}
+                          onClick={() => setDeleteTarget(user)}
                           className="p-1.5 text-gray-400 hover:text-red-650 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                           title="Delete User"
                         >
