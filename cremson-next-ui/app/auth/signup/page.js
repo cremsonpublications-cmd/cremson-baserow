@@ -198,6 +198,7 @@ function SignupFormContent() {
   const [teacherSubmitted, setTeacherSubmitted] = useState(searchParams.get("teacherSubmitted") === "true");
   const queryTeacherName = searchParams.get("name") || "";
   const [teacherError, setTeacherError] = useState("");
+  const [showLimitModal, setShowLimitModal] = useState(false);
 
   // Debounce search input
   useEffect(() => {
@@ -449,7 +450,11 @@ function SignupFormContent() {
       sessionStorage.setItem("verify_email", teacherForm.email);
       router.push(`/auth/verify-email?phone=${encodeURIComponent(teacherForm.phone)}&role=teacher&name=${encodeURIComponent(teacherForm.name)}`);
     } catch (err) {
-      setTeacherError(err?.response?.data?.detail || "Registration failed. Please try again.");
+      if (err?.response?.data?.detail === "teacher_limit_reached") {
+        setShowLimitModal(true);
+      } else {
+        setTeacherError(err?.response?.data?.detail || "Registration failed. Please try again.");
+      }
     } finally {
       setTeacherSubmitting(false);
     }
@@ -1163,6 +1168,38 @@ function SignupFormContent() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Teacher Limit Reached Modal */}
+      {showLimitModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="max-w-md w-full bg-white rounded-3xl border border-gray-100 shadow-2xl p-6 text-center space-y-4">
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+              <Users className="w-8 h-8 stroke-[2.5]" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">Registration Limit Reached</h2>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Teacher registration is currently at maximum capacity. To active your free teacher account, please contact our administrator directly on WhatsApp.
+            </p>
+            <div className="flex flex-col gap-2 pt-2">
+              <a
+                href="https://wa.me/918585937875?text=Hello%20Admin,%20I%20want%20to%20register%20as%20a%20teacher%20but%20the%20signup%20limit%20is%20reached."
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2 cursor-pointer text-sm"
+              >
+                {/* Custom WhatsApp Icon or standard icon */}
+                Contact Admin via WhatsApp
+              </a>
+              <button
+                type="button"
+                onClick={() => setShowLimitModal(false)}
+                className="w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-700 font-semibold rounded-xl transition-colors cursor-pointer text-xs"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

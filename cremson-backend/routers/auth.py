@@ -210,8 +210,58 @@ async def check_phone(phone: str):
     return {"available": True}
 
 
+async def count_verified_teachers() -> int:
+    b_client = BaserowClient()
+    try:
+        # Search Table 769 (auth_users) for "teacher"
+        res = await b_client.get_rows(TABLE_IDS["auth_users"], search="teacher", size=200)
+        results = res.get("results", [])
+        count = 0
+        for r in results:
+            notes = r.get("Notes") or ""
+            is_verified = int(r.get("is_verified") or 0)
+            if "role: teacher" in notes and is_verified == 1:
+                count += 1
+        return count
+    except Exception as e:
+        print("Warning: Failed to count verified teachers:", e)
+        return 0
+
+
+async def get_teacher_signup_limit() -> int:
+    b_client = BaserowClient()
+    try:
+        res = await b_client.get_rows(TABLE_IDS["shipping_settings"], search="teacher_signup_limit", size=10)
+        results = res.get("results", [])
+        for r in results:
+            if r.get("Name") == "teacher_signup_limit":
+                notes = r.get("Notes") or ""
+                if notes.strip().isdigit():
+                    return int(notes.strip())
+        
+        # If not found, let's create it with default value 10
+        await b_client.create_row(TABLE_IDS["shipping_settings"], {
+            "Name": "teacher_signup_limit",
+            "Notes": "10",
+            "Active": True
+        })
+        return 10
+    except Exception as e:
+        print("Warning: Failed to fetch teacher signup limit, using default of 10:", e)
+        return 10
+
+
 @router.post("/teacher-register", status_code=201)
 async def teacher_register(body: TeacherRegisterRequest):
+    # Verify limit of verified teachers
+    verified_count = await count_verified_teachers()
+    limit = await get_teacher_signup_limit()
+    if verified_count >= limit:
+        raise HTTPException(
+            status_code=400,
+            detail="teacher_limit_reached"
+        )
+
     validate_password_strength(body.password)
 
     if body.pincode:
