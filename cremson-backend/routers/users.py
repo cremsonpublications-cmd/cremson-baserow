@@ -13,13 +13,16 @@ async def list_users(
     search: str = Query(None, description="Search string"),
 ):
     """Return a paginated list of users from Baserow."""
-    return await client.get_rows(
+    res = await client.get_rows(
         TABLE_IDS["users"],
         page=page,
         size=size,
         search=search,
-        order_by="-id",
     )
+    # Sort newest (highest row id) first
+    if isinstance(res, dict) and "results" in res:
+        res["results"] = sorted(res["results"], key=lambda u: u.get("id", 0), reverse=True)
+    return res
 
 
 @router.get("/{row_id}", summary="Get a single user")
