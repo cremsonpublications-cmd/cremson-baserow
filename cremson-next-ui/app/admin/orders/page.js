@@ -915,6 +915,102 @@ export default function AdminOrders() {
     }
   }
 
+  async function handleExportCSV() {
+    try {
+      const toastId = toast.loading("Preparing CSV export...");
+      
+      let allExportOrders = [];
+      let currentPage = 1;
+      let totalFetched = 0;
+      let totalCount = 1;
+      
+      while (totalFetched < totalCount) {
+        const exportParams = {
+          page: currentPage,
+          size: 200,
+        };
+        if (debouncedSearch) exportParams.search = debouncedSearch;
+        if (statusFilter) exportParams.order_status = statusFilter;
+        if (startDate && endDate) {
+          exportParams.start_date = startDate;
+          exportParams.end_date = endDate;
+        }
+        
+        const { data: resData } = await api.get("/api/orders/", { params: exportParams });
+        const results = resData?.results ?? resData?.items ?? [];
+        
+        allExportOrders = [...allExportOrders, ...results];
+        totalCount = resData?.count ?? resData?.total ?? 0;
+        totalFetched += results.length;
+        currentPage += 1;
+        
+        if (results.length === 0) {
+          break;
+        }
+      }
+      
+      toast.dismiss(toastId);
+      
+      if (allExportOrders.length === 0) {
+        toast.error("No orders found to export.");
+        return;
+      }
+      
+      const headers = [
+        "Order ID",
+        "Customer Name",
+        "Customer Email",
+        "Customer Phone",
+        "Order Date",
+        "Delivery Status",
+        "Payment Status",
+        "Total Amount (INR)",
+        "Items",
+      ];
+      
+      const rows = allExportOrders.map((order) => {
+        const uInfo = typeof order.user_info === "string" ? JSON.parse(order.user_info || "{}") : (order.user_info || {});
+        const summary = typeof order.order_summary === "string" ? JSON.parse(order.order_summary || "{}") : (order.order_summary || {});
+        const amount = summary.grandTotal || order.total_amount || 0;
+        const dateFormatted = order.order_date || order.created_at || "";
+        const deliveryStatus = order.order_status || order.status || "Pending";
+        const paymentObj = typeof order.payment === "string" ? JSON.parse(order.payment || "{}") : (order.payment || {});
+        const paymentStatus = order.payment_status || paymentObj.status || "Paid";
+        const itemsList = (summary.items || []).map(item => `${item.title} (x${item.quantity})`).join(", ");
+        
+        return [
+          order.order_id || `BOOK${order.id}`,
+          uInfo.name || "Customer",
+          uInfo.email || "",
+          uInfo.phone || "",
+          dateFormatted,
+          deliveryStatus,
+          paymentStatus,
+          amount,
+          itemsList
+        ];
+      });
+      
+      const csvContent = [
+        headers.join(","),
+        ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))
+      ].join("\n");
+      
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `orders_export_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("CSV exported successfully!");
+    } catch (error) {
+      console.error("CSV Export failed:", error);
+      toast.error("Failed to export CSV.");
+    }
+  }
+
   async function downloadLabelsAsZip(ordersList, zipFilename = "shipping_labels.zip") {
     const eligible = ordersList.filter((o) => {
       const deliv = safeParseJSON(o.delivery) || {};
@@ -1061,7 +1157,39 @@ export default function AdminOrders() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 text-left">
-      <h2 className="text-2xl font-semibold text-gray-900 mb-8 mt-0">Orders</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 mt-0 text-left">
+        <h2 className="text-2xl font-semibold text-gray-900 m-0">Orders</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs md:text-sm text-gray-500 font-semibold">From:</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              onClick={(e) => e.target.showPicker()}
+              className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs md:text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white text-gray-700 cursor-pointer"
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs md:text-sm text-gray-500 font-semibold">To:</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              onClick={(e) => e.target.showPicker()}
+              className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs md:text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white text-gray-700 cursor-pointer"
+            />
+          </div>
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 border border-gray-300 rounded-lg text-xs md:text-sm font-semibold bg-white text-gray-900 hover:bg-gray-50 active:bg-gray-100 transition-colors shadow-xs cursor-pointer ml-1"
+            title="Export currently filtered orders as a CSV file"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </button>
+        </div>
+      </div>
       
       <div className="rounded-lg">
         <div className="h-[calc(100vh-120px)] flex flex-col">
@@ -1098,6 +1226,14 @@ export default function AdminOrders() {
                           </option>
                         ))}
                       </select>
+                      {(startDate || endDate || search || statusFilter) && (
+                        <button
+                          onClick={() => { setStartDate(""); setEndDate(""); setSearch(""); setStatusFilter(""); }}
+                          className="text-xs font-semibold text-purple-600 hover:text-purple-800 transition-colors cursor-pointer ml-1"
+                        >
+                          Clear Filters
+                        </button>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -1128,41 +1264,12 @@ export default function AdminOrders() {
                         )}
                         Ready For Pickup
                       </button>
+
                       <div className="text-sm font-semibold text-gray-600">Total: {count} orders</div>
                     </div>
                   </div>
 
-                  {/* Bottom Bar: Date Range Pickers */}
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm text-gray-600 font-medium">From:</label>
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        onClick={(e) => e.target.showPicker()}
-                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white text-gray-700 cursor-pointer"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm text-gray-600 font-medium">To:</label>
-                      <input
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        onClick={(e) => e.target.showPicker()}
-                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white text-gray-700 cursor-pointer"
-                      />
-                    </div>
-                    {(startDate || endDate || search || statusFilter) && (
-                      <button
-                        onClick={() => { setStartDate(""); setEndDate(""); setSearch(""); setStatusFilter(""); }}
-                        className="text-xs font-semibold text-purple-600 hover:text-purple-800 transition-colors ml-auto cursor-pointer"
-                      >
-                        Clear Filters
-                      </button>
-                    )}
-                  </div>
+
 
                 </div>
               </div>
