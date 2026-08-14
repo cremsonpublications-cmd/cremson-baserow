@@ -73,6 +73,8 @@ export default function AdminUsers() {
   const [saving, setSaving] = useState(false);
   const [submittingError, setSubmittingError] = useState("");
   const [showFormPassword, setShowFormPassword] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState(null); // user to delete
+  const [deleting, setDeleting] = useState(false);
 
   const router = useRouter();
 
@@ -343,7 +345,7 @@ export default function AdminUsers() {
                     <RoleBadge role={user.role} />
                     <div className="flex items-center gap-1.5">
                       <button onClick={() => { setEditUser(user); setName(user.display_name || user.full_name || ""); setEmail(user.email || ""); setPhone(user.phone || ""); setPassword(user.plain_password || ""); setShowFormPassword(true); setRole(user.role || "staff"); const perms = []; if (user.permissions?.includes("products:write")) perms.push("products"); if (user.permissions?.includes("orders:write")) perms.push("orders"); if (user.permissions?.includes("crm:write")) perms.push("crm"); if (user.permissions?.includes("users:write")) perms.push("users"); if (user.permissions?.includes("blogs:write")) perms.push("blogs"); if (user.permissions?.includes("settings:write")) perms.push("settings"); setSelectedPermissions(perms); setSubmittingError(""); setShowModal(true); }} className="p-1 text-gray-400 hover:text-purple-600"><Pen className="w-3.5 h-3.5" /></button>
-                      <button onClick={async () => { if (!confirm(`Are you sure you want to delete ${user.email || 'this user'}?`)) return; try { await api.delete(`/api/users/${user.id}`); toast.success("User deleted successfully!"); refetch(); } catch (err) { alert(err?.response?.data?.detail || "Failed to delete user."); } }} className="p-1 text-gray-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={async () => { setDeleteTarget(user); }} className="p-1 text-gray-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
                 </div>
@@ -385,6 +387,66 @@ export default function AdminUsers() {
             >
               Next <ChevronRight className="w-3.5 h-3.5" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-sm rounded-3xl border border-gray-100 shadow-2xl overflow-hidden">
+            {/* Red header strip */}
+            <div className="bg-gradient-to-r from-red-600 to-rose-600 p-6 text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold">Delete User</h3>
+                  <p className="text-xs text-red-100 mt-0.5">This action cannot be undone</p>
+                </div>
+              </div>
+            </div>
+            {/* Body */}
+            <div className="p-6">
+              <p className="text-sm text-gray-700 mb-1">
+                Are you sure you want to permanently delete this user?
+              </p>
+              <div className="mt-3 bg-red-50 border border-red-100 rounded-xl p-3 space-y-1">
+                <p className="text-xs font-bold text-gray-800">{deleteTarget.display_name || deleteTarget.full_name || deleteTarget.name || "—"}</p>
+                <p className="text-xs text-gray-500">{deleteTarget.email}</p>
+                {deleteTarget.phone && <p className="text-xs text-gray-400">{deleteTarget.phone}</p>}
+              </div>
+              <div className="flex gap-3 mt-5">
+                <button
+                  onClick={() => setDeleteTarget(null)}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setDeleting(true);
+                    try {
+                      await api.delete(`/api/users/${deleteTarget.id}`);
+                      toast.success("User deleted successfully!");
+                      setDeleteTarget(null);
+                      refetch();
+                    } catch (err) {
+                      toast.error(err?.response?.data?.detail || "Failed to delete user.");
+                    } finally {
+                      setDeleting(false);
+                    }
+                  }}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  {deleting ? "Deleting…" : "Delete"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
