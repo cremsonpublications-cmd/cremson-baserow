@@ -46,6 +46,8 @@ const ORDER_STATUSES = [
   { value: "pickup_requested", label: "Pickup Requested" },
   { value: "shipped", label: "Shipped" },
   { value: "delivered", label: "Delivered" },
+  { value: "return_initiated", label: "Return Initiated" },
+  { value: "refunded", label: "Refunded" },
 ];
 
 const UPDATE_STATUSES = ["Confirmed", "Ready_to_pack", "Shipped", "Delivered", "Cancelled"];
@@ -1273,6 +1275,8 @@ export default function AdminOrders() {
                           delivColorClass = "bg-emerald-100 text-emerald-800";
                         } else if (deliveryStatusRaw === "cancelled" || deliveryStatusRaw === "refunded") {
                           delivColorClass = "bg-rose-100 text-rose-800";
+                        } else if (deliveryStatusRaw === "return_initiated" || deliveryStatusRaw === "return initiated") {
+                          delivColorClass = "bg-red-100 text-red-800";
                         }
 
                         const deliveryStatusDisplay = deliveryStatusRaw.replace(/_/g, " ");
