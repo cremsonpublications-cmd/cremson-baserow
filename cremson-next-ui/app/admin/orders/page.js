@@ -1422,7 +1422,11 @@ export default function AdminOrders() {
                         const deliveryStatusDisplay = deliveryStatusRaw.replace(/_/g, " ");
 
                         return (
-                          <tr key={order.id} className={`transition-colors ${isSelectedRow ? "bg-orange-50/40 hover:bg-orange-50/70" : "hover:bg-gray-50"}`}>
+                          <tr 
+                            key={order.id} 
+                            onClick={() => setSelected(order)}
+                            className={`transition-colors cursor-pointer ${isSelectedRow ? "bg-orange-50/40 hover:bg-orange-50/70" : "hover:bg-gray-50"}`}
+                          >
                             <td className="px-6 py-4 text-xs font-semibold text-gray-900">
                               #{order.order_id || `BOOK${order.id}`}
                             </td>
@@ -1475,14 +1479,18 @@ export default function AdminOrders() {
                                 )}
 
                                 <button 
-                                  onClick={() => setSelected(order)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelected(order);
+                                  }}
                                   className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
                                   title="View Order Details"
                                 >
                                   <Eye className="w-4 h-4 text-gray-400 hover:text-purple-600" />
                                 </button>
                                 <button 
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     const deliv = safeParseJSON(order.delivery) || {};
                                     if (deliv.label_url) {
                                       window.open(deliv.label_url, "_blank");
@@ -1497,7 +1505,10 @@ export default function AdminOrders() {
                                 </button>
                                 {["delivered", "out_for_delivery"].includes(deliveryStatusRaw) && (
                                   <button 
-                                    onClick={() => setReturnModalOrder(order)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setReturnModalOrder(order);
+                                    }}
                                     className="p-1.5 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer text-rose-600"
                                     title="Initiate Return & Instant Refund"
                                   >
@@ -1505,7 +1516,10 @@ export default function AdminOrders() {
                                   </button>
                                 )}
                                 <button 
-                                  onClick={() => setSelected(order)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelected(order);
+                                  }}
                                   className="p-1.5 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                                   title="Cancel/Delete"
                                 >
