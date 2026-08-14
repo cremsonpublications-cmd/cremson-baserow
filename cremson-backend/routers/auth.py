@@ -251,6 +251,17 @@ async def get_teacher_signup_limit() -> int:
         return 10
 
 
+@router.get("/teacher-signup-stats", summary="Get stats on teacher signup limit and count")
+async def teacher_signup_stats():
+    verified_count = await count_verified_teachers()
+    limit = await get_teacher_signup_limit()
+    return {
+        "verified_count": verified_count,
+        "limit": limit,
+        "remaining_slots": max(0, limit - verified_count)
+    }
+
+
 @router.post("/teacher-register", status_code=201)
 async def teacher_register(body: TeacherRegisterRequest):
     # Verify limit of verified teachers
