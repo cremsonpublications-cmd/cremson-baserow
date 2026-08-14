@@ -262,16 +262,6 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
             prod_id = str(item.get("product_id") or item.get("productId") or item.get("id") or "BOOK")
             qty = int(item.get("quantity") or item.get("qty") or 1)
             
-            products.append({
-                "product": name,
-                "price": price,
-                "product_code": prod_id,
-                "product_quantity": qty,
-                "discount": 0,
-                "tax_rate": 0,
-                "tax_title": "GST",
-            })
-            
             # Fetch product details from Baserow or item dict (Default to 500g / 0.5kg per book if missing)
             item_weight_str = item.get("weight") or item.get("weight_kg")
             weight_kg = parse_weight_kg(item_weight_str)
@@ -279,15 +269,30 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
             breadth = 15.0
             height = 2.0
             
+            sku_val = prod_id
+            
             if prod_id.isdigit():
                 try:
                     prod_row = await baserow.get_row(TABLE_IDS["products"], int(prod_id))
-                    if prod_row and prod_row.get("weight"):
-                        weight_kg = parse_weight_kg(prod_row.get("weight"))
-                    if prod_row and prod_row.get("dimension"):
-                        length, breadth, height = parse_dimension_cm(prod_row.get("dimension"))
+                    if prod_row:
+                        if prod_row.get("sku"):
+                            sku_val = str(prod_row.get("sku")).strip() or prod_id
+                        if prod_row.get("weight"):
+                            weight_kg = parse_weight_kg(prod_row.get("weight"))
+                        if prod_row.get("dimension"):
+                            length, breadth, height = parse_dimension_cm(prod_row.get("dimension"))
                 except Exception as e:
                     logger.error(f"[Shipway] Error fetching product {prod_id} details: {e}")
+            
+            products.append({
+                "product": name,
+                "price": price,
+                "product_code": sku_val,
+                "product_quantity": qty,
+                "discount": 0,
+                "tax_rate": 0,
+                "tax_title": "GST",
+            })
             
             total_weight_kg += weight_kg * qty
             max_length = max(max_length, length)
