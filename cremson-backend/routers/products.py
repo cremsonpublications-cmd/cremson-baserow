@@ -18,6 +18,7 @@ class ProductCreate(BaseModel):
     short_description: Optional[str] = None
     category_id: Optional[int] = None
     isbn: Optional[str] = None
+    sku: Optional[str] = None
     edition: Optional[str] = None
     weight: Optional[str] = None
     dimension: Optional[str] = None
@@ -52,6 +53,7 @@ class ProductUpdate(BaseModel):
     short_description: Optional[str] = None
     category_id: Optional[int] = None
     isbn: Optional[str] = None
+    sku: Optional[str] = None
     edition: Optional[str] = None
     weight: Optional[str] = None
     dimension: Optional[str] = None
@@ -170,7 +172,7 @@ def map_product_in(data: dict, existing_mrp: float = 0.0) -> dict:
             pass
 
     # Convert empty strings to None for optional text fields to avoid constraint errors
-    for field in ["isbn", "edition", "short_description", "description", "status", "sub_categories", "tags"]:
+    for field in ["isbn", "sku", "edition", "short_description", "description", "status", "sub_categories", "tags"]:
         if field in data and data[field] == "":
             data[field] = None
 
