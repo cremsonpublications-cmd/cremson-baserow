@@ -258,10 +258,12 @@ export default function WhatsAppChatWidget() {
         botResponse = {
           id: `bot_${Date.now()}`,
           sender: "bot",
-          text: `📞 Cremson Support Team\n\nEmail: info@cremsonpublications.com\nPhone: +91 79826 45175 / +91 85859 37875\nWorking Hours: Mon–Sat, 9:00 AM - 6:00 PM\n\nAddress: 4578/15 (Basement), Aggarwal Road, Darya Ganj, New Delhi – 110002`,
+          text: `📞 Cremson Publications — Contact Us\n\n🕐 Office Hours: Mon–Sat, 10:00 AM – 6:00 PM\n\n📱 WhatsApp / Phone:\n• +91 85859 37875\n• +91 98717 57937\n• +91 79826 45175\n\n📧 Email:\ninfo@cremsonpublications.com\n\n📍 Address:\n4578/15 (Basement), Aggarwal Road, Darya Ganj, New Delhi – 110002`,
           links: [
+            { title: "📞 Call +91 85859 37875", url: "tel:+918585937875" },
+            { title: "📞 Call +91 98717 57937", url: "tel:+919871757937" },
             { title: "📞 Call +91 79826 45175", url: "tel:+917982645175" },
-            { title: "✉️ Email Support", url: "mailto:info@cremsonpublications.com" },
+            { title: "✉️ Send Email to info@cremsonpublications.com", url: "mailto:info@cremsonpublications.com" },
           ],
           timestamp: getCurrentTime(),
         };
