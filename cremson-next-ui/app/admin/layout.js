@@ -27,6 +27,7 @@ import {
   UploadCloud,
   Shield,
   Bell,
+  Lock,
 } from "lucide-react";
 
 const coreLinks = [
@@ -243,8 +244,17 @@ export default function AdminLayout({ children }) {
     }
   }, [pathname]);
 
+  const currentRole = (currentUser?.role || "").toLowerCase();
+  const isMainAdmin = currentRole === "admin" || currentRole === "superadmin";
+
   const visibleCoreLinks = coreLinks.filter(({ href }) => hasPermissionForLink(href));
-  const visibleAdminLinks = adminLinks.filter(({ href }) => hasPermissionForLink(href));
+  // Admin links: always show Users link but mark it disabled if not main admin
+  const visibleAdminLinks = adminLinks
+    .filter(({ href }) => href === "/admin/users" ? true : hasPermissionForLink(href))
+    .map(link => ({
+      ...link,
+      disabled: link.href === "/admin/users" && !isMainAdmin,
+    }));
   const visibleUploadLinks = uploadLinks.filter(({ href }) => hasPermissionForLink(href));
 
   if (isLoginPage) return <>{children}</>;
@@ -335,8 +345,22 @@ export default function AdminLayout({ children }) {
                 </button>
                 {adminExpanded && (
                   <ul className="ml-6 pl-3 border-l border-gray-200 space-y-1 mt-1">
-                    {visibleAdminLinks.map(({ href, label, Icon }) => {
+                    {visibleAdminLinks.map(({ href, label, Icon, disabled }) => {
                       const active = isActive(href);
+                      if (disabled) {
+                        return (
+                          <li key={href} title="Only the main administrator can manage users">
+                            <span
+                              className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left text-sm font-medium text-gray-300 cursor-not-allowed select-none"
+                              aria-disabled="true"
+                            >
+                              <Icon size={16} aria-hidden="true" className="text-gray-300" />
+                              <span>{label}</span>
+                              <Lock size={12} className="ml-auto text-gray-300" />
+                            </span>
+                          </li>
+                        );
+                      }
                       return (
                         <li key={href}>
                           <Link
