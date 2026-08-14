@@ -1378,8 +1378,61 @@ export default function AdminCRMHub() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      {/* Page Title */}
-      <h2 className="text-2xl font-semibold text-gray-900 mb-8 mt-0">CRM Database</h2>
+      {/* Page Title & Inline Limit Settings */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-start gap-4 mb-8 mt-0">
+        <h2 className="text-2xl font-semibold text-gray-900 my-0 py-0">CRM Database</h2>
+        {activeTab === "teachers" && teacherStats && (
+          <div className="flex items-center gap-2">
+            {!isEditingLimit ? (
+              <>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-100">
+                  {teacherStats.verified_count} / {teacherStats.limit} Slots Filled ({teacherStats.remaining_slots} remaining)
+                </span>
+                <button
+                  onClick={() => {
+                    setEditLimitValue(String(teacherStats.limit));
+                    setIsEditingLimit(true);
+                  }}
+                  className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors cursor-pointer"
+                  title="Edit Signup Limit"
+                >
+                  <Pen className="w-3.5 h-3.5" />
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center gap-1 bg-purple-50 border border-purple-100 rounded-lg p-1">
+                <span className="text-xs font-bold text-purple-700 px-1">{teacherStats.verified_count} / </span>
+                <input
+                  type="number"
+                  min="0"
+                  value={editLimitValue}
+                  onChange={(e) => setEditLimitValue(e.target.value)}
+                  disabled={limitSaving}
+                  className="w-12 text-xs font-bold text-center border border-purple-200 rounded px-1 py-0.5 bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                  placeholder="Limit"
+                />
+                <span className="text-xs text-purple-650 px-1">Slots</span>
+                <button
+                  onClick={handleSaveLimit}
+                  disabled={limitSaving}
+                  className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors cursor-pointer"
+                  title="Save Limit"
+                >
+                  {limitSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3 stroke-[2.5]" />}
+                </button>
+                <button
+                  onClick={() => setIsEditingLimit(false)}
+                  disabled={limitSaving}
+                  className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                  title="Cancel"
+                >
+                  <X className="w-3 h-3 stroke-[2.5]" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="bg-gray-50 min-h-screen">
         <div className="max-w-7xl mx-auto">
@@ -1424,60 +1477,7 @@ export default function AdminCRMHub() {
             {/* Card Header */}
             <div className="p-6 border-b border-gray-200">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-xl font-semibold text-gray-900">All {currentTabObj.label}</h2>
-                  {activeTab === "teachers" && teacherStats && (
-                    <div className="flex items-center gap-2">
-                      {!isEditingLimit ? (
-                        <>
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-100">
-                            {teacherStats.verified_count} / {teacherStats.limit} Slots Filled ({teacherStats.remaining_slots} remaining)
-                          </span>
-                          <button
-                            onClick={() => {
-                              setEditLimitValue(String(teacherStats.limit));
-                              setIsEditingLimit(true);
-                            }}
-                            className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors cursor-pointer"
-                            title="Edit Signup Limit"
-                          >
-                            <Pen className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      ) : (
-                        <div className="flex items-center gap-1 bg-purple-50 border border-purple-100 rounded-lg p-1">
-                          <span className="text-xs font-bold text-purple-700 px-1">{teacherStats.verified_count} / </span>
-                          <input
-                            type="number"
-                            min="0"
-                            value={editLimitValue}
-                            onChange={(e) => setEditLimitValue(e.target.value)}
-                            disabled={limitSaving}
-                            className="w-12 text-xs font-bold text-center border border-purple-200 rounded px-1 py-0.5 bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-purple-400"
-                            placeholder="Limit"
-                          />
-                          <span className="text-xs text-purple-650 px-1">Slots</span>
-                          <button
-                            onClick={handleSaveLimit}
-                            disabled={limitSaving}
-                            className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors cursor-pointer"
-                            title="Save Limit"
-                          >
-                            {limitSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3 stroke-[2.5]" />}
-                          </button>
-                          <button
-                            onClick={() => setIsEditingLimit(false)}
-                            disabled={limitSaving}
-                            className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors cursor-pointer"
-                            title="Cancel"
-                          >
-                            <X className="w-3 h-3 stroke-[2.5]" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                <h2 className="text-xl font-semibold text-gray-900">All {currentTabObj.label}</h2>
 
                 <div className="flex items-center gap-3 flex-wrap justify-end">
                   {/* Dynamic Dropdown Filters */}
