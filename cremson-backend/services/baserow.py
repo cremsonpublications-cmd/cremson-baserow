@@ -135,14 +135,22 @@ class BaserowClient:
             select_fields = {"Status", "Interest Level", "DecisionPower", "Board", "Series", "DeliveryStatus", "FollowUpStage", "DispatchMethod"}
             # Fields that are link-row (linked table) — use 'link_row_contains'
             link_row_fields = {"BookCategory", "TeacherID", "SchoolID"}
-            for field_name, value in filters.items():
-                if field_name in link_row_fields:
-                    op = "link_row_contains"
-                elif field_name in select_fields:
-                    op = "contains"
+            for field_name, val in filters.items():
+                if isinstance(val, list) and len(val) > 0 and all(isinstance(x, (tuple, list)) and len(x) == 2 for x in val):
+                    for op, value in val:
+                        url += f"&filter__{quote(str(field_name))}__{op}={quote(str(value))}"
+                elif isinstance(val, (tuple, list)) and len(val) == 2:
+                    op, value = val
+                    url += f"&filter__{quote(str(field_name))}__{op}={quote(str(value))}"
                 else:
-                    op = "equal"
-                url += f"&filter__{quote(str(field_name))}__{op}={quote(str(value))}"
+                    value = val
+                    if field_name in link_row_fields:
+                        op = "link_row_contains"
+                    elif field_name in select_fields:
+                        op = "contains"
+                    else:
+                        op = "equal"
+                    url += f"&filter__{quote(str(field_name))}__{op}={quote(str(value))}"
 
         if contains_filters:
             for field_name, value in contains_filters.items():

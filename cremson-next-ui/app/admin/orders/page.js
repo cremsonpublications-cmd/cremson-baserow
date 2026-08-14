@@ -830,7 +830,7 @@ export default function AdminOrders() {
   useEffect(() => { 
     setPage(1); 
     setSelectedOrderIds([]);
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, startDate, endDate]);
 
   function toggleSelectAll() {
     if (selectedOrderIds.length === orders.length && orders.length > 0) {
@@ -1004,6 +1004,12 @@ export default function AdminOrders() {
   const params = { page, size: PAGE_SIZE };
   if (debouncedSearch) params.search = debouncedSearch;
   if (statusFilter) params.order_status = statusFilter;
+  if (startDate && endDate) {
+    params.start_date = startDate;
+    params.end_date = endDate;
+  }
+
+  const hasPartialDate = (startDate && !endDate) || (!startDate && endDate);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-orders", params],
@@ -1011,6 +1017,7 @@ export default function AdminOrders() {
       const { data } = await api.get("/api/orders/", { params });
       return data;
     },
+    enabled: !hasPartialDate,
   });
 
   const orders = data?.results ?? data?.items ?? [];
@@ -1133,7 +1140,8 @@ export default function AdminOrders() {
                         type="date"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
-                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white text-gray-700"
+                        onClick={(e) => e.target.showPicker()}
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white text-gray-700 cursor-pointer"
                       />
                     </div>
                     <div className="flex items-center gap-2">
@@ -1142,7 +1150,8 @@ export default function AdminOrders() {
                         type="date"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
-                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white text-gray-700"
+                        onClick={(e) => e.target.showPicker()}
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white text-gray-700 cursor-pointer"
                       />
                     </div>
                     {(startDate || endDate || search || statusFilter) && (

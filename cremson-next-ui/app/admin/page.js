@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getApiBaseUrl } from "../../lib/api/axios";
 import api from "../../lib/api/axios";
-import { Bell, AlertCircle, Clock, Check, Calendar, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Bell, AlertCircle, Clock, Check, Calendar, ArrowRight, CheckCircle2, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 
 // Skeleton component
@@ -25,6 +25,12 @@ export default function AdminDashboard() {
   const [dashboardFilter, setDashboardFilter] = useState("today");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  // Actionable sections state
+  const [ordersCount, setOrdersCount] = useState("—");
+  const [specimensCount, setSpecimensCount] = useState("—");
+  const [bulksCount, setBulksCount] = useState("—");
+  const [sectionLoading, setSectionLoading] = useState(true);
 
   // Fetch stat counts
   useEffect(() => {
@@ -65,6 +71,39 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchReminders();
   }, []);
+
+  // Fetch dashboard counts
+  useEffect(() => {
+    const fetchSectionsData = async () => {
+      setSectionLoading(true);
+      try {
+        const [ordersRes, specimensRes, bulksRes] = await Promise.all([
+          fetch(`${API}/api/orders/?order_status=READY_TO_PACK&size=1`).then((r) => r.json()),
+          fetch(`${API}/api/specimen-requests/?size=200`).then((r) => r.json()),
+          fetch(`${API}/api/bulk-orders/?size=100`).then((r) => r.json()),
+        ]);
+        
+        const pendingSpecimens = (specimensRes.results || specimensRes.items || []).filter((req) => {
+          const statusRaw = (typeof req.DeliveryStatus === "object" ? req.DeliveryStatus?.value : req.DeliveryStatus || "").toLowerCase();
+          const isOldData = Number(req.id) <= 363;
+          return !isOldData && statusRaw !== "dispatched" && statusRaw !== "rto" && statusRaw !== "rejected";
+        }).length;
+
+        const pendingBulks = (bulksRes.results || bulksRes.items || []).filter(
+          (o) => o.status === "pending_review"
+        ).length;
+
+        setOrdersCount(ordersRes.count ?? ordersRes.total ?? 0);
+        setSpecimensCount(pendingSpecimens);
+        setBulksCount(pendingBulks);
+      } catch (err) {
+        console.error("Failed to fetch dashboard section counts:", err);
+      } finally {
+        setSectionLoading(false);
+      }
+    };
+    fetchSectionsData();
+  }, [API]);
 
   const handleMarkCompleted = async (id) => {
     try {
@@ -167,6 +206,71 @@ export default function AdminDashboard() {
         ))}
       </div>
 
+      {/* ── Orders, Specimen Requests & Bulk Orders Dashboard Section ── */}
+      <div className="bg-white rounded-3xl border border-gray-200/80 p-6 shadow-sm space-y-6">
+        <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+          <div className="w-10 h-10 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600">
+            <ShoppingCart className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">Orders & Requests Overview</h3>
+            <p className="text-xs text-gray-500">Quick links to view and manage pending items</p>
+          </div>
+        </div>
+
+        {sectionLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Orders */}
+            <Link
+              href="/admin/orders"
+              className="p-4 bg-blue-50/50 border border-blue-100 rounded-2xl hover:bg-blue-50 transition-colors flex items-center justify-between group cursor-pointer"
+            >
+              <div>
+                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider">New Orders (Ready to Pack)</p>
+                <p className="text-2xl font-black text-gray-900 mt-1">{ordersCount}</p>
+              </div>
+              <span className="text-xs font-semibold text-blue-600 group-hover:text-blue-800 flex items-center gap-1">
+                View All <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </Link>
+
+            {/* Specimen Requests */}
+            <Link
+              href="/admin/specimen-requests"
+              className="p-4 bg-green-50/50 border border-green-100 rounded-2xl hover:bg-green-50 transition-colors flex items-center justify-between group cursor-pointer"
+            >
+              <div>
+                <p className="text-xs font-semibold text-green-700 uppercase tracking-wider">Pending Specimen Requests</p>
+                <p className="text-2xl font-black text-gray-900 mt-1">{specimensCount}</p>
+              </div>
+              <span className="text-xs font-semibold text-green-600 group-hover:text-green-800 flex items-center gap-1">
+                View All <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </Link>
+
+            {/* Bulk Orders */}
+            <Link
+              href="/admin/bulk-orders"
+              className="p-4 bg-purple-50/50 border border-purple-100 rounded-2xl hover:bg-purple-50 transition-colors flex items-center justify-between group cursor-pointer"
+            >
+              <div>
+                <p className="text-xs font-semibold text-purple-700 uppercase tracking-wider">Pending Bulk Orders</p>
+                <p className="text-2xl font-black text-gray-900 mt-1">{bulksCount}</p>
+              </div>
+              <span className="text-xs font-semibold text-purple-600 group-hover:text-purple-800 flex items-center gap-1">
+                View All <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </Link>
+          </div>
+        )}
+      </div>
+
       {/* ── Reminders & Follow-ups Dashboard Section ── */}
       <div className="bg-white rounded-3xl border border-gray-200/80 p-6 shadow-sm space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-gray-100 pb-4 gap-4">
@@ -200,11 +304,10 @@ export default function AdminDashboard() {
               <button
                 key={tab.id}
                 onClick={() => setDashboardFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                  dashboardFilter === tab.id
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${dashboardFilter === tab.id
                     ? "bg-purple-600 text-white shadow-xs"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -263,18 +366,17 @@ export default function AdminDashboard() {
             {filteredReminders.slice(0, 10).map((item) => (
               <div
                 key={item.id}
-                className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
-                  item.is_overdue
+                className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${item.is_overdue
                     ? "bg-red-50/40 border-red-200"
                     : item.is_today
-                    ? "bg-amber-50/40 border-amber-200"
-                    : "bg-gray-50/60 border-gray-200"
-                }`}
+                      ? "bg-amber-50/40 border-amber-200"
+                      : "bg-gray-50/60 border-gray-200"
+                  }`}
               >
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-xs text-gray-800 leading-relaxed max-w-xl">
-                      {item.teacher_name 
+                      {item.teacher_name
                         ? `Follow-up: ${item.teacher_name}${item.school_name ? ` (${item.school_name})` : ""}`
                         : (item.title || item.notes)}
                     </span>

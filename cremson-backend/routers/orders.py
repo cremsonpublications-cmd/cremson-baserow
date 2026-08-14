@@ -562,8 +562,10 @@ async def list_orders(
     order_status: str = Query(None, description="Filter by order status value"),
     user_id: str = Query(None, description="Filter orders by user ID"),
     email: str = Query(None, description="Filter orders by user email"),
+    start_date: str = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: str = Query(None, description="End date (YYYY-MM-DD)"),
 ):
-    """Return a paginated list of orders. Optionally filter by order_status, user_id, or email."""
+    """Return a paginated list of orders. Optionally filter by order_status, user_id, email, or date range."""
     filters = {}
     if order_status is not None:
         filters["order_status"] = order_status
@@ -575,17 +577,31 @@ async def list_orders(
         contains_filters["user_info"] = f'"userId": {user_id}'
 
     # Fetch standard orders
+    fetch_size = 200 if (start_date and end_date) else size
     orders_res = await client.get_rows(
         TABLE_IDS["orders"],
-        page=page,
-        size=size,
+        page=page if not (start_date and end_date) else 1,
+        size=fetch_size,
         search=search,
         filters=filters if filters else None,
         contains_filters=contains_filters if contains_filters else None,
         order_by="-order_date",
     )
     standard_orders = orders_res.get("results", [])
-    total_standard_count = orders_res.get("count", 0)
+
+    if start_date and end_date:
+        filtered_std = []
+        for o in standard_orders:
+            o_date = o.get("order_date")
+            if o_date:
+                date_part = o_date.split(" ")[0]
+                if start_date <= date_part <= end_date:
+                    filtered_std.append(o)
+        total_standard_count = len(filtered_std)
+        # Paginate standard orders manually
+        standard_orders = filtered_std[(page - 1) * size: page * size]
+    else:
+        total_standard_count = orders_res.get("count", 0)
 
     # Fetch and merge bulk orders (only on the first page to keep pagination clean)
     bulk_orders_mapped = []
@@ -601,6 +617,15 @@ async def list_orders(
                 norm = _normalize_bulk_row(r)
                 if norm.get("status") in ["approved", "partially_paid", "fully_paid", "shipped"]:
                     mapped = _map_bulk_to_standard_order(norm)
+                    
+                    # Apply date filtering to bulk orders if specified
+                    if start_date and end_date:
+                        b_date = mapped.get("order_date")
+                        if b_date:
+                            date_part = b_date.split(" ")[0]
+                            if not (start_date <= date_part <= end_date):
+                                continue
+
                     if order_status:
                         if mapped["order_status"] == order_status:
                             bulk_orders_mapped.append(mapped)
