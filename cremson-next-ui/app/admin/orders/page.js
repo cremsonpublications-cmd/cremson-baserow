@@ -1218,7 +1218,7 @@ export default function AdminOrders() {
                       <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="px-3 py-2 text-xs md:text-sm font-semibold border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
+                        className="pl-3 pr-8 py-2 text-xs md:text-sm font-semibold border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
                       >
                         {ORDER_STATUSES.map((st) => (
                           <option key={st.value} value={st.value}>
