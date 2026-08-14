@@ -46,8 +46,6 @@ const ORDER_STATUSES = [
   { value: "pickup_requested", label: "Pickup Requested" },
   { value: "shipped", label: "Shipped" },
   { value: "delivered", label: "Delivered" },
-  { value: "cancelled", label: "Cancelled" },
-  { value: "refunded", label: "Refunded" },
 ];
 
 const UPDATE_STATUSES = ["Confirmed", "Ready_to_pack", "Shipped", "Delivered", "Cancelled"];
@@ -1079,7 +1077,7 @@ export default function AdminOrders() {
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
                         <input
                           type="text"
-                          placeholder="Search orders..."
+                          placeholder="Search customer name..."
                           value={search}
                           onChange={(e) => setSearch(e.target.value)}
                           className="pl-8 md:pl-10 pr-4 py-2 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none w-full sm:w-80"
