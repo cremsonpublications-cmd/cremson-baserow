@@ -304,6 +304,31 @@ async def list_bulk_orders(page: int = 1, size: int = 50, search: str = None):
     return {"count": len(normalized), "results": normalized}
 
 
+@router.get("/by-phone/{phone}", summary="Get all bulk orders for a phone number (user)")
+async def get_bulk_orders_by_phone(phone: str):
+    """Return all bulk orders associated with a given phone number, sorted newest first."""
+    # Normalize phone
+    p_clean = "".join(filter(str.isdigit, phone))
+    if len(p_clean) == 12 and p_clean.startswith("91"):
+        p_clean = p_clean[2:]
+
+    data = await client.get_rows(TABLE_IDS["bulk_orders"], size=200, search=p_clean)
+    raw_rows = data.get("results", data.get("items", []))
+
+    results = []
+    for r in raw_rows:
+        norm = _normalize_bulk_row(r)
+        # Match phone in both the top-level phone field and inside Notes JSON
+        row_phone = "".join(filter(str.isdigit, norm.get("phone", "")))
+        if len(row_phone) == 12 and row_phone.startswith("91"):
+            row_phone = row_phone[2:]
+        if row_phone == p_clean:
+            results.append(norm)
+
+    results.sort(key=lambda x: int(x.get("id") or 0), reverse=True)
+    return {"count": len(results), "results": results}
+
+
 @router.get("/{token}", summary="Get a bulk order by token (public)")
 async def get_bulk_order(token: str):
     data = await client.get_rows(TABLE_IDS["bulk_orders"], size=100, search=token)
