@@ -40,7 +40,7 @@ function RoleBadge({ role }) {
   );
 }
 
-const COLS = ["ID", "Email", "Display Name", "Username", "Role", "Confirmed At", "Last Sign In"];
+const COLS = ["ID", "Email", "Phone", "Display Name", "Username", "Role", "Confirmed At", "Last Sign In"];
 
 export default function AdminUsers() {
   const [page, setPage] = useState(1);
@@ -168,6 +168,13 @@ export default function AdminUsers() {
                       {user.email || "—"}
                     </td>
 
+                    {/* Phone */}
+                    <td className="px-5 py-4 text-xs text-slate-700 whitespace-nowrap">
+                      {user.phone ? (
+                        <a href={`tel:${user.phone}`} className="text-blue-600 hover:underline font-medium">{user.phone}</a>
+                      ) : "—"}
+                    </td>
+
                     {/* Display Name */}
                     <td className="px-5 py-4 text-xs text-slate-700 whitespace-nowrap">
                       {user.display_name ?? user.full_name ?? "—"}
@@ -206,6 +213,7 @@ export default function AdminUsers() {
                   <div className="flex-1 min-w-0 pr-2">
                     <p className="text-xs font-bold text-slate-900 truncate">{user.email || "—"}</p>
                     <p className="text-xs text-slate-600">{user.display_name ?? user.full_name ?? "—"}</p>
+                    {user.phone && <p className="text-xs text-blue-600 font-medium">{user.phone}</p>}
                     {user.username && <p className="text-xs text-slate-400">{user.username}</p>}
                   </div>
                   <RoleBadge role={user.role} />
