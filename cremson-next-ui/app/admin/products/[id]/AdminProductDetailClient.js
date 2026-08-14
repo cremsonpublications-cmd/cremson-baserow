@@ -262,6 +262,7 @@ export default function ProductDetail() {
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900">{book.name}</h3>
                     {book.author && <p className="text-xs text-gray-500">by {book.author}</p>}
+                    {book.sku && <p className="text-[10px] text-gray-400 font-mono mt-0.5">SKU: {book.sku}</p>}
                   </div>
                 </div>
                 <div className="text-right">

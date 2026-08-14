@@ -58,6 +58,7 @@ const EMPTY_FORM = {
   description: "",
   category_id: "",
   isbn: "",
+  sku: "",
   stock_status: "in_stock",
   status: "",
   is_active: true,
@@ -327,6 +328,7 @@ function ProductModal({ product, onClose, onSaved }) {
         short_description: product.short_description || "",
         category_id: product.category_id != null ? String(product.category_id) : (product.category != null ? String(product.category) : ""),
         isbn: product.isbn || "",
+        sku: product.sku || "",
         edition: product.edition || "",
         weight: product.weight || "",
         dimension: product.dimension || "",
@@ -366,6 +368,7 @@ function ProductModal({ product, onClose, onSaved }) {
         short_description: "",
         category_id: "",
         isbn: "",
+        sku: "",
         edition: "",
         weight: "500g",
         dimension: "25cm x 18cm x 2cm",
@@ -577,6 +580,7 @@ function ProductModal({ product, onClose, onSaved }) {
         name: productName,
         author: form.author || null,
         isbn: form.isbn?.trim() ? form.isbn.trim() : null,
+        sku: form.sku?.trim() ? form.sku.trim() : null,
         edition: form.edition?.trim() ? form.edition.trim() : null,
         mrp: form.mrp !== "" ? Number(form.mrp) : null,
         category_id: form.category_id !== "" ? Number(form.category_id) : null,
@@ -875,6 +879,20 @@ function ProductModal({ product, onClose, onSaved }) {
                   onChange={handleChange}
                   disabled={form.is_combo}
                   placeholder="Enter ISBN"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  SKU {form.is_combo && <span className="text-xs text-gray-400">(Not applicable)</span>}
+                </label>
+                <input
+                  type="text"
+                  name="sku"
+                  value={form.sku || ""}
+                  onChange={handleChange}
+                  disabled={form.is_combo}
+                  placeholder="Enter SKU"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                 />
               </div>
@@ -1495,6 +1513,7 @@ function ComboModal({ product, onClose, onSaved }) {
         name: form.name.trim(),
         author: "Cremson Bundle",
         isbn: null,
+        sku: null,
         edition: null,
         mrp: mrpVal,
         category_id: form.category_id !== "" ? Number(form.category_id) : null,
@@ -2029,6 +2048,7 @@ function ComboBreakdownModal({ comboProduct, onClose }) {
                           </span>
                         )}
                         {book.isbn && <span className="text-[10px] text-gray-400 font-mono">ISBN: {book.isbn}</span>}
+                        {book.sku && <span className="text-[10px] text-gray-400 font-mono">SKU: {book.sku}</span>}
                       </div>
                     </div>
                   </div>
@@ -2160,6 +2180,7 @@ function AdminProductsContent() {
         description: product.description || "",
         category_id: product.category_id != null ? Number(product.category_id) : (product.category != null ? Number(product.category) : null),
         isbn: product.isbn || "",
+        sku: product.sku || "",
         stock_status: product.stock_status || "in_stock",
         status: product.status || "",
         is_active: product.is_active ?? true,
@@ -2433,6 +2454,9 @@ function AdminProductsContent() {
                                    {product.isbn && (
                                      <p className="text-xs text-gray-400">ISBN: {product.isbn}</p>
                                    )}
+                                   {product.sku && (
+                                     <p className="text-xs text-gray-400">SKU: {product.sku}</p>
+                                   )}
                                  </div>
                                </div>
                              </td>
@@ -2504,6 +2528,7 @@ function AdminProductsContent() {
                                   <>
                                     {product.edition && <div>Edition: {product.edition}</div>}
                                     {product.weight && <div>Weight: {product.weight}</div>}
+                                    {product.sku && <div>SKU: {product.sku}</div>}
                                   </>
                                 )}
                               </div>
