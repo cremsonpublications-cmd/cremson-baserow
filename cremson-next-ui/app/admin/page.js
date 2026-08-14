@@ -101,7 +101,7 @@ export default function AdminDashboard() {
   const overdueList = reminders.filter((r) => r.is_overdue);
   const todayList = reminders.filter((r) => r.is_today);
 
-  const dashboardReminders = reminders.filter((r) => r.is_today || r.is_overdue);
+  const dashboardReminders = reminders;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
@@ -193,10 +193,14 @@ export default function AdminDashboard() {
               >
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-xs text-gray-800 leading-relaxed max-w-xl">{item.notes || item.title}</span>
+                    <span className="font-semibold text-xs text-gray-800 leading-relaxed max-w-xl">
+                      {item.teacher_name 
+                        ? `Follow-up: ${item.teacher_name}${item.school_name ? ` (${item.school_name})` : ""}`
+                        : (item.title || item.notes)}
+                    </span>
 
                     {item.is_overdue && (
-                      <span className="bg-red-500 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-0.5 animate-pulse">
+                      <span className="bg-red-500 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-0.5">
                         <AlertCircle className="w-3 h-3" />
                         Overdue by {item.overdue_days} {item.overdue_days === 1 ? "day" : "days"}
                       </span>
@@ -210,8 +214,12 @@ export default function AdminDashboard() {
                     )}
                   </div>
 
+                  {item.teacher_name && item.notes && (
+                    <p className="text-xs text-gray-500 font-medium">Notes: {item.notes}</p>
+                  )}
+
                   <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
-                    <span>Due: <strong>{item.due_date}</strong> {item.due_time ? `at ${item.due_time}` : ""}</span>
+                    <span>Due: <strong>{item.due_date}</strong></span>
                   </div>
                 </div>
 

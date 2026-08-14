@@ -271,12 +271,14 @@ export default function AdminRemindersPage() {
               <div className="space-y-2 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className={`text-sm font-semibold text-gray-800 leading-relaxed max-w-2xl ${item.status === "completed" ? "line-through text-gray-400 font-normal" : ""}`}>
-                    {item.notes || item.title}
+                    {item.teacher_name 
+                      ? `Follow-up: ${item.teacher_name}${item.school_name ? ` (${item.school_name})` : ""}`
+                      : (item.title || item.notes)}
                   </h3>
 
                   {/* Overdue Badge */}
                   {item.status === "pending" && item.is_overdue && (
-                    <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-xs animate-pulse">
+                    <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-xs">
                       <AlertCircle className="w-3 h-3" />
                       Overdue by {item.overdue_days} {item.overdue_days === 1 ? "day" : "days"}
                     </span>
@@ -299,10 +301,14 @@ export default function AdminRemindersPage() {
                   )}
                 </div>
 
+                {item.teacher_name && item.notes && (
+                  <p className="text-xs text-gray-500 font-medium">Notes: {item.notes}</p>
+                )}
+
                 {/* Sub details: Date only */}
                 <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
                   <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                  <span>Due: <strong>{item.due_date}</strong> {item.due_time ? `at ${item.due_time}` : ""}</span>
+                  <span>Due: <strong>{item.due_date}</strong></span>
                 </div>
               </div>
 

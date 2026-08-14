@@ -3,6 +3,8 @@ from typing import Optional
 from datetime import datetime, date
 import logging
 from db.blogs import get_db_connection
+from services.baserow import BaserowClient
+from config import TABLE_IDS
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -44,6 +46,60 @@ async def get_reminders(status: Optional[str] = Query(None)):
             item["is_overdue"] = overdue_days > 0
             reminders.append(item)
 
+        # Merge virtual teacher follow-up reminders if status is not completed
+        if not status or status == "pending":
+            try:
+                baserow_client = BaserowClient()
+                teacher_res = await baserow_client.get_rows(
+                    TABLE_IDS["teacher"], 
+                    size=200, 
+                    not_empty_filters=["NextFollow-upDate"],
+                    order_by="-Teacher ID"
+                )
+                teachers = teacher_res.get("results", [])
+                for t in teachers:
+                    follow_up_date_str = t.get("NextFollow-upDate")
+                    if follow_up_date_str:
+                        teacher_name = t.get("Teacher Name") or ""
+                        teacher_id = t.get("id")
+                        
+                        school_name_list = t.get("School Name", []) or t.get("SchoolID", [])
+                        s_name = ""
+                        if school_name_list and isinstance(school_name_list, list) and len(school_name_list) > 0:
+                            item = school_name_list[0]
+                            s_name = item.get("value", "") if isinstance(item, dict) else str(item)
+                        
+                        due_d = None
+                        overdue_days = 0
+                        try:
+                            due_d = datetime.strptime(follow_up_date_str, "%Y-%m-%d").date()
+                        except Exception:
+                            pass
+
+                        if due_d:
+                            delta = (today - due_d).days
+                            if delta > 0:
+                                overdue_days = delta
+
+                        virtual_reminder = {
+                            "id": f"teacher_{teacher_id}",
+                            "title": f"Follow-up with Teacher: {teacher_name}",
+                            "notes": t.get("Notes") or "",
+                            "due_date": follow_up_date_str,
+                            "due_time": "10:00 AM",
+                            "teacher_name": teacher_name,
+                            "school_name": s_name,
+                            "status": "pending",
+                            "completed_at": None,
+                            "created_at": follow_up_date_str,
+                            "overdue_days": overdue_days,
+                            "is_today": (due_d == today),
+                            "is_overdue": (overdue_days > 0),
+                        }
+                        reminders.append(virtual_reminder)
+            except Exception as exc:
+                logger.error(f"[Reminders API] Error fetching virtual teacher reminders: {exc}")
+
         return {"reminders": reminders, "count": len(reminders)}
     except Exception as exc:
         logger.error(f"[Reminders API] Error fetching reminders: {exc}")
@@ -81,7 +137,39 @@ async def create_reminder(payload: dict = Body(...)):
 
 
 @router.patch("/{reminder_id}/complete", summary="Mark reminder completed")
-async def complete_reminder(reminder_id: int):
+async def complete_reminder(reminder_id: str):
+    if reminder_id.startswith("teacher_"):
+        try:
+            teacher_id = int(reminder_id.split("_")[1])
+            baserow_client = BaserowClient()
+            old_teacher = {}
+            try:
+                old_teacher = await baserow_client.get_row(TABLE_IDS["teacher"], teacher_id)
+            except Exception:
+                pass
+
+            updated_teacher = await baserow_client.update_row(TABLE_IDS["teacher"], teacher_id, {"NextFollow-upDate": None})
+            
+            # Log edit history
+            if old_teacher:
+                try:
+                    from db.blogs import log_teacher_edit
+                    log_teacher_edit(
+                        teacher_row_id=teacher_id,
+                        teacher_name=old_teacher.get("Teacher Name") or updated_teacher.get("Teacher Name", ""),
+                        old_dict=old_teacher,
+                        new_dict=updated_teacher,
+                        changed_keys=["NextFollow-upDate"],
+                        changed_by="Admin"
+                    )
+                except Exception as exc:
+                    logger.warning(f"[Teacher Audit Log] Error logging edit: {exc}")
+
+            return {"success": True, "id": reminder_id, "message": "Teacher follow-up marked as completed"}
+        except Exception as exc:
+            logger.error(f"[Reminders API] Error completing teacher reminder {reminder_id}: {exc}")
+            raise HTTPException(status_code=500, detail=str(exc))
+
     completed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         conn = get_db_connection()
@@ -90,7 +178,7 @@ async def complete_reminder(reminder_id: int):
             UPDATE reminders 
             SET status = 'completed', completed_at = ? 
             WHERE id = ?
-        """, (completed_at, reminder_id))
+        """, (completed_at, int(reminder_id)))
         conn.commit()
         conn.close()
         return {"success": True, "id": reminder_id, "message": "Reminder marked as completed"}
@@ -100,11 +188,43 @@ async def complete_reminder(reminder_id: int):
 
 
 @router.delete("/{reminder_id}", summary="Delete reminder")
-async def delete_reminder(reminder_id: int):
+async def delete_reminder(reminder_id: str):
+    if reminder_id.startswith("teacher_"):
+        try:
+            teacher_id = int(reminder_id.split("_")[1])
+            baserow_client = BaserowClient()
+            old_teacher = {}
+            try:
+                old_teacher = await baserow_client.get_row(TABLE_IDS["teacher"], teacher_id)
+            except Exception:
+                pass
+
+            updated_teacher = await baserow_client.update_row(TABLE_IDS["teacher"], teacher_id, {"NextFollow-upDate": None})
+            
+            # Log edit history
+            if old_teacher:
+                try:
+                    from db.blogs import log_teacher_edit
+                    log_teacher_edit(
+                        teacher_row_id=teacher_id,
+                        teacher_name=old_teacher.get("Teacher Name") or updated_teacher.get("Teacher Name", ""),
+                        old_dict=old_teacher,
+                        new_dict=updated_teacher,
+                        changed_keys=["NextFollow-upDate"],
+                        changed_by="Admin"
+                    )
+                except Exception as exc:
+                    logger.warning(f"[Teacher Audit Log] Error logging edit: {exc}")
+
+            return {"success": True, "id": reminder_id, "message": "Teacher reminder deleted"}
+        except Exception as exc:
+            logger.error(f"[Reminders API] Error deleting teacher reminder {reminder_id}: {exc}")
+            raise HTTPException(status_code=500, detail=str(exc))
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM reminders WHERE id = ?", (reminder_id,))
+        cursor.execute("DELETE FROM reminders WHERE id = ?", (int(reminder_id),))
         conn.commit()
         conn.close()
         return {"success": True, "id": reminder_id, "message": "Reminder deleted"}

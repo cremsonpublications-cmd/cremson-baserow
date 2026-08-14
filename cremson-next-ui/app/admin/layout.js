@@ -223,7 +223,6 @@ export default function AdminLayout({ children }) {
             {/* Core Links */}
             {coreLinks.map(({ href, label, Icon, badgeKey }) => {
               const active = isActive(href);
-              const badgeCount = badgeKey ? badgeCounts[badgeKey] || 0 : 0;
 
               return (
                 <li key={href}>
@@ -240,11 +239,6 @@ export default function AdminLayout({ children }) {
                       <Icon size={20} aria-hidden="true" />
                       <span>{label}</span>
                     </div>
-                    {badgeCount > 0 && (
-                      <span className="bg-red-500 text-white font-bold text-xs px-2 py-0.5 rounded-full shadow-xs">
-                        {badgeCount}
-                      </span>
-                    )}
                   </Link>
                 </li>
               );

@@ -102,6 +102,7 @@ class BaserowClient:
         filters: Optional[dict[str, Any]] = None,
         contains_filters: Optional[dict[str, Any]] = None,
         order_by: Optional[str] = None,
+        not_empty_filters: Optional[list[str]] = None,
     ) -> dict:
         """
         Fetch paginated rows from a Baserow table.
@@ -146,6 +147,10 @@ class BaserowClient:
         if contains_filters:
             for field_name, value in contains_filters.items():
                 url += f"&filter__{quote(str(field_name))}__contains={quote(str(value))}"
+
+        if not_empty_filters:
+            for field_name in not_empty_filters:
+                url += f"&filter__{quote(str(field_name))}__not_empty="
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(url, headers=self.headers)
