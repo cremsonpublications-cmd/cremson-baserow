@@ -818,6 +818,17 @@ export default function AdminOrders() {
   const [selected, setSelected] = useState(null);
   const [returnModalOrder, setReturnModalOrder] = useState(null);
   const [refundModalOrder, setRefundModalOrder] = useState(null);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (statusDropdownOpen && !event.target.closest("#status-dropdown-container")) {
+        setStatusDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [statusDropdownOpen]);
 
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
   const [loadingPickupId, setLoadingPickupId] = useState(null);
@@ -1214,18 +1225,40 @@ export default function AdminOrders() {
                         />
                       </div>
                       
-                      {/* Status Filter Dropdown */}
-                      <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="pl-3 pr-8 py-2 text-xs md:text-sm font-semibold border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
-                      >
-                        {ORDER_STATUSES.map((st) => (
-                          <option key={st.value} value={st.value}>
-                            {st.label}
-                          </option>
-                        ))}
-                      </select>
+                      {/* Custom Status Filter Dropdown */}
+                      <div className="relative" id="status-dropdown-container">
+                        <button
+                          type="button"
+                          onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+                          className="flex items-center justify-between gap-2 px-3 py-2 text-xs md:text-sm font-semibold border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none cursor-pointer min-w-[140px]"
+                        >
+                          <span>
+                            {ORDER_STATUSES.find(s => s.value === statusFilter)?.label || "All Statuses"}
+                          </span>
+                          <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${statusDropdownOpen ? "rotate-180" : ""}`} />
+                        </button>
+
+                        {statusDropdownOpen && (
+                          <div className="absolute left-0 mt-1.5 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                            {ORDER_STATUSES.map((st) => (
+                              <button
+                                key={st.value}
+                                type="button"
+                                onClick={() => {
+                                  setStatusFilter(st.value);
+                                  setStatusDropdownOpen(false);
+                                }}
+                                className={`w-full text-left px-3 py-2 text-xs md:text-sm hover:bg-gray-100 transition-colors cursor-pointer flex items-center justify-between ${statusFilter === st.value ? "bg-purple-50 font-bold text-purple-700" : "text-gray-700"}`}
+                              >
+                                {st.label}
+                                {statusFilter === st.value && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       {(startDate || endDate || search || statusFilter) && (
                         <button
                           onClick={() => { setStartDate(""); setEndDate(""); setSearch(""); setStatusFilter(""); }}
