@@ -50,12 +50,13 @@ function SignupFormContent() {
 
   const initialRole = searchParams.get("role") === "teacher" ? "teacher" : "student";
   const [roleTab, setRoleTab] = useState(initialRole);
+  const redirectTo = searchParams.get("redirect") || "/";
 
   useEffect(() => {
     if (user) {
-      router.replace("/");
+      router.replace(redirectTo);
     }
-  }, [user, router]);
+  }, [user, router, redirectTo]);
 
   // Sync query param tab if changed
   useEffect(() => {

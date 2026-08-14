@@ -2,10 +2,15 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Package, Plus, Trash2, CheckCircle2, ArrowRight, BookOpen, Building2, MapPin, User, Phone, Search, ChevronDown, Check, Loader2 } from "lucide-react";
+import { Package, Plus, Trash2, CheckCircle2, ArrowRight, BookOpen, Building2, MapPin, User, Phone, Search, ChevronDown, Check, Loader2, LogIn } from "lucide-react";
 import api from "@/lib/api/axios";
+import { useApp } from "@/context/AppContext";
+import Link from "next/link";
+
+const DRAFT_KEY = "bulk_order_draft";
 
 export default function PublicBulkOrderPage() {
+  const { user } = useApp();
   const [items, setItems] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedQty, setSelectedQty] = useState(10);
@@ -26,6 +31,33 @@ export default function PublicBulkOrderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submittedData, setSubmittedData] = useState(null);
   const [error, setError] = useState("");
+
+  // Restore draft from sessionStorage after login redirect
+  useEffect(() => {
+    if (user) {
+      try {
+        const draft = sessionStorage.getItem(DRAFT_KEY);
+        if (draft) {
+          const { form: savedForm, items: savedItems } = JSON.parse(draft);
+          if (savedForm) setForm(savedForm);
+          if (savedItems && savedItems.length > 0) setItems(savedItems);
+          sessionStorage.removeItem(DRAFT_KEY);
+        }
+      } catch (_) {}
+    }
+  }, [user]);
+
+  // Pre-fill form from user profile if logged in and form is empty
+  useEffect(() => {
+    if (user && !form.contact_name) {
+      setForm((prev) => ({
+        ...prev,
+        contact_name: user.name || prev.contact_name,
+        phone: user.phone || prev.phone,
+        school_name: user.school_name || prev.school_name,
+      }));
+    }
+  }, [user]);
 
   const { data: productsData, isLoading: loadingProducts } = useQuery({
     queryKey: ["public-products-bulk"],
@@ -101,6 +133,16 @@ export default function PublicBulkOrderPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    // --- Login Guard ---
+    if (!user) {
+      // Save current draft so data is not lost after login
+      try {
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ form, items }));
+      } catch (_) {}
+      window.location.href = `/auth/signin?redirect=/bulk-order`;
+      return;
+    }
 
     if (items.length === 0) {
       setError("Please select at least one book for your bulk order.");
@@ -186,8 +228,13 @@ export default function PublicBulkOrderPage() {
             Place a Bulk Order Request
           </h1>
           <p className="text-slate-600 text-sm sm:text-base max-w-xl mx-auto">
-            Order books directly for your school or class. No login required. Search books, submit details, and receive custom discounted pricing!
+            Order books directly for your school or class. Search books, submit your details, and receive custom discounted pricing!
           </p>
+          {!user && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl inline-block px-4 py-2 font-medium">
+              🔒 A free account is required to place a bulk order.
+            </p>
+          )}
         </div>
 
         {error && (
@@ -521,6 +568,41 @@ export default function PublicBulkOrderPage() {
             </div>
           </div>
 
+          {/* Login Prompt Banner (shown only when not logged in) */}
+          {!user && (
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 flex flex-col sm:flex-row items-center gap-4">
+              <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <LogIn className="w-6 h-6 text-amber-600" />
+              </div>
+              <div className="text-center sm:text-left">
+                <p className="font-bold text-amber-900 text-sm">Sign in to place your bulk order</p>
+                <p className="text-amber-700 text-xs mt-0.5 leading-relaxed">
+                  A free account is required. Your selected books and details will be <strong>saved automatically</strong> — just sign in or sign up and you&apos;ll be brought right back here!
+                </p>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <Link
+                  href={`/auth/signin?redirect=/bulk-order`}
+                  onClick={() => {
+                    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ form, items })); } catch (_) {}
+                  }}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href={`/auth/signup?redirect=/bulk-order`}
+                  onClick={() => {
+                    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ form, items })); } catch (_) {}
+                  }}
+                  className="px-4 py-2 bg-white hover:bg-amber-50 text-amber-700 text-xs font-bold rounded-xl border border-amber-300 transition-colors shadow-sm"
+                >
+                  Sign Up Free
+                </Link>
+              </div>
+            </div>
+          )}
+
           {/* Submit Button */}
           <button
             type="submit"
@@ -530,6 +612,10 @@ export default function PublicBulkOrderPage() {
             {submitting ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" /> Submitting Request...
+              </>
+            ) : !user ? (
+              <>
+                <LogIn className="w-5 h-5" /> Sign Up to Continue
               </>
             ) : (
               <>
