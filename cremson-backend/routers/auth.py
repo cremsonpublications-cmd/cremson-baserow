@@ -122,6 +122,7 @@ def make_token(user: dict) -> str:
             "name": user["name"],
             "role": user.get("role", "customer"),
             "is_approved": int(user.get("is_approved") or (0 if user.get("role") == "teacher" else 1)),
+            "permissions": user.get("permissions", []),
             "exp": expire,
         },
         JWT_SECRET,
@@ -144,6 +145,23 @@ async def current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)):
     if not user or not int(user.get("is_active") or 0):
         raise HTTPException(status_code=401, detail="User account not found or deactivated. Please sign in again.")
     return user
+
+
+def require_permissions(required_permissions: list):
+    async def dependency(user = Depends(current_user)):
+        user_role = user.get("role", "customer")
+        # superadmin or admin gets full access automatically
+        if user_role in ("superadmin", "admin"):
+            return user
+        
+        user_perms = user.get("permissions", [])
+        if not all(p in user_perms for p in required_permissions):
+            raise HTTPException(
+                status_code=403,
+                detail="Access Denied: You do not have the required permissions to perform this action."
+            )
+        return user
+    return dependency
 
 
 def validate_password_strength(password: str):
@@ -435,6 +453,7 @@ async def verify_email(body: VerifyRequest):
             "phone": user.get("phone", ""),
             "role": user.get("role", "customer"),
             "is_approved": int(user.get("is_approved") or (0 if user.get("role") == "teacher" else 1)),
+            "permissions": user.get("permissions", []),
         },
     }
 
@@ -551,6 +570,7 @@ async def login(body: LoginRequest):
             "residence": t_details.get("residence") or user.get("residence", ""),
             "city": t_details.get("city") or user.get("city", ""),
             "pincode": t_details.get("pincode") or user.get("pincode", ""),
+            "permissions": user.get("permissions", []),
         },
     }
 
@@ -577,6 +597,7 @@ async def me(user: dict = Depends(current_user)):
         "residence": t_details.get("residence") or user.get("residence", ""),
         "city": t_details.get("city") or user.get("city", ""),
         "pincode": t_details.get("pincode") or user.get("pincode", ""),
+        "permissions": user.get("permissions", []),
     }
 
 

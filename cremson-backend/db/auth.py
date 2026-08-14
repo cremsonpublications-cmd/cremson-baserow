@@ -49,6 +49,12 @@ def _row(r: dict) -> dict:
     desig_matches = re.findall(r"designation:\s*([^\n;|]+)", notes)
     if desig_matches:
         res["designation"] = desig_matches[-1].strip()
+    # Extract permissions
+    perm_matches = re.findall(r"permissions:\s*([^;|]+)", notes)
+    if perm_matches:
+        res["permissions"] = [p.strip() for p in perm_matches[-1].split(",") if p.strip()]
+    else:
+        res["permissions"] = []
     return res
 
 
@@ -73,12 +79,24 @@ def init_db():
 
 # ── User helpers ──────────────────────────────────────────────────────────────
 
-async def create_user(email: str, name: str, password_hash: str, phone: str = "", role: str = "customer", is_approved: int = 1, is_verified: int = 0, designation: Optional[str] = None) -> dict:
+async def create_user(
+    email: str, 
+    name: str, 
+    password_hash: str, 
+    phone: str = "", 
+    role: str = "customer", 
+    is_approved: int = 1, 
+    is_verified: int = 0, 
+    designation: Optional[str] = None,
+    permissions: Optional[list] = None
+) -> dict:
     # Encode metadata into the Notes field — Baserow auth_users table stores
     # role, is_approved and designation here (no separate columns for them).
     notes_parts = [f"role: {role}", f"is_approved: {is_approved}"]
     if designation:
         notes_parts.append(f"designation: {designation}")
+    if permissions:
+        notes_parts.append(f"permissions: {','.join(permissions)}")
     payload = {
         "email": email.lower().strip(),
         "name": name.strip(),
@@ -90,6 +108,32 @@ async def create_user(email: str, name: str, password_hash: str, phone: str = ""
         "created_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
     }
     row = await _client.create_row(T_USERS, payload)
+    return _row(row)
+
+
+async def update_user_profile_admin(
+    user_id: int,
+    name: str,
+    email: str,
+    phone: str,
+    role: str,
+    is_approved: int,
+    designation: Optional[str],
+    permissions: list
+) -> dict:
+    notes_parts = [f"role: {role}", f"is_approved: {is_approved}"]
+    if designation:
+        notes_parts.append(f"designation: {designation}")
+    if permissions:
+        notes_parts.append(f"permissions: {','.join(permissions)}")
+    
+    payload = {
+        "name": name.strip(),
+        "email": email.lower().strip(),
+        "phone": normalize_phone(phone),
+        "Notes": "; ".join(notes_parts)
+    }
+    row = await _client.update_row(T_USERS, user_id, payload)
     return _row(row)
 
 
