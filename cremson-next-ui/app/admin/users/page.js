@@ -78,7 +78,7 @@ export default function AdminUsers() {
 
   // Admin-only guard: redirect staff users who land here directly via URL
   useEffect(() => {
-    const token = localStorage.getItem("admin_token");
+    const token = typeof window !== "undefined" && localStorage.getItem("cremson_admin_token");
     if (!token) { router.replace("/admin/login"); return; }
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
