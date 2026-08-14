@@ -21,6 +21,11 @@ export default function AdminDashboard() {
   const [reminders, setReminders] = useState([]);
   const [remindersLoading, setRemindersLoading] = useState(true);
 
+  // Filters state
+  const [dashboardFilter, setDashboardFilter] = useState("today");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
   // Fetch stat counts
   useEffect(() => {
     const endpoints = {
@@ -98,10 +103,27 @@ export default function AdminDashboard() {
     },
   ];
 
-  const overdueList = reminders.filter((r) => r.is_overdue);
-  const todayList = reminders.filter((r) => r.is_today);
+  // Filtering reminders by date range first
+  const dateFilteredReminders = reminders.filter((r) => {
+    if (!r.due_date) return true;
+    if (startDate && r.due_date < startDate) return false;
+    if (endDate && r.due_date > endDate) return false;
+    return true;
+  });
 
-  const dashboardReminders = reminders;
+  // Filtering reminders for tabs
+  const todayRemindersCount = dateFilteredReminders.filter((r) => r.is_today).length;
+  const overdueRemindersCount = dateFilteredReminders.filter((r) => r.is_overdue).length;
+  const upcomingRemindersCount = dateFilteredReminders.filter((r) => !r.is_today && !r.is_overdue).length;
+
+  const filteredReminders = dateFilteredReminders.filter((r) => {
+    // Tab Filter
+    if (dashboardFilter === "today" && !r.is_today) return false;
+    if (dashboardFilter === "overdue" && !r.is_overdue) return false;
+    if (dashboardFilter === "upcoming" && (r.is_today || r.is_overdue)) return false;
+
+    return true; // "all"
+  });
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
@@ -113,7 +135,7 @@ export default function AdminDashboard() {
           className="flex items-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold px-4 py-2 rounded-xl border border-purple-200 transition-colors"
         >
           <Bell className="w-4 h-4 text-purple-600" />
-          Manage Reminders ({dashboardReminders.length})
+          Manage Reminders ({reminders.length})
         </Link>
       </div>
 
@@ -147,7 +169,7 @@ export default function AdminDashboard() {
 
       {/* ── Reminders & Follow-ups Dashboard Section ── */}
       <div className="bg-white rounded-3xl border border-gray-200/80 p-6 shadow-sm space-y-6">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-gray-100 pb-4 gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-600">
               <Bell className="w-5 h-5" />
@@ -160,10 +182,68 @@ export default function AdminDashboard() {
 
           <Link
             href="/admin/reminders"
-            className="text-xs font-semibold text-purple-600 hover:text-purple-800 flex items-center gap-1"
+            className="text-xs font-semibold text-purple-600 hover:text-purple-800 flex items-center gap-1 self-start md:self-center"
           >
-            View All ({dashboardReminders.length}) <ArrowRight className="w-3.5 h-3.5" />
+            View All ({reminders.length}) <ArrowRight className="w-3.5 h-3.5" />
           </Link>
+        </div>
+
+        {/* Dashboard Filter Tabs & Date Range Picker */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-gray-100 pb-3">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+            {[
+              { id: "today", label: `Due Today (${todayRemindersCount})` },
+              { id: "all", label: `All (${dateFilteredReminders.length})` },
+              { id: "upcoming", label: `Upcoming (${upcomingRemindersCount})` },
+              { id: "overdue", label: `Overdue (${overdueRemindersCount})` },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setDashboardFilter(tab.id)}
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  dashboardFilter === tab.id
+                    ? "bg-purple-600 text-white shadow-xs"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-500 font-semibold">From:</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                onClick={(e) => e.target.showPicker()}
+                className="px-2.5 py-1.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-gray-50/50 text-gray-700 cursor-pointer"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-500 font-semibold">To:</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                onClick={(e) => e.target.showPicker()}
+                className="px-2.5 py-1.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-gray-50/50 text-gray-700 cursor-pointer"
+              />
+            </div>
+            {(startDate || endDate) && (
+              <button
+                onClick={() => {
+                  setStartDate("");
+                  setEndDate("");
+                }}
+                className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold rounded-xl transition-all cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Reminders Content */}
@@ -172,15 +252,15 @@ export default function AdminDashboard() {
             <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
             Loading follow-up reminders...
           </div>
-        ) : dashboardReminders.length === 0 ? (
+        ) : filteredReminders.length === 0 ? (
           <div className="p-8 text-center bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
             <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
             <p className="text-sm font-semibold text-gray-700">All caught up!</p>
-            <p className="text-xs text-gray-400 mt-1">No pending follow-ups or overdue reminders.</p>
+            <p className="text-xs text-gray-400 mt-1">No pending follow-ups or overdue reminders matching this filter.</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {dashboardReminders.slice(0, 5).map((item) => (
+            {filteredReminders.slice(0, 10).map((item) => (
               <div
                 key={item.id}
                 className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
