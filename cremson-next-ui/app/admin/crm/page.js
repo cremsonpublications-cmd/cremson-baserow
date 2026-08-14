@@ -1477,7 +1477,7 @@ export default function AdminCRMHub() {
             {/* Card Header */}
             <div className="p-6 border-b border-gray-200">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <h2 className="text-xl font-semibold text-gray-900">All {currentTabObj.label}</h2>
+                <h2 className="text-xl font-semibold text-gray-900 whitespace-nowrap">All {currentTabObj.label}</h2>
 
                 <div className="flex items-center gap-3 flex-wrap justify-end">
                   {/* Dynamic Dropdown Filters */}
