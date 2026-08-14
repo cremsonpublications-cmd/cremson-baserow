@@ -255,11 +255,25 @@ async def get_teacher_signup_limit() -> int:
 async def teacher_signup_stats():
     verified_count = await count_verified_teachers()
     limit = await get_teacher_signup_limit()
+    
+    # Get the row ID of the limit setting to allow direct frontend patching
+    b_client = BaserowClient()
+    limit_row_id = None
+    try:
+        res = await b_client.get_rows(TABLE_IDS["shipping_settings"], search="teacher_signup_limit", size=10)
+        for r in res.get("results", []):
+            if r.get("Name") == "teacher_signup_limit":
+                limit_row_id = r.get("id")
+    except Exception as e:
+        print("Warning: Failed to fetch limit row ID:", e)
+
     return {
         "verified_count": verified_count,
         "limit": limit,
-        "remaining_slots": max(0, limit - verified_count)
+        "remaining_slots": max(0, limit - verified_count),
+        "limit_row_id": limit_row_id
     }
+
 
 
 @router.post("/teacher-register", status_code=201)
