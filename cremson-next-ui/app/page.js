@@ -65,7 +65,7 @@ export default function Home() {
   return (
     <div className="w-full">
       {/* CAROUSEL BANNER SECTION */}
-      <section className="relative overflow-hidden h-[250px] sm:h-[450px] md:h-[520px] bg-[#EAEAEA] select-none" id="home">
+      <section className="relative overflow-hidden aspect-[2.96/1] sm:aspect-auto h-auto sm:h-[450px] md:h-[520px] bg-[#EAEAEA] select-none" id="home">
         {/* Slides list */}
         <div
           className="h-full flex transition-transform duration-700 ease-in-out"
@@ -77,7 +77,7 @@ export default function Home() {
                 <img
                   src={slide.image}
                   alt={slide.title}
-                  className="w-full h-full object-cover sm:object-contain transition-opacity duration-300 ease-in-out"
+                  className="w-full h-full object-contain transition-opacity duration-300 ease-in-out"
                   style={{ willChange: "opacity" }}
                 />
               </div>
