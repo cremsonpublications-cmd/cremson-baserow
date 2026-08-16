@@ -122,7 +122,7 @@ export default function Home() {
                   return (
                     <div key={book.id} className="w-full">
                       <Link className="flex flex-col items-start aspect-auto group min-h-[367px] sm:min-h-0 text-left" href={`/shop/product/${book.id}`}>
-                        <div className="bg-[#F0EEED] rounded-[13px] lg:rounded-[20px] w-full lg:max-w-[295px] aspect-square mb-2.5 xl:mb-4 overflow-hidden relative p-3">
+                        <div className="bg-[#F0EEED] rounded-[13px] lg:rounded-[20px] w-full lg:max-w-[295px] aspect-[3/4] mb-2.5 xl:mb-4 overflow-hidden relative p-3">
                           <img
                             src={book.image || null}
                             className="w-full h-full object-contain hover:scale-105 transition-transform duration-300 ease-in-out"
