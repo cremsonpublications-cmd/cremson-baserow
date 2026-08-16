@@ -57,6 +57,7 @@ export default function MobileMenuDrawer() {
   // Study Materials Tree
   const rootStudy = studyMaterials.filter((item) => !item.parent_id);
   const rootTeaching = teachingResources.filter((item) => !item.parent_id);
+  const isTeacher = user && (user.role === "teacher" || user.is_admin || user.role === "admin" || user.role === "superadmin");
 
   return (
     <div
@@ -215,73 +216,75 @@ export default function MobileMenuDrawer() {
           </div>
 
           {/* Teaching Resources Accordion */}
-          <div className="py-3 space-y-1">
-            <button
-              onClick={() => setIsTeachingOpen(!isTeachingOpen)}
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-all text-left"
-            >
-              <div className="flex items-center gap-3">
-                <GraduationCap className="w-4 h-4 text-red-500" />
-                <span>Teaching Resources</span>
-              </div>
-              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isTeachingOpen ? "rotate-180" : ""}`} />
-            </button>
+          {isTeacher && (
+            <div className="py-3 space-y-1">
+              <button
+                onClick={() => setIsTeachingOpen(!isTeachingOpen)}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-all text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <GraduationCap className="w-4 h-4 text-red-500" />
+                  <span>Teaching Resources</span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isTeachingOpen ? "rotate-180" : ""}`} />
+              </button>
 
-            {isTeachingOpen && (
-              <div className="pl-6 pt-1 pb-2 space-y-1 text-xs">
-                {rootTeaching.map((root) => {
-                  const children = teachingResources.filter((i) => i.parent_id === root.id);
-                  const isExpanded = openTRL1 === root.id;
-                  return (
-                    <div key={root.id} className="space-y-1">
-                      <div
-                        onClick={() => {
-                          if (children.length > 0) {
-                            setOpenTRL1(isExpanded ? null : root.id);
-                          } else if (root.url) {
-                            handleLinkClick(root.url);
-                          }
-                        }}
-                        className="flex items-center justify-between py-2 px-2 rounded-lg font-bold text-gray-700 hover:text-red-600 hover:bg-red-50/50 cursor-pointer"
-                      >
-                        <span className="uppercase text-xs tracking-wide">{root.label}</span>
-                        {children.length > 0 && (
-                          <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+              {isTeachingOpen && (
+                <div className="pl-6 pt-1 pb-2 space-y-1 text-xs">
+                  {rootTeaching.map((root) => {
+                    const children = teachingResources.filter((i) => i.parent_id === root.id);
+                    const isExpanded = openTRL1 === root.id;
+                    return (
+                      <div key={root.id} className="space-y-1">
+                        <div
+                          onClick={() => {
+                            if (children.length > 0) {
+                              setOpenTRL1(isExpanded ? null : root.id);
+                            } else if (root.url) {
+                              handleLinkClick(root.url);
+                            }
+                          }}
+                          className="flex items-center justify-between py-2 px-2 rounded-lg font-bold text-gray-700 hover:text-red-600 hover:bg-red-50/50 cursor-pointer"
+                        >
+                          <span className="uppercase text-xs tracking-wide">{root.label}</span>
+                          {children.length > 0 && (
+                            <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                          )}
+                        </div>
+
+                        {isExpanded && children.length > 0 && (
+                          <div className="pl-3 border-l-2 border-red-200 space-y-1 my-1">
+                            {children.map((child) => {
+                              const subChildren = teachingResources.filter((i) => i.parent_id === child.id);
+                              return (
+                                <div key={child.id}>
+                                  <div
+                                    onClick={() => child.url && handleLinkClick(child.url)}
+                                    className="py-1.5 px-2 text-gray-600 font-semibold hover:text-red-600 cursor-pointer"
+                                  >
+                                    {child.label}
+                                  </div>
+                                  {subChildren.map((sub) => (
+                                    <div
+                                      key={sub.id}
+                                      onClick={() => sub.url && handleLinkClick(sub.url)}
+                                      className="pl-3 py-1 text-gray-500 hover:text-red-500 cursor-pointer text-xs"
+                                    >
+                                      • {sub.label}
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })}
+                          </div>
                         )}
                       </div>
-
-                      {isExpanded && children.length > 0 && (
-                        <div className="pl-3 border-l-2 border-red-200 space-y-1 my-1">
-                          {children.map((child) => {
-                            const subChildren = teachingResources.filter((i) => i.parent_id === child.id);
-                            return (
-                              <div key={child.id}>
-                                <div
-                                  onClick={() => child.url && handleLinkClick(child.url)}
-                                  className="py-1.5 px-2 text-gray-600 font-semibold hover:text-red-600 cursor-pointer"
-                                >
-                                  {child.label}
-                                </div>
-                                {subChildren.map((sub) => (
-                                  <div
-                                    key={sub.id}
-                                    onClick={() => sub.url && handleLinkClick(sub.url)}
-                                    className="pl-3 py-1 text-gray-500 hover:text-red-500 cursor-pointer text-xs"
-                                  >
-                                    • {sub.label}
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* User Account / Footer (Pinned to absolute bottom) */}
