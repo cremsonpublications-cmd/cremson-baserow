@@ -282,6 +282,21 @@ function BulkOrderCard({ order, onRefresh }) {
   );
 }
 
+// Helper to safely extract and format lookup and array values from Baserow response
+const getDisplayValue = (val) => {
+  if (Array.isArray(val)) {
+    if (val.length === 0) return "";
+    return val
+      .map((item) => (item && typeof item === "object" ? item.value || item.id || "" : String(item)))
+      .filter(Boolean)
+      .join(", ");
+  }
+  if (val && typeof val === "object") {
+    return val.value || val.id || "";
+  }
+  return val ? String(val) : "";
+};
+
 // ─── Specimen Order Status Badge ───────────────────────────────────────────────
 function SpecimenStatusBadge({ status }) {
   const s = String(status || "").toLowerCase().trim();
@@ -304,6 +319,12 @@ function SpecimenRequestCard({ request }) {
     ? request.DeliveryStatus.value
     : request.DeliveryStatus || "Not dispatched";
 
+  const specimenId = getDisplayValue(request.SpecimenID) || getDisplayValue(request.id);
+  const booksRequested = getDisplayValue(request.BooksRequested);
+  const requestDate = getDisplayValue(request.RequestDate);
+  const pincode = getDisplayValue(request.PinCode);
+  const address = getDisplayValue(request.Full_Address);
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
       {/* Header */}
@@ -311,7 +332,7 @@ function SpecimenRequestCard({ request }) {
         <div className="flex items-center gap-2">
           <BookOpen className="w-4 h-4 text-red-500" />
           <span className="text-sm font-bold text-gray-900">Specimen Copy Request</span>
-          <span className="text-xs text-gray-400">#{request.SpecimenID || request.id}</span>
+          <span className="text-xs text-gray-400">#{specimenId}</span>
         </div>
         <SpecimenStatusBadge status={status} />
       </div>
@@ -320,24 +341,24 @@ function SpecimenRequestCard({ request }) {
       <div className="p-4 space-y-2 text-left">
         <div>
           <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">Books Requested</span>
-          <p className="text-xs font-bold text-gray-800 leading-relaxed mt-0.5">{request.BooksRequested || "No books listed"}</p>
+          <p className="text-xs font-bold text-gray-800 leading-relaxed mt-0.5">{booksRequested || "No books listed"}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4 pt-1">
           <div>
             <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">Request Date</span>
-            <p className="text-xs text-gray-600 font-medium mt-0.5">{request.RequestDate || "N/A"}</p>
+            <p className="text-xs text-gray-600 font-medium mt-0.5">{requestDate || "N/A"}</p>
           </div>
           <div>
             <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">Pincode</span>
-            <p className="text-xs text-gray-600 font-medium mt-0.5">{request.PinCode || "N/A"}</p>
+            <p className="text-xs text-gray-600 font-medium mt-0.5">{pincode || "N/A"}</p>
           </div>
         </div>
 
-        {request.Full_Address && (
+        {address && (
           <div className="pt-1 border-t border-gray-100 mt-2">
             <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">Shipping Address</span>
-            <p className="text-xs text-gray-600 leading-relaxed mt-0.5">{request.Full_Address}</p>
+            <p className="text-xs text-gray-600 leading-relaxed mt-0.5">{address}</p>
           </div>
         )}
       </div>
