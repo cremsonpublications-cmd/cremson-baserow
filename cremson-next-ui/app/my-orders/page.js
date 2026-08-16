@@ -371,13 +371,11 @@ export default function MyOrdersPage() {
   const { user } = useApp();
   const [orders, setOrders] = useState([]);
   const [bulkOrders, setBulkOrders] = useState([]);
-  const [specimenRequests, setSpecimenRequests] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [isLoading, setIsLoading] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [specimenLoading, setSpecimenLoading] = useState(false);
 
   useRazorpayScript();
 
@@ -400,19 +398,11 @@ export default function MyOrdersPage() {
       .finally(() => setBulkLoading(false));
   };
 
-  const loadSpecimenRequests = () => {
-    if (!user?.email) return;
-    setSpecimenLoading(true);
-    api.get(`/api/auth/teacher-history?email=${encodeURIComponent(user.email)}&phone=${encodeURIComponent(user.phone || "")}`)
-      .then((res) => setSpecimenRequests(res.data?.specimen_requests || []))
-      .catch((e) => console.error("Error loading specimen requests", e))
-      .finally(() => setSpecimenLoading(false));
-  };
+  const loadSpecimenRequests = () => {}; // removed — specimen requests no longer shown on orders page
 
   useEffect(() => {
     loadOrders();
     loadBulkOrders();
-    loadSpecimenRequests();
   }, [user?.email, user?.phone]);
 
   const filteredOrders = useMemo(() => {
@@ -433,33 +423,10 @@ export default function MyOrdersPage() {
     });
   }, [orders, activeTab, searchQuery]);
 
-  const filteredSpecimenRequests = useMemo(() => {
-    return specimenRequests.filter((req) => {
-      const statusRaw = typeof req.DeliveryStatus === "object" && req.DeliveryStatus
-        ? req.DeliveryStatus.value
-        : req.DeliveryStatus || "Not dispatched";
-      const s = String(statusRaw || "").toLowerCase().trim();
-
-      if (activeTab !== "all") {
-        if (activeTab === "placed" && s !== "not dispatched" && s !== "pending" && s !== "approved") return false;
-        if (activeTab === "shipped" && s !== "dispatched" && s !== "shipped") return false;
-        if (activeTab === "delivered" && s !== "delivered") return false;
-      }
-
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchesId = String(getDisplayValue(req.SpecimenID) || req.id).toLowerCase().includes(query);
-        const matchesBooks = String(getDisplayValue(req.BooksRequested)).toLowerCase().includes(query);
-        return matchesId || matchesBooks;
-      }
-      return true;
-    });
-  }, [specimenRequests, activeTab, searchQuery]);
-
   const orderItemsList = useMemo(() => {
     const items = [];
 
-    // Process regular orders
+    // Process regular orders only
     const sortedOrders = [...filteredOrders].sort((a, b) => {
       const dateA = a.rawDate ? new Date(a.rawDate).getTime() : 0;
       const dateB = b.rawDate ? new Date(b.rawDate).getTime() : 0;
@@ -485,40 +452,8 @@ export default function MyOrdersPage() {
       });
     });
 
-    // Process specimen requests
-    filteredSpecimenRequests.forEach((req) => {
-      const statusRaw = typeof req.DeliveryStatus === "object" && req.DeliveryStatus
-        ? req.DeliveryStatus.value
-        : req.DeliveryStatus || "Not dispatched";
-
-      const books = getDisplayValue(req.BooksRequested) || "Specimen Copies";
-      const specId = getDisplayValue(req.SpecimenID) || req.id;
-      const rDate = getDisplayValue(req.RequestDate);
-      const addr = getDisplayValue(req.Full_Address);
-
-      items.push({
-        id: req.id,
-        title: books,
-        quantity: 1,
-        orderId: `SR${specId}`,
-        orderDate: rDate,
-        orderStatus: statusRaw,
-        shippingAddress: addr,
-        isSpecimen: true,
-        parentOrder: req,
-        rawDate: rDate,
-      });
-    });
-
-    // Sort combined items by rawDate descending
-    items.sort((a, b) => {
-      const dateA = a.rawDate ? new Date(a.rawDate).getTime() : 0;
-      const dateB = b.rawDate ? new Date(b.rawDate).getTime() : 0;
-      return dateB - dateA;
-    });
-
     return items;
-  }, [filteredOrders, filteredSpecimenRequests]);
+  }, [filteredOrders]);
 
   if (!user) {
     return (
