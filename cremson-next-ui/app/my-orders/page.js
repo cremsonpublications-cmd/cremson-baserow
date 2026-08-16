@@ -504,6 +504,8 @@ export default function MyOrdersPage() {
               </div>
             )}
           </div>
+        )}
+
         {/* ── Specimen Requests Section ────────────────────────── */}
         {(specimenLoading || specimenRequests.length > 0) && (
           <div className="mb-6">
