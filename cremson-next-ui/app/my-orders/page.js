@@ -371,6 +371,7 @@ export default function MyOrdersPage() {
   const { user } = useApp();
   const [orders, setOrders] = useState([]);
   const [bulkOrders, setBulkOrders] = useState([]);
+  const [specimenRequests, setSpecimenRequests] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
@@ -398,11 +399,30 @@ export default function MyOrdersPage() {
       .finally(() => setBulkLoading(false));
   };
 
-  const loadSpecimenRequests = () => {}; // removed — specimen requests no longer shown on orders page
+  const loadSpecimenRequests = () => {
+    if (!user?.email) return;
+    api.get(`/api/auth/teacher-history?email=${encodeURIComponent(user.email)}&phone=${encodeURIComponent(user.phone || "")}`)
+      .then((res) => {
+        const all = res.data?.specimen_requests || [];
+        // Only show PENDING specimen requests (not dispatched yet)
+        // Once approved/dispatched, a real SPEC- order is created in orders table
+        const pending = all.filter((req) => {
+          const s = String(
+            (typeof req.DeliveryStatus === "object" && req.DeliveryStatus
+              ? req.DeliveryStatus.value
+              : req.DeliveryStatus) || ""
+          ).toLowerCase().trim();
+          return s === "" || s === "not dispatched" || s === "pending";
+        });
+        setSpecimenRequests(pending);
+      })
+      .catch((e) => console.error("Error loading specimen requests", e));
+  };
 
   useEffect(() => {
     loadOrders();
     loadBulkOrders();
+    loadSpecimenRequests();
   }, [user?.email, user?.phone]);
 
   const filteredOrders = useMemo(() => {
@@ -426,7 +446,7 @@ export default function MyOrdersPage() {
   const orderItemsList = useMemo(() => {
     const items = [];
 
-    // Process regular orders only
+    // Regular orders
     const sortedOrders = [...filteredOrders].sort((a, b) => {
       const dateA = a.rawDate ? new Date(a.rawDate).getTime() : 0;
       const dateB = b.rawDate ? new Date(b.rawDate).getTime() : 0;
@@ -452,8 +472,35 @@ export default function MyOrdersPage() {
       });
     });
 
+    // Pending specimen requests only (approved/dispatched ones become real SPEC- orders)
+    specimenRequests.forEach((req) => {
+      const books = getDisplayValue(req.BooksRequested) || "Specimen Copies";
+      const specId = getDisplayValue(req.SpecimenID) || req.id;
+      const rDate = getDisplayValue(req.RequestDate);
+      const addr = getDisplayValue(req.Full_Address);
+      items.push({
+        id: req.id,
+        title: books,
+        quantity: 1,
+        orderId: `SR${specId}`,
+        orderDate: rDate,
+        orderStatus: "Not dispatched",
+        shippingAddress: addr,
+        isSpecimen: true,
+        parentOrder: req,
+        rawDate: rDate,
+      });
+    });
+
+    // Sort by date descending
+    items.sort((a, b) => {
+      const dateA = a.rawDate ? new Date(a.rawDate).getTime() : 0;
+      const dateB = b.rawDate ? new Date(b.rawDate).getTime() : 0;
+      return dateB - dateA;
+    });
+
     return items;
-  }, [filteredOrders]);
+  }, [filteredOrders, specimenRequests]);
 
   if (!user) {
     return (
