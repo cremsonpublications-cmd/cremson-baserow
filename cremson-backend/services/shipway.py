@@ -107,21 +107,20 @@ async def authenticate() -> bool:
 # ── Rate Calculator & Cheapest Courier Allocation ─────────────────────────────
 
 
-async def get_cheapest_carrier(
+async def get_all_available_carriers(
     delivery_pincode: str,
     weight_grams: int,
     pickup_pincode: Optional[str] = None,
     payment_type: str = "P",
-) -> Optional[str]:
+) -> List[Dict[str, Any]]:
     """
-    Fetch rate quotes from Shipway for available couriers and return the carrier_id
-    of the cheapest courier to maximize profit margins.
-
-    Returns carrier_id as string (e.g. "12"), or "0" if falling back to auto-assign.
+    Fetch rate quotes from Shipway and return ALL available carriers sorted by price (cheapest first).
+    Returns list of {"id": str, "name": str, "price": float}.
+    Falls back to known Delhivery carriers if rate API fails.
     """
     username, license_key, base_url, warehouse_id, _ = _cfg()
     if not username or not license_key or not delivery_pincode:
-        return None
+        return []
 
     headers = {
         "Authorization": _auth_header(username, license_key),
@@ -203,27 +202,47 @@ async def get_cheapest_carrier(
                                     pass
 
                         if valid_options:
-                            cheapest = min(valid_options, key=lambda x: x["price"])
+                            valid_options.sort(key=lambda x: x["price"])
                             logger.info(
-                                f"[Shipway Rate Check] ✓ Cheapest courier found for pincode {delivery_pincode}: "
-                                f"{cheapest['name']} (ID: {cheapest['id']}) @ ₹{cheapest['price']:.2f}"
+                                f"[Shipway Rate Check] ✓ {len(valid_options)} carriers for pincode {delivery_pincode}: "
+                                + ", ".join(f"{c['name']}(₹{c['price']:.0f})" for c in valid_options[:5])
                             )
-                            return cheapest["id"]
+                            return valid_options
         except Exception as exc:
             logger.debug(f"[Shipway Rate Check] Endpoint {url} check error: {exc}")
 
-    # Fallback to weight-matched carrier ID from account (standard Delhivery parcel couriers)
+    # Fallback to known Delhivery carriers in weight order
     if weight_grams <= 500:
-        fallback_carrier = "80622"  # Delhivery 0.5kg
+        fallback = [{"id": "80622", "name": "Delhivery 0.5kg", "price": 0},
+                    {"id": "80734", "name": "Delhivery 1kg", "price": 1},
+                    {"id": "80977", "name": "Delhivery 2kg", "price": 2}]
     elif weight_grams <= 1500:
-        fallback_carrier = "80734"  # Delhivery 1kg
+        fallback = [{"id": "80734", "name": "Delhivery 1kg", "price": 0},
+                    {"id": "80622", "name": "Delhivery 0.5kg", "price": 1},
+                    {"id": "80977", "name": "Delhivery 2kg", "price": 2}]
     else:
-        fallback_carrier = "80977"  # Delhivery 2kg Standard
+        fallback = [{"id": "80977", "name": "Delhivery 2kg", "price": 0},
+                    {"id": "80734", "name": "Delhivery 1kg", "price": 1},
+                    {"id": "80622", "name": "Delhivery 0.5kg", "price": 2}]
 
-    logger.info(
-        f"[Shipway Rate Check] Using weight-matched carrier_id {fallback_carrier} for {weight_grams}g"
+    logger.info(f"[Shipway Rate Check] Using weight-matched fallback carriers for {weight_grams}g")
+    return fallback
+
+
+async def get_cheapest_carrier(
+    delivery_pincode: str,
+    weight_grams: int,
+    pickup_pincode: Optional[str] = None,
+    payment_type: str = "P",
+) -> Optional[str]:
+    """Backward-compatible wrapper — returns cheapest carrier_id string."""
+    carriers = await get_all_available_carriers(
+        delivery_pincode=delivery_pincode,
+        weight_grams=weight_grams,
+        pickup_pincode=pickup_pincode,
+        payment_type=payment_type,
     )
-    return fallback_carrier
+    return carriers[0]["id"] if carriers else None
 
 
 # ── Create Shipment ───────────────────────────────────────────────────────────
@@ -398,18 +417,36 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
         payload["warehouse_id"] = warehouse_id
         payload["return_warehouse_id"] = warehouse_id
 
-    # Carrier selection: If carrier_id is 0 or blank, dynamically find the cheapest courier
+    # Carrier selection with fallback list
     effective_carrier_id = carrier_id
+    candidate_carriers: List[Dict[str, Any]] = []
+    cust_pincode = str(order.get("pincode", "")).strip()
+
     if effective_carrier_id is None or str(effective_carrier_id).strip() in ("", "0"):
-        cust_pincode = str(order.get("pincode", "")).strip()
+        # No fixed carrier configured — get all available carriers sorted by price
         if cust_pincode:
-            cheapest_id = await get_cheapest_carrier(
+            candidate_carriers = await get_all_available_carriers(
                 delivery_pincode=cust_pincode,
                 weight_grams=weight_grams_int,
                 payment_type="P",
             )
-            if cheapest_id and cheapest_id != "0":
-                effective_carrier_id = cheapest_id
+            if candidate_carriers:
+                effective_carrier_id = candidate_carriers[0]["id"]
+    else:
+        # A carrier is configured — put it first, then add all others as fallbacks
+        candidate_carriers = [{"id": str(effective_carrier_id), "name": "configured", "price": 0}]
+        if cust_pincode:
+            all_carriers = await get_all_available_carriers(
+                delivery_pincode=cust_pincode,
+                weight_grams=weight_grams_int,
+                payment_type="P",
+            )
+            # Append carriers not already in list as fallbacks
+            seen_ids = {str(effective_carrier_id)}
+            for c in all_carriers:
+                if c["id"] not in seen_ids:
+                    candidate_carriers.append(c)
+                    seen_ids.add(c["id"])
 
     if effective_carrier_id is not None and str(effective_carrier_id) != "":
         payload["carrier_id"] = str(effective_carrier_id)
@@ -417,58 +454,78 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
     logger.info(f"[Shipway] → create_shipment: order={order['order_id']}")
     logger.info(f"[Shipway] Payload: {json.dumps(payload, default=str)}")
 
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(url, headers=headers, json=payload)
-            raw = resp.text
-            logger.info(f"[Shipway] ← create_shipment HTTP {resp.status_code}: {raw[:500]}")
+    # Try each candidate carrier in order until one succeeds
+    carriers_to_try = candidate_carriers if candidate_carriers else [{"id": str(effective_carrier_id or ""), "name": "default", "price": 0}]
+    last_error = "Unknown Shipway error"
 
-            try:
-                data = resp.json()
-            except Exception:
-                return {"success": False, "error": f"Non-JSON response: {raw[:300]}"}
+    for attempt_idx, carrier_opt in enumerate(carriers_to_try):
+        carrier_attempt_id = carrier_opt["id"]
+        if carrier_attempt_id:
+            payload["carrier_id"] = carrier_attempt_id
+        elif "carrier_id" in payload:
+            del payload["carrier_id"]
 
-            # v2 API: verify top-level success and awb_response
-            awb_resp = data.get("awb_response")
-            if not isinstance(awb_resp, dict):
-                awb_resp = {}
+        if attempt_idx > 0:
+            logger.info(f"[Shipway] ↺ Retrying with fallback carrier {carrier_opt['name']} (ID: {carrier_attempt_id}) for order={order['order_id']}")
 
-            awb = str(awb_resp.get("AWB") or awb_resp.get("awb") or "").strip()
-            awb_err = awb_resp.get("error") or data.get("message")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+                raw = resp.text
+                logger.info(f"[Shipway] ← create_shipment HTTP {resp.status_code} (carrier={carrier_attempt_id}): {raw[:500]}")
 
-            if not data.get("success") or not awb or awb_resp.get("success") is False:
-                err = awb_err or data.get("message") or data.get("error") or "Shipway AWB generation failed"
-                logger.error(f"[Shipway] create_shipment failed for order={order['order_id']}: {err} | full={raw[:400]}")
-                return {"success": False, "error": str(err)}
+                try:
+                    data = resp.json()
+                except Exception:
+                    last_error = f"Non-JSON response: {raw[:300]}"
+                    continue
 
-            carrier = str(awb_resp.get("carrier_id") or awb_resp.get("courier_name") or "")
-            label_url = awb_resp.get("shipping_url") or awb_resp.get("label") or ""
-            tracking_url = f"https://cremsonpublications.shipway.com/tracking/forward/{awb}/" if awb else "https://cremsonpublications.shipway.com/"
-            shipment_id = str(
-                data.get("shipment_id")
-                or awb_resp.get("shipment_id")
-                or awb
-            )
+                awb_resp = data.get("awb_response")
+                if not isinstance(awb_resp, dict):
+                    awb_resp = {}
 
-            logger.info(
-                f"[Shipway] Shipment created ✓ AWB={awb} ID={shipment_id} Carrier={carrier}"
-            )
-            return {
-                "success": True,
-                "shipment_id": shipment_id,
-                "awb": awb,
-                "courier_name": carrier,
-                "carrier_id": str(awb_resp.get("carrier_id") or ""),
-                "tracking_url": tracking_url,
-                "label_url": label_url,
-            }
+                awb = str(awb_resp.get("AWB") or awb_resp.get("awb") or "").strip()
+                awb_err = awb_resp.get("error") or data.get("message")
 
-    except httpx.TimeoutException:
-        logger.error("[Shipway] create_shipment timed out after 30s")
-        return {"success": False, "error": "Shipway API timed out"}
-    except Exception as exc:
-        logger.error(f"[Shipway] create_shipment exception: {exc}", exc_info=True)
-        return {"success": False, "error": str(exc)}
+                if not data.get("success") or not awb or awb_resp.get("success") is False:
+                    last_error = str(awb_err or data.get("message") or data.get("error") or "Shipway AWB generation failed")
+                    logger.warning(f"[Shipway] Carrier {carrier_attempt_id} failed: {last_error}")
+                    continue  # Try next carrier
+
+                carrier = str(awb_resp.get("carrier_id") or awb_resp.get("courier_name") or carrier_attempt_id)
+                label_url = awb_resp.get("shipping_url") or awb_resp.get("label") or ""
+                tracking_url = f"https://cremsonpublications.shipway.com/tracking/forward/{awb}/" if awb else "https://cremsonpublications.shipway.com/"
+                shipment_id = str(
+                    data.get("shipment_id")
+                    or awb_resp.get("shipment_id")
+                    or awb
+                )
+
+                logger.info(
+                    f"[Shipway] Shipment created ✓ AWB={awb} ID={shipment_id} Carrier={carrier} (attempt {attempt_idx+1})"
+                )
+                return {
+                    "success": True,
+                    "shipment_id": shipment_id,
+                    "awb": awb,
+                    "courier_name": carrier,
+                    "carrier_id": str(awb_resp.get("carrier_id") or carrier_attempt_id),
+                    "tracking_url": tracking_url,
+                    "label_url": label_url,
+                }
+
+        except httpx.TimeoutException:
+            last_error = "Shipway API timed out"
+            logger.error(f"[Shipway] create_shipment timed out (carrier={carrier_attempt_id})")
+            continue
+        except Exception as exc:
+            last_error = str(exc)
+            logger.error(f"[Shipway] create_shipment exception (carrier={carrier_attempt_id}): {exc}", exc_info=True)
+            continue
+
+    # All carriers exhausted
+    logger.error(f"[Shipway] All carriers failed for order={order['order_id']}. Last error: {last_error}")
+    return {"success": False, "error": last_error}
 
 
 # ── Create Reverse Shipment ───────────────────────────────────────────────────
