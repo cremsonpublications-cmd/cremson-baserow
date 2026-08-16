@@ -431,28 +431,8 @@ export default function MyOrdersPage() {
           </div>
         )}
 
-        {/* ── Regular Orders Filter + Search ─────────────────── */}
-        <div className="bg-white border border-gray-200 rounded p-4 mb-4 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
-            {[
-              { id: "all", label: "All Orders" },
-              { id: "placed", label: "Placed" },
-              { id: "shipped", label: "Shipped" },
-              { id: "delivered", label: "Delivered" }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap cursor-pointer ${activeTab === tab.id
-                  ? "bg-blue-50 text-blue-600 border-blue-200"
-                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
+        {/* ── Regular Orders Search ─────────────────── */}
+        <div className="bg-white border border-gray-200 rounded p-4 mb-4 shadow-sm flex items-center justify-between gap-4">
           <div className="relative flex-1 max-w-md w-full">
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
               <Search className="w-4 h-4" />
