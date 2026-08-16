@@ -282,16 +282,81 @@ function BulkOrderCard({ order, onRefresh }) {
   );
 }
 
+// ─── Specimen Order Status Badge ───────────────────────────────────────────────
+function SpecimenStatusBadge({ status }) {
+  const s = String(status || "").toLowerCase().trim();
+  if (s === "not dispatched" || s === "pending")
+    return <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded-full border border-amber-200">⏳ Pending Approval</span>;
+  if (s === "approved")
+    return <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 rounded-full border border-blue-200">✅ Approved</span>;
+  if (s === "dispatched" || s === "shipped")
+    return <span className="px-2 py-0.5 text-[10px] font-bold bg-indigo-100 text-indigo-700 rounded-full border border-indigo-200">🚚 Dispatched</span>;
+  if (s === "delivered")
+    return <span className="px-2 py-0.5 text-[10px] font-bold bg-green-100 text-green-700 rounded-full border border-green-200">📦 Delivered</span>;
+  if (s === "rejected" || s === "cancelled")
+    return <span className="px-2 py-0.5 text-[10px] font-bold bg-rose-100 text-rose-700 rounded-full border border-rose-200">✕ Rejected</span>;
+  return <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-600 rounded-full border border-slate-200">{status}</span>;
+}
+
+// ─── Specimen Request Card ─────────────────────────────────────────────────────
+function SpecimenRequestCard({ request }) {
+  const status = typeof request.DeliveryStatus === "object" && request.DeliveryStatus
+    ? request.DeliveryStatus.value
+    : request.DeliveryStatus || "Not dispatched";
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-slate-50 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-4 h-4 text-red-500" />
+          <span className="text-sm font-bold text-gray-900">Specimen Copy Request</span>
+          <span className="text-xs text-gray-400">#{request.SpecimenID || request.id}</span>
+        </div>
+        <SpecimenStatusBadge status={status} />
+      </div>
+
+      {/* Body */}
+      <div className="p-4 space-y-2 text-left">
+        <div>
+          <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">Books Requested</span>
+          <p className="text-xs font-bold text-gray-800 leading-relaxed mt-0.5">{request.BooksRequested || "No books listed"}</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 pt-1">
+          <div>
+            <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">Request Date</span>
+            <p className="text-xs text-gray-600 font-medium mt-0.5">{request.RequestDate || "N/A"}</p>
+          </div>
+          <div>
+            <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">Pincode</span>
+            <p className="text-xs text-gray-600 font-medium mt-0.5">{request.PinCode || "N/A"}</p>
+          </div>
+        </div>
+
+        {request.Full_Address && (
+          <div className="pt-1 border-t border-gray-100 mt-2">
+            <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">Shipping Address</span>
+            <p className="text-xs text-gray-600 leading-relaxed mt-0.5">{request.Full_Address}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function MyOrdersPage() {
   const { user } = useApp();
   const [orders, setOrders] = useState([]);
   const [bulkOrders, setBulkOrders] = useState([]);
+  const [specimenRequests, setSpecimenRequests] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [isLoading, setIsLoading] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [specimenLoading, setSpecimenLoading] = useState(false);
 
   useRazorpayScript();
 
@@ -314,9 +379,19 @@ export default function MyOrdersPage() {
       .finally(() => setBulkLoading(false));
   };
 
+  const loadSpecimenRequests = () => {
+    if (!user?.email) return;
+    setSpecimenLoading(true);
+    api.get(`/api/auth/teacher-history?email=${encodeURIComponent(user.email)}&phone=${encodeURIComponent(user.phone || "")}`)
+      .then((res) => setSpecimenRequests(res.data?.specimen_requests || []))
+      .catch((e) => console.error("Error loading specimen requests", e))
+      .finally(() => setSpecimenLoading(false));
+  };
+
   useEffect(() => {
     loadOrders();
     loadBulkOrders();
+    loadSpecimenRequests();
   }, [user?.email, user?.phone]);
 
   const filteredOrders = useMemo(() => {
@@ -425,6 +500,30 @@ export default function MyOrdersPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {bulkOrders.map((bo) => (
                   <BulkOrderCard key={bo.id} order={bo} onRefresh={loadBulkOrders} />
+                ))}
+              </div>
+            )}
+          </div>
+        {/* ── Specimen Requests Section ────────────────────────── */}
+        {(specimenLoading || specimenRequests.length > 0) && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <BookOpen className="w-4 h-4 text-red-500" />
+              <h2 className="text-base font-bold text-gray-900">Teacher Specimen Requests</h2>
+              {specimenRequests.length > 0 && (
+                <span className="text-[10px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{specimenRequests.length}</span>
+              )}
+            </div>
+
+            {specimenLoading ? (
+              <div className="bg-white border border-gray-200 rounded-xl p-6 flex items-center justify-center gap-2 text-red-500">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm font-medium">Loading specimen requests…</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {specimenRequests.map((req) => (
+                  <SpecimenRequestCard key={req.id} request={req} />
                 ))}
               </div>
             )}
