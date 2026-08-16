@@ -64,6 +64,58 @@ export default function CheckoutPage() {
     }
   }, [user]);
 
+  const [isPincodeLoading, setIsPincodeLoading] = useState(false);
+
+  useEffect(() => {
+    if (pincode && pincode.length === 6) {
+      const fetchPincodeDetails = async () => {
+        setIsPincodeLoading(true);
+        try {
+          const res = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
+          const data = await res.json();
+          if (data && data[0] && data[0].Status === "Success") {
+            const postOffices = data[0].PostOffice;
+            if (postOffices && postOffices.length > 0) {
+              const po = postOffices[0];
+              const rawCity = po.District || po.Circle || po.Region || "";
+              const rawState = po.State || "";
+
+              // Clean city name using the metro mapping
+              const p = pincode.replace(/\D/g, "").trim();
+              const c = String(rawCity || "").toLowerCase().trim();
+              let cleanedCity = rawCity;
+              if (p.startsWith("11") || c.includes("delhi")) cleanedCity = "Delhi";
+              else if (p.startsWith("400") || c.includes("mumbai")) cleanedCity = "Mumbai";
+              else if (p.startsWith("560") || c.includes("bangalore") || c.includes("bengaluru")) cleanedCity = "Bengaluru";
+              else if (p.startsWith("600") || c.includes("chennai") || c.includes("madras")) cleanedCity = "Chennai";
+              else if (p.startsWith("500") || c.includes("hyderabad") || c.includes("secunderabad")) cleanedCity = "Hyderabad";
+              else if (p.startsWith("700") || c.includes("kolkata") || c.includes("calcutta")) cleanedCity = "Kolkata";
+              else if (p.startsWith("411") || p.startsWith("412") || c.includes("pune")) cleanedCity = "Pune";
+              else if (p.startsWith("380") || c.includes("ahmedabad")) cleanedCity = "Ahmedabad";
+
+              setCity(cleanedCity);
+
+              // Find matching state in statesList
+              const matchedState = statesList.find(
+                (st) => st.toLowerCase() === rawState.toLowerCase()
+              );
+              if (matchedState) {
+                setSelectedState(matchedState);
+              } else if (rawState) {
+                setSelectedState(rawState);
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Failed to look up pincode", e);
+        } finally {
+          setIsPincodeLoading(false);
+        }
+      };
+      fetchPincodeDetails();
+    }
+  }, [pincode]);
+
   // Load user saved addresses
   useEffect(() => {
     if (!authToken) return;
@@ -697,11 +749,16 @@ export default function CheckoutPage() {
                         <input
                           type="text"
                           name="city"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black/20 text-black bg-white"
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black/20 text-black ${
+                            pincode && pincode.length === 6 && city !== ""
+                              ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                              : "bg-white"
+                          }`}
                           required
                           placeholder="Town / City"
                           value={city}
                           onChange={(e) => setCity(e.target.value)}
+                          readOnly={pincode && pincode.length === 6 && city !== ""}
                         />
                       </div>
                       <div>
@@ -710,9 +767,14 @@ export default function CheckoutPage() {
                           <select
                             name="state"
                             required
-                            className="w-full px-3 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black/20 bg-white text-gray-900 appearance-none cursor-pointer"
+                            className={`w-full px-3 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black/20 text-gray-900 appearance-none ${
+                              pincode && pincode.length === 6 && selectedState !== ""
+                                ? "bg-gray-100 text-gray-500 cursor-not-allowed pointer-events-none"
+                                : "bg-white cursor-pointer"
+                            }`}
                             value={selectedState}
                             onChange={(e) => setSelectedState(e.target.value)}
+                            disabled={pincode && pincode.length === 6 && selectedState !== ""}
                           >
                             <option value="">Select an option…</option>
                             {statesList.map((st) => (
@@ -726,16 +788,23 @@ export default function CheckoutPage() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">PIN Code *</label>
-                        <input
-                          type="text"
-                          name="pincode"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black/20 text-black bg-white"
-                          required
-                          placeholder="6-digit PIN Code"
-                          maxLength={6}
-                          value={pincode}
-                          onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            name="pincode"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black/20 text-black bg-white pr-8"
+                            required
+                            placeholder="6-digit PIN Code"
+                            maxLength={6}
+                            value={pincode}
+                            onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          />
+                          {isPincodeLoading && (
+                            <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                              <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
