@@ -802,9 +802,10 @@ async def get_teacher_history(teacher_id: Optional[int] = None, email: Optional[
 @router.post("/forgot-password")
 async def forgot_password(body: ForgotPasswordRequest):
     user = await get_user_by_email(body.email)
-    if not user or not int(user.get("is_verified") or 0):
-        # Return success look-alike to prevent user enumeration, but with has_phone=True as default
-        return {"message": "If this email is registered, you will receive a reset code.", "has_phone": True}
+    if not user:
+        raise HTTPException(status_code=404, detail="Email address is not registered.")
+    if not int(user.get("is_verified") or 0):
+        raise HTTPException(status_code=400, detail="This account email is not verified.")
 
     otp = make_otp()
     await save_otp(body.email, otp, otp_expires_at())
