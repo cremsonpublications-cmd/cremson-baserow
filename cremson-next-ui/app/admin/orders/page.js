@@ -1074,7 +1074,8 @@ export default function AdminOrders() {
     const toastId = toast.loading("Merging Ready to Pack shipping labels into PDF...");
 
     try {
-      const payload = selectedIds && selectedIds.length > 0 ? { order_ids: selectedIds } : { status_filter: "ready_to_pack" };
+      const stringIds = selectedIds ? selectedIds.map(id => String(id)) : null;
+      const payload = stringIds && stringIds.length > 0 ? { order_ids: stringIds } : { status_filter: "ready_to_pack" };
       const response = await api.post(
         "/api/orders/download-labels-pdf",
         payload,
@@ -1099,10 +1100,26 @@ export default function AdminOrders() {
         try {
           const text = await err.response.data.text();
           const parsed = JSON.parse(text);
-          if (parsed.detail) errMsg = parsed.detail;
+          if (parsed.detail) {
+            const raw = parsed.detail;
+            if (typeof raw === "string") {
+              errMsg = raw;
+            } else if (Array.isArray(raw)) {
+              errMsg = raw.map(e => `${e.loc?.slice(-1)[0] || "field"}: ${e.msg}`).join("; ");
+            } else {
+              errMsg = JSON.stringify(raw);
+            }
+          }
         } catch (e) {}
       } else if (err?.response?.data?.detail) {
-        errMsg = err.response.data.detail;
+        const raw = err.response.data.detail;
+        if (typeof raw === "string") {
+          errMsg = raw;
+        } else if (Array.isArray(raw)) {
+          errMsg = raw.map(e => `${e.loc?.slice(-1)[0] || "field"}: ${e.msg}`).join("; ");
+        } else {
+          errMsg = JSON.stringify(raw);
+        }
       }
       toast.error(errMsg);
     } finally {

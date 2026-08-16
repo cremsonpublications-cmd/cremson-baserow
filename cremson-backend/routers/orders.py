@@ -4,7 +4,7 @@ import io
 import zipfile
 import httpx
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Union
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from fastapi.responses import Response
@@ -26,11 +26,11 @@ class OrderStatusUpdate(BaseModel):
 
 
 class DownloadLabelsRequest(BaseModel):
-    order_ids: Optional[List[str]] = None
+    order_ids: Optional[List[Union[str, int]]] = None
 
 
 class DownloadLabelsPdfRequest(BaseModel):
-    order_ids: Optional[List[str]] = None
+    order_ids: Optional[List[Union[str, int]]] = None
     status_filter: Optional[str] = "ready_to_pack"
 
 
