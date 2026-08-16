@@ -77,7 +77,7 @@ export default function Home() {
                 <img
                   src={slide.image}
                   alt={slide.title}
-                  className="w-full h-full object-contain transition-opacity duration-300 ease-in-out"
+                  className="w-full h-full object-cover sm:object-contain transition-opacity duration-300 ease-in-out"
                   style={{ willChange: "opacity" }}
                 />
               </div>
