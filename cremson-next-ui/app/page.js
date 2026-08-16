@@ -308,14 +308,10 @@ export default function Home() {
       {/* OUR BLOGS / NEWS SECTION */}
       {!blogsLoading && blogs.length > 0 && (
         <section className="max-w-7xl mx-auto my-12 sm:my-20 px-4 xl:px-0 relative text-center">
-          {/* Big background "NEWS" heading */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-6 select-none pointer-events-none opacity-[0.06] font-integralCF font-extrabold text-[80px] sm:text-[120px] md:text-[160px] text-gray-900 tracking-wider">
-            NEWS
+          {/* Big background "BLOGS" heading */}
+          <div className="relative select-none pointer-events-none opacity-[0.08] font-integralCF font-extrabold text-[80px] sm:text-[120px] md:text-[160px] text-gray-900 tracking-wider mb-2 sm:mb-4 md:mb-6 uppercase">
+            BLOGS
           </div>
-
-          <h2 className="relative font-integralCF text-2xl sm:text-[32px] md:text-5xl mb-8 sm:mb-12 md:mb-16 capitalize z-10">
-            Our Blogs
-          </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6 md:gap-8 mb-10 md:mb-12 relative z-10">
             {blogs.map((post) => {
