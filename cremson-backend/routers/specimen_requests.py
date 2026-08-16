@@ -107,9 +107,18 @@ async def get_specimen_request(row_id: int):
 async def create_specimen_request(body: dict, user: dict = Depends(current_user)):
     role = user.get("role", "customer")
     
-    # Extract pincode from body if present
+    # Extract pincode, city, state from body (sent separately from frontend; not Baserow fields)
     raw_pincode = body.pop("PinCode", None) or body.pop("pincode", None) or body.pop("Pin Code", None)
-    
+    raw_city = body.pop("_city", None) or ""
+    raw_state = body.pop("_state", None) or ""
+
+    # Fallback: try to extract pincode from Full_Address if not explicitly sent
+    if not raw_pincode and body.get("Full_Address"):
+        import re as _re
+        pm = _re.search(r'\b[1-9][0-9]{5}\b', body["Full_Address"])
+        if pm:
+            raw_pincode = pm.group(0)
+
     teacher_id = None
     if role == "teacher":
         try:
@@ -121,13 +130,15 @@ async def create_specimen_request(body: dict, user: dict = Depends(current_user)
                 if not body.get("TeacherID"):
                     body["TeacherID"] = [teacher_id]
                 
-                # Update teacher's Pin Code and Residence if provided
+                # Update teacher's Pin Code, City, and Residence so lookup fields auto-populate
                 update_fields = {}
                 if raw_pincode:
                     try:
-                        update_fields["Pin Code"] = int(raw_pincode)
+                        update_fields["Pin Code"] = int(str(raw_pincode).strip())
                     except Exception:
                         pass
+                if raw_city:
+                    update_fields["City"] = raw_city
                 if body.get("Full_Address"):
                     update_fields["Residence"] = body.get("Full_Address")
                 if update_fields:

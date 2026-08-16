@@ -391,6 +391,9 @@ function SpecimenContent() {
           payload.PinCode = pinInt;
         }
       }
+      // Send city and state separately so backend can update teacher CRM
+      if (formData.city) payload._city = formData.city;
+      if (formData.state) payload._state = formData.state;
       await api.post("/api/specimen-requests/", payload);
 
       setSubmittedBooks([...selectedBooks]);
