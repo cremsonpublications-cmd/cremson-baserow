@@ -544,7 +544,7 @@ export default function WhatsAppChatWidget() {
           <img
             src={whatsappIcon.src}
             alt="WhatsApp Support"
-            className="w-full h-full object-contain"
+            className="w-full h-full object-cover rounded-full"
           />
         </button>
       </div>
