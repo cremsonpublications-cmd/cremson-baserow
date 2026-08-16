@@ -135,7 +135,7 @@ export default function Home() {
                         <div className="h-6 bg-gray-200 rounded w-1/2" />
                       </div>
                     ))
-                  : books.map((book) => {
+                  : books.slice(0, 8).map((book) => {
                   const isWishlisted = wishlist.includes(book.id);
                   const cartItem = cart?.find((item) => item.product.id === book.id);
                   const quantityInCart = cartItem ? cartItem.quantity : 0;
