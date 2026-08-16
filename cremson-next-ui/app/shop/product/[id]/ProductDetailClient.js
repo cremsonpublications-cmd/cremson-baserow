@@ -932,7 +932,7 @@ export default function ProductDetailClient({ initialBook, bookId }) {
                       <div key={recBook.id} className="w-full flex flex-col justify-between text-left">
                         <div className="flex flex-col items-start aspect-auto group min-h-[367px] sm:min-h-0">
                           {/* Image Container */}
-                          <div className="bg-[#F0EEED] rounded-[13px] lg:rounded-[20px] w-full aspect-square mb-2.5 xl:mb-4 overflow-hidden relative">
+                          <div className="bg-[#F0EEED] rounded-[13px] lg:rounded-[20px] w-full aspect-square mb-2.5 xl:mb-4 overflow-hidden relative p-3">
                             <Link href={`/shop/product/${recBook.id}`} className="w-full h-full block">
                               <img src={recBook.image || null} className="w-full h-full object-contain hover:scale-105 transition-transform duration-300 ease-in-out" alt={recBook.title} />
                             </Link>
