@@ -307,9 +307,9 @@ export default function Home() {
 
       {/* OUR BLOGS / NEWS SECTION */}
       {!blogsLoading && blogs.length > 0 && (
-        <section className="max-w-7xl mx-auto my-12 sm:my-20 px-4 xl:px-0 relative text-center pt-10 sm:pt-16 md:pt-20">
+        <section className="max-w-7xl mx-auto my-12 sm:my-20 px-4 xl:px-0 relative text-center pt-14 sm:pt-20 md:pt-24">
           {/* Big background "BLOGS" heading */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 select-none pointer-events-none opacity-[0.08] font-integralCF font-extrabold text-[80px] sm:text-[120px] md:text-[160px] text-gray-900 tracking-wider z-0 uppercase">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 select-none pointer-events-none opacity-[0.08] font-integralCF font-extrabold text-[80px] sm:text-[120px] md:text-[160px] leading-none text-gray-900 tracking-wider z-0 uppercase">
             BLOGS
           </div>
 
@@ -357,14 +357,12 @@ export default function Home() {
             })}
           </div>
 
-          <div className="w-full text-center relative z-10">
             <Link
-              className="inline-block px-10 py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-full shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all text-sm sm:text-base"
+              className="w-full inline-block sm:w-[218px] px-[54px] py-4 border rounded-full hover:bg-black hover:text-white text-black transition-all font-medium text-sm sm:text-base border-black/10"
               href="/blogs"
             >
               View All Blogs
             </Link>
-          </div>
         </section>
       )}
 
