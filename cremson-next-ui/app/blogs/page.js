@@ -68,7 +68,7 @@ export default function BlogsPage() {
       <div className="mx-4 sm:mx-8 xl:mx-24 relative overflow-hidden">
         <div className="text-center mt-8 sm:mt-12 mb-6">
           <h1 className="text-2xl sm:text-3xl sm:text-4xl font-bold text-gray-900 mb-6">
-            Cremson Blogs
+            Cremson Publication Blogs
           </h1>
           <form onSubmit={handleSearchSubmit} className="flex justify-between max-w-lg mx-auto border border-gray-300 bg-white rounded-xl overflow-hidden shadow-sm focus-within:border-primary transition-all">
             <input
