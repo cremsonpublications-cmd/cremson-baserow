@@ -196,6 +196,7 @@ export default function Footer() {
               <section className="flex flex-col mt-5">
                 <h3 className="font-medium text-sm md:text-base uppercase tracking-widest mb-6">company</h3>
                 <Link className="text-black/60 text-sm md:text-base mb-4 w-fit capitalize hover:text-black transition-colors" href="/contact-us">contact us</Link>
+                <Link className="text-black/60 text-sm md:text-base mb-4 w-fit capitalize hover:text-black transition-colors" href="/blogs">blogs</Link>
               </section>
               
               <section className="flex flex-col mt-5">
@@ -224,6 +225,7 @@ export default function Footer() {
               <section className="flex flex-col mt-5">
                 <h3 className="font-medium text-sm md:text-base uppercase tracking-widest mb-6">company</h3>
                 <Link className="text-black/60 text-sm md:text-base mb-4 w-fit capitalize hover:text-black transition-colors" href="/contact-us">contact us</Link>
+                <Link className="text-black/60 text-sm md:text-base mb-4 w-fit capitalize hover:text-black transition-colors" href="/blogs">blogs</Link>
               </section>
               
               <section className="flex flex-col mt-5">

@@ -135,12 +135,7 @@ export default function MobileMenuDrawer() {
               <BookMarked className="w-4 h-4 text-gray-400" /> Specimen Books
             </button>
 
-            <button
-              onClick={() => handleLinkClick("/blogs")}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-red-50 hover:text-red-600 transition-all text-left"
-            >
-              <Newspaper className="w-4 h-4 text-gray-400" /> Blogs
-            </button>
+
 
             <button
               onClick={() => handleLinkClick("/contact-us")}

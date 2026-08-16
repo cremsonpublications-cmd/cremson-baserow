@@ -26,6 +26,26 @@ export default function Home() {
       .catch(() => {}); // silently fall back to static slides
   }, []);
 
+  const [blogs, setBlogs] = useState([]);
+  const [blogsLoading, setBlogsLoading] = useState(true);
+
+  // Fetch published blogs for the homepage
+  useEffect(() => {
+    api.get("/api/blogs/?status=Published")
+      .then((res) => {
+        if (Array.isArray(res.data)) {
+          // Limit to latest 4 blogs matching the 4-column layout
+          setBlogs(res.data.slice(0, 4));
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load blogs on homepage:", err);
+      })
+      .finally(() => {
+        setBlogsLoading(false);
+      });
+  }, []);
+
   // Auto transition for banner carousel
   useEffect(() => {
     const timer = setInterval(() => {
@@ -284,6 +304,73 @@ export default function Home() {
           </div>
         </section>
       </main>
+
+      {/* OUR BLOGS / NEWS SECTION */}
+      {!blogsLoading && blogs.length > 0 && (
+        <section className="max-w-7xl mx-auto my-12 sm:my-20 px-4 xl:px-0 relative text-center">
+          {/* Big background "NEWS" heading */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-6 select-none pointer-events-none opacity-[0.06] font-integralCF font-extrabold text-[80px] sm:text-[120px] md:text-[160px] text-gray-900 tracking-wider">
+            NEWS
+          </div>
+
+          <h2 className="relative font-integralCF text-2xl sm:text-[32px] md:text-5xl mb-8 sm:mb-12 md:mb-16 capitalize z-10">
+            Our Blogs
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6 md:gap-8 mb-10 md:mb-12 relative z-10">
+            {blogs.map((post) => {
+              const catLower = (post.category || "").toLowerCase();
+              let badgeColor = "bg-gray-800 text-white";
+              if (catLower.includes("event")) {
+                // Purple event badge
+                badgeColor = "bg-[#5B21B6] text-white";
+              } else if (catLower.includes("news")) {
+                // Teal news badge
+                badgeColor = "bg-[#115E59] text-white";
+              }
+
+              return (
+                <Link
+                  key={post.id}
+                  href={`/blogs/${post.slug}`}
+                  className="w-full rounded-2xl overflow-hidden border border-gray-200/60 shadow-sm hover:shadow-lg hover:shadow-gray-100 hover:translate-y-[-4px] transition-all duration-300 cursor-pointer flex flex-col bg-white text-left"
+                >
+                  <div className="relative aspect-[1.6/1] w-full overflow-hidden bg-gray-50">
+                    <img
+                      alt={post.title}
+                      className="object-cover w-full h-full hover:scale-105 transition-transform duration-500"
+                      src={post.image || null}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="p-5 flex-1 flex flex-col justify-between">
+                    <h3 className="mb-4 font-semibold text-gray-950 text-base leading-snug line-clamp-2 hover:text-orange-500 transition-colors">
+                      {post.title}
+                    </h3>
+                    <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100 text-xs text-gray-500">
+                      <span className="font-medium">{post.date}</span>
+                      {post.category && post.category !== "None" && (
+                        <span className={`px-2.5 py-1 rounded-[4px] text-[10px] font-bold uppercase tracking-wider ${badgeColor}`}>
+                          {post.category}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="w-full text-center relative z-10">
+            <Link
+              className="inline-block px-10 py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-full shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all text-sm sm:text-base"
+              href="/blogs"
+            >
+              View All Blogs
+            </Link>
+          </div>
+        </section>
+      )}
 
     </div>
   );
