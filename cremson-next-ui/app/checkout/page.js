@@ -262,6 +262,21 @@ export default function CheckoutPage() {
               setVerifyingStep("Placing shipment & generating invoice...");
             }, 1800);
 
+            const cleanedCity = (() => {
+              if (!pincode) return city;
+              const p = pincode.replace(/\D/g, "").trim();
+              const c = String(city || "").toLowerCase().trim();
+              if (p.startsWith("11") || c.includes("delhi")) return "Delhi";
+              if (p.startsWith("400") || c.includes("mumbai")) return "Mumbai";
+              if (p.startsWith("560") || c.includes("bangalore") || c.includes("bengaluru")) return "Bengaluru";
+              if (p.startsWith("600") || c.includes("chennai") || c.includes("madras")) return "Chennai";
+              if (p.startsWith("500") || c.includes("hyderabad") || c.includes("secunderabad")) return "Hyderabad";
+              if (p.startsWith("700") || c.includes("kolkata") || c.includes("calcutta")) return "Kolkata";
+              if (p.startsWith("411") || p.startsWith("412") || c.includes("pune")) return "Pune";
+              if (p.startsWith("380") || c.includes("ahmedabad")) return "Ahmedabad";
+              return city;
+            })();
+
             const orderDetails = {
               order_status: "Confirmed",
               order_date: new Date().toISOString(),
@@ -271,7 +286,7 @@ export default function CheckoutPage() {
                 phone: phone,
                 userId: user?.id || `user_${Date.now()}`,
                 address: {
-                  city: city,
+                  city: cleanedCity,
                   state: selectedState,
                   street: streetAddress,
                   country: country,
