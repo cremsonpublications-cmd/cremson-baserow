@@ -24,6 +24,38 @@ import {
 
 const STEPS = ["Select Books", "Your Details", "Confirm"];
 
+const statesList = [
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Delhi",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+];
+
 function TeacherAuthModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
@@ -126,6 +158,8 @@ function SpecimenContent() {
     mobile: user?.phone || "",
     schoolName: user?.school_name || "",
     address: "",
+    city: "",
+    state: "",
     pincode: "",
     designation: user?.designation || "Teacher",
     comments: "",
@@ -183,10 +217,66 @@ function SpecimenContent() {
         schoolName: user.school_name || "",
         designation: user.designation || "Teacher",
         address: prev.address || "",
+        city: prev.city || "",
+        state: prev.state || "",
         pincode: prev.pincode || "",
       }));
     }
   }, [user]);
+
+  const [isPincodeLoading, setIsPincodeLoading] = useState(false);
+
+  useEffect(() => {
+    if (formData.pincode && formData.pincode.length === 6) {
+      const fetchPincodeDetails = async () => {
+        setIsPincodeLoading(true);
+        try {
+          const res = await fetch(`https://api.postalpincode.in/pincode/${formData.pincode}`);
+          const data = await res.json();
+          if (data && data[0] && data[0].Status === "Success") {
+            const postOffices = data[0].PostOffice;
+            if (postOffices && postOffices.length > 0) {
+              const po = postOffices[0];
+              const rawCity = po.District || po.Circle || po.Region || "";
+              const rawState = po.State || "";
+
+              // Clean city name using the metro mapping
+              const p = formData.pincode.replace(/\D/g, "").trim();
+              const c = String(rawCity || "").toLowerCase().trim();
+              let cleanedCity = rawCity;
+              if (p.startsWith("11") || c.includes("delhi")) cleanedCity = "Delhi";
+              else if (p.startsWith("400") || c.includes("mumbai")) cleanedCity = "Mumbai";
+              else if (p.startsWith("560") || c.includes("bangalore") || c.includes("bengaluru")) cleanedCity = "Bengaluru";
+              else if (p.startsWith("600") || c.includes("chennai") || c.includes("madras")) cleanedCity = "Chennai";
+              else if (p.startsWith("500") || c.includes("hyderabad") || c.includes("secunderabad")) cleanedCity = "Hyderabad";
+              else if (p.startsWith("700") || c.includes("kolkata") || c.includes("calcutta")) cleanedCity = "Kolkata";
+              else if (p.startsWith("411") || p.startsWith("412") || c.includes("pune")) cleanedCity = "Pune";
+              else if (p.startsWith("380") || c.includes("ahmedabad")) cleanedCity = "Ahmedabad";
+
+              // Update city and state in formData
+              setFormData((prev) => {
+                const updated = { ...prev, city: cleanedCity };
+                const matchedState = statesList.find(
+                  (st) => st.toLowerCase() === rawState.toLowerCase()
+                );
+                if (matchedState) {
+                  updated.state = matchedState;
+                } else if (rawState) {
+                  updated.state = rawState;
+                }
+                return updated;
+              });
+            }
+          }
+        } catch (e) {
+          console.error("Failed to look up pincode", e);
+        } finally {
+          setIsPincodeLoading(false);
+        }
+      };
+      fetchPincodeDetails();
+    }
+  }, [formData.pincode]);
 
   const { data: specimenConfig } = useQuery({
     queryKey: ["specimen-eligible-ids"],
@@ -280,9 +370,15 @@ function SpecimenContent() {
     setSubmitting(true);
     try {
       const booksRequested = selectedBooks.map((b) => b.name).join(", ");
+      const fullAddr = [
+        (formData.address || "").trim(),
+        (formData.city || "").trim(),
+        (formData.state || "").trim() ? `${(formData.state || "").trim()} - ${(formData.pincode || "").trim()}` : (formData.pincode || "").trim()
+      ].filter(Boolean).join(", ");
+
       const payload = {
         BooksRequested: booksRequested,
-        Full_Address: formData.address,
+        Full_Address: fullAddr,
         "Feedback/Notes": formData.comments || "",
         RequestDate: new Date().toISOString().split("T")[0],
         DeliveryStatus: "Not dispatched",
@@ -717,11 +813,68 @@ function SpecimenContent() {
                   <MapPin className="absolute left-4 top-3.5 h-4 w-4 text-gray-400" />
                   <input
                     id="pincode" type="text" name="pincode" required
-                    value={formData.pincode} onChange={handleChange}
+                    value={formData.pincode}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                      setFormData((prev) => ({ ...prev, pincode: val }));
+                    }}
                     placeholder="Enter 6-digit pincode"
                     maxLength={6}
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
+                    className="w-full pl-11 pr-10 py-3 rounded-2xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
                   />
+                  {isPincodeLoading && (
+                    <div className="absolute right-3.5 top-3.5">
+                      <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {/* Town / City */}
+              <div>
+                <label htmlFor="city" className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                  Town / City *
+                </label>
+                <input
+                  id="city" type="text" name="city" required
+                  value={formData.city}
+                  onChange={handleChange}
+                  placeholder="Town / City"
+                  readOnly={formData.pincode && formData.pincode.length === 6 && formData.city !== ""}
+                  className={`w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all ${
+                    formData.pincode && formData.pincode.length === 6 && formData.city !== ""
+                      ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                      : "bg-gray-50/50 text-black"
+                  }`}
+                />
+              </div>
+              {/* State */}
+              <div>
+                <label htmlFor="state" className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                  State *
+                </label>
+                <div className="relative">
+                  <select
+                    id="state" name="state" required
+                    value={formData.state}
+                    onChange={handleChange}
+                    disabled={formData.pincode && formData.pincode.length === 6 && formData.state !== ""}
+                    className={`w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all appearance-none ${
+                      formData.pincode && formData.pincode.length === 6 && formData.state !== ""
+                        ? "bg-gray-100 text-gray-500 cursor-not-allowed pointer-events-none"
+                        : "bg-gray-50/50 cursor-pointer text-gray-900"
+                    }`}
+                  >
+                    <option value="">Select State…</option>
+                    {statesList.map((st) => (
+                      <option key={st} value={st}>
+                        {st}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-4 h-4 w-4 text-gray-400 pointer-events-none" />
                 </div>
               </div>
             </div>
