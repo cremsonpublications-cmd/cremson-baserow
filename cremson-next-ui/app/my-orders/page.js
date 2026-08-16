@@ -433,13 +433,39 @@ export default function MyOrdersPage() {
     });
   }, [orders, activeTab, searchQuery]);
 
+  const filteredSpecimenRequests = useMemo(() => {
+    return specimenRequests.filter((req) => {
+      const statusRaw = typeof req.DeliveryStatus === "object" && req.DeliveryStatus
+        ? req.DeliveryStatus.value
+        : req.DeliveryStatus || "Not dispatched";
+      const s = String(statusRaw || "").toLowerCase().trim();
+
+      if (activeTab !== "all") {
+        if (activeTab === "placed" && s !== "not dispatched" && s !== "pending" && s !== "approved") return false;
+        if (activeTab === "shipped" && s !== "dispatched" && s !== "shipped") return false;
+        if (activeTab === "delivered" && s !== "delivered") return false;
+      }
+
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchesId = String(getDisplayValue(req.SpecimenID) || req.id).toLowerCase().includes(query);
+        const matchesBooks = String(getDisplayValue(req.BooksRequested)).toLowerCase().includes(query);
+        return matchesId || matchesBooks;
+      }
+      return true;
+    });
+  }, [specimenRequests, activeTab, searchQuery]);
+
   const orderItemsList = useMemo(() => {
     const items = [];
+
+    // Process regular orders
     const sortedOrders = [...filteredOrders].sort((a, b) => {
       const dateA = a.rawDate ? new Date(a.rawDate).getTime() : 0;
       const dateB = b.rawDate ? new Date(b.rawDate).getTime() : 0;
       return dateB - dateA;
     });
+
     sortedOrders.forEach((order) => {
       (order.items || []).forEach((item) => {
         items.push({
@@ -453,11 +479,46 @@ export default function MyOrdersPage() {
           totalOrderAmount: order.total,
           trackingUrl: order.trackingUrl || "",
           parentOrder: order,
+          isSpecimen: false,
+          rawDate: order.rawDate,
         });
       });
     });
+
+    // Process specimen requests
+    filteredSpecimenRequests.forEach((req) => {
+      const statusRaw = typeof req.DeliveryStatus === "object" && req.DeliveryStatus
+        ? req.DeliveryStatus.value
+        : req.DeliveryStatus || "Not dispatched";
+
+      const books = getDisplayValue(req.BooksRequested) || "Specimen Copies";
+      const specId = getDisplayValue(req.SpecimenID) || req.id;
+      const rDate = getDisplayValue(req.RequestDate);
+      const addr = getDisplayValue(req.Full_Address);
+
+      items.push({
+        id: req.id,
+        title: books,
+        quantity: 1,
+        orderId: `SR${specId}`,
+        orderDate: rDate,
+        orderStatus: statusRaw,
+        shippingAddress: addr,
+        isSpecimen: true,
+        parentOrder: req,
+        rawDate: rDate,
+      });
+    });
+
+    // Sort combined items by rawDate descending
+    items.sort((a, b) => {
+      const dateA = a.rawDate ? new Date(a.rawDate).getTime() : 0;
+      const dateB = b.rawDate ? new Date(b.rawDate).getTime() : 0;
+      return dateB - dateA;
+    });
+
     return items;
-  }, [filteredOrders]);
+  }, [filteredOrders, filteredSpecimenRequests]);
 
   if (!user) {
     return (
@@ -527,32 +588,6 @@ export default function MyOrdersPage() {
           </div>
         )}
 
-        {/* ── Specimen Requests Section ────────────────────────── */}
-        {(specimenLoading || specimenRequests.length > 0) && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <BookOpen className="w-4 h-4 text-red-500" />
-              <h2 className="text-base font-bold text-gray-900">Teacher Specimen Requests</h2>
-              {specimenRequests.length > 0 && (
-                <span className="text-[10px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{specimenRequests.length}</span>
-              )}
-            </div>
-
-            {specimenLoading ? (
-              <div className="bg-white border border-gray-200 rounded-xl p-6 flex items-center justify-center gap-2 text-red-500">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm font-medium">Loading specimen requests…</span>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {specimenRequests.map((req) => (
-                  <SpecimenRequestCard key={req.id} request={req} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* ── Regular Orders Search ─────────────────── */}
         <div className="bg-white border border-gray-200 rounded p-4 mb-4 shadow-sm flex items-center justify-between gap-4">
           <div className="relative flex-1 max-w-md w-full">
@@ -615,6 +650,81 @@ export default function MyOrdersPage() {
         ) : (
           <div className="space-y-3">
             {orderItemsList.map((item, idx) => {
+              if (item.isSpecimen) {
+                const s = String(item.orderStatus || "").toLowerCase().trim();
+                let statusColor = "bg-amber-500";
+                let statusText = "Pending Approval";
+                let statusDesc = "Your specimen request is under review.";
+                if (s === "approved") {
+                  statusColor = "bg-blue-500";
+                  statusText = "Approved";
+                  statusDesc = "Your specimen request has been approved.";
+                } else if (s === "dispatched" || s === "shipped") {
+                  statusColor = "bg-indigo-500";
+                  statusText = "Dispatched";
+                  statusDesc = "Your books have been dispatched.";
+                } else if (s === "delivered") {
+                  statusColor = "bg-green-500";
+                  statusText = "Delivered";
+                  statusDesc = "Your books have been delivered.";
+                } else if (s === "rejected" || s === "cancelled") {
+                  statusColor = "bg-rose-500";
+                  statusText = "Rejected";
+                  statusDesc = "Your request was not approved.";
+                }
+
+                // Get details from parentOrder
+                const req = item.parentOrder;
+                const pincode = getDisplayValue(req.PinCode);
+
+                return (
+                  <div
+                    key={idx}
+                    className="bg-white border border-gray-200 rounded p-4 sm:p-5 grid grid-cols-1 md:grid-cols-12 gap-4 items-start"
+                  >
+                    <div className="md:col-span-6 flex items-start gap-4">
+                      <div className="w-16 h-16 bg-red-50 border border-red-100 rounded flex items-center justify-center text-red-500 shrink-0">
+                        <BookOpen className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900 text-sm line-clamp-2">{item.title}</h4>
+                        <p className="text-xs text-red-500 font-bold mt-1">Specimen Copy Request #{item.orderId.replace("SR", "")}</p>
+                        <p className="text-xs text-gray-400 mt-1">Requested on: {item.orderDate || "N/A"}</p>
+                        {item.shippingAddress && (
+                          <p className="text-xs text-gray-500 mt-1.5 leading-relaxed bg-gray-50 p-2 rounded border border-gray-100">
+                            <span className="font-bold block text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">Shipping Address</span>
+                            {item.shippingAddress} {pincode && ` - ${pincode}`}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <span className="px-2 py-1 text-[10px] font-bold bg-red-50 text-red-700 rounded border border-red-100 uppercase tracking-wider block text-center">
+                        Evaluation Copy
+                      </span>
+                    </div>
+
+                    <div className="md:col-span-4 flex flex-col md:items-start text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2.5 h-2.5 rounded-full ${statusColor}`} />
+                        <span className="font-bold text-gray-900">{statusText}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1 ml-4 leading-relaxed">{statusDesc}</p>
+                      
+                      {req.TrackingLink ? (
+                        <a href={req.TrackingLink} target="_blank" rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-xs font-bold mt-2 ml-4 flex items-center gap-0.5 cursor-pointer">
+                          <Truck className="w-3.5 h-3.5" /> Track Shipment
+                        </a>
+                      ) : (
+                        <div className="text-xs text-gray-400 mt-2 ml-4 italic">No tracking info available yet</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
               let statusColor = "bg-amber-500";
               let statusText = "Ordered";
               let statusDesc = "Your order has been placed.";
