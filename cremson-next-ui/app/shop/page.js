@@ -836,7 +836,7 @@ function Shop() {
                         {book.image ? (
                           <img
                             src={book.image}
-                            className="w-full h-full object-fill hover:scale-105 transition-transform duration-300 ease-in-out"
+                            className="w-full h-full object-contain hover:scale-105 transition-transform duration-300 ease-in-out"
                             alt={book.title}
                           />
                         ) : (

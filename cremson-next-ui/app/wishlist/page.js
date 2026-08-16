@@ -171,7 +171,7 @@ export default function WishlistPage() {
                   <div className="bg-[#F0EEED] rounded-[13px] lg:rounded-[20px] w-full lg:max-w-[295px] aspect-square mb-2.5 xl:mb-4 overflow-hidden relative">
                     <img
                       src={book.image || null}
-                      className="w-full h-full object-fill hover:scale-105 transition-transform duration-300 ease-in-out"
+                      className="w-full h-full object-contain hover:scale-105 transition-transform duration-300 ease-in-out"
                       alt={book.title}
                     />
                     <button
