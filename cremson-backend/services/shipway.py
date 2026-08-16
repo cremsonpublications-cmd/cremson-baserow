@@ -36,6 +36,52 @@ def _auth_header(username: str, license_key: str) -> str:
     return f"Basic {token}"
 
 
+def clean_city_for_shipway(pincode: str, current_city: str) -> str:
+    """
+    Cleans and standardizes the city name for Indian pincodes to ensure
+    compatibility with Shipway and courier APIs (like Delhivery).
+    """
+    if not pincode:
+        return current_city
+        
+    p_clean = "".join(filter(str.isdigit, str(pincode))).strip()
+    c_lower = str(current_city or "").lower().strip()
+    
+    # 1. Delhi NCR (pincodes starting with 11)
+    if p_clean.startswith("11") or "delhi" in c_lower:
+        return "Delhi"
+        
+    # 2. Mumbai (pincodes starting with 400)
+    if p_clean.startswith("400") or "mumbai" in c_lower:
+        return "Mumbai"
+        
+    # 3. Bengaluru (pincodes starting with 560)
+    if p_clean.startswith("560") or "bangalore" in c_lower or "bengaluru" in c_lower:
+        return "Bengaluru"
+        
+    # 4. Chennai (pincodes starting with 600)
+    if p_clean.startswith("600") or "chennai" in c_lower or "madras" in c_lower:
+        return "Chennai"
+        
+    # 5. Hyderabad (pincodes starting with 500)
+    if p_clean.startswith("500") or "hyderabad" in c_lower or "secunderabad" in c_lower:
+        return "Hyderabad"
+        
+    # 6. Kolkata (pincodes starting with 700)
+    if p_clean.startswith("700") or "kolkata" in c_lower or "calcutta" in c_lower:
+        return "Kolkata"
+        
+    # 7. Pune (pincodes starting with 411 or 412)
+    if p_clean.startswith("411") or p_clean.startswith("412") or "pune" in c_lower:
+        return "Pune"
+        
+    # 8. Ahmedabad (pincodes starting with 380)
+    if p_clean.startswith("380") or "ahmedabad" in c_lower:
+        return "Ahmedabad"
+
+    return current_city
+
+
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
 
@@ -335,7 +381,7 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
         "shipping_phone": order.get("customer_phone", ""),
         "shipping_address": order.get("address", ""),
         "shipping_address_2": order.get("address2", ""),
-        "shipping_city": order.get("city", ""),
+        "shipping_city": clean_city_for_shipway(str(order.get("pincode", "")), order.get("city", "")),
         "shipping_state": order.get("state", ""),
         "shipping_zipcode": str(order.get("pincode", "")),
         "shipping_country": "India",
@@ -369,7 +415,7 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
         payload["carrier_id"] = str(effective_carrier_id)
 
     logger.info(f"[Shipway] → create_shipment: order={order['order_id']}")
-    logger.debug(f"[Shipway] Payload: {json.dumps(payload, default=str)}")
+    logger.info(f"[Shipway] Payload: {json.dumps(payload, default=str)}")
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -468,7 +514,7 @@ async def create_reverse_shipment(order: Dict[str, Any], reason: str = "") -> Di
         "shipping_phone": order.get("customer_phone", ""),
         "shipping_address": order.get("address", ""),
         "shipping_address_2": order.get("address2", ""),
-        "shipping_city": order.get("city", ""),
+        "shipping_city": clean_city_for_shipway(str(order.get("pincode", "")), order.get("city", "")),
         "shipping_state": order.get("state", ""),
         "shipping_zipcode": str(order.get("pincode", "")),
         "shipping_country": "India",
