@@ -699,6 +699,22 @@ async def get_teacher_history(teacher_id: Optional[int] = None, email: Optional[
                         specimen_limit = int(m.group(1))
         except Exception as e:
             print("Warning: Error fetching teacher row:", e)
+    elif email:
+        try:
+            t_res = await b_client.get_rows(TABLE_IDS["teacher"], filters={"Email": email.lower().strip()})
+            t_rows = t_res.get("results", [])
+            if t_rows:
+                t_row = t_rows[0]
+                teacher_id = t_row["id"]
+                if not phone:
+                    phone = t_row.get("Whatsapp Phone") or t_row.get("Phone") or ""
+                notes = t_row.get("Notes") or ""
+                if "specimen_limit:" in notes.lower():
+                    m = re.search(r'specimen_limit:\s*(\d+)', notes, re.IGNORECASE)
+                    if m:
+                        specimen_limit = int(m.group(1))
+        except Exception as e:
+            print("Warning: Error fetching teacher row by email:", e)
 
     # Normalise lookup values for matching
     email_lower = (email or "").lower().strip()
