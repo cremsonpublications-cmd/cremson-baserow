@@ -299,7 +299,7 @@ export default function ProductDetailClient({ initialBook, bookId }) {
             {/* Left side: Image and Thumbnails */}
             <div>
               <div className="flex flex-col space-y-3">
-                <div className="relative bg-[#F0EEED] rounded-[13px] sm:rounded-[20px] w-full mx-auto h-[400px] sm:h-[450px] lg:h-[500px] overflow-hidden flex items-center justify-center p-4">
+                <div className="relative bg-transparent rounded-[13px] sm:rounded-[20px] w-full mx-auto h-[400px] sm:h-[450px] lg:h-[500px] overflow-hidden flex items-center justify-center p-4">
                   <div className="relative w-full h-full bg-transparent overflow-hidden rounded-lg group">
                     <div
                       className="relative w-full h-full overflow-hidden cursor-crosshair flex items-center justify-center"
@@ -340,7 +340,7 @@ export default function ProductDetailClient({ initialBook, bookId }) {
                 {/* Product thumbnails */}
                 <div className="flex space-x-3 w-full items-center justify-start overflow-x-auto py-2">
                   {book.image && (
-                    <button type="button" className="bg-[#F0EEED] rounded-[8px] w-[80px] h-[80px] flex-shrink-0 overflow-hidden p-1 border-2 transition-all border-gray-600">
+                    <button type="button" className="bg-transparent rounded-[8px] w-[80px] h-[80px] flex-shrink-0 overflow-hidden p-1 border-2 transition-all border-gray-600">
                       <img src={book.image || null} className="w-full h-full object-contain hover:scale-105 transition-all duration-500" alt={book.title} />
                     </button>
                   )}
@@ -932,7 +932,7 @@ export default function ProductDetailClient({ initialBook, bookId }) {
                       <div key={recBook.id} className="w-full flex flex-col justify-between text-left">
                         <div className="flex flex-col items-start aspect-auto group min-h-[367px] sm:min-h-0">
                           {/* Image Container */}
-                          <div className="bg-[#F0EEED] rounded-[13px] lg:rounded-[20px] w-full aspect-[3/4] mb-2.5 xl:mb-4 overflow-hidden relative py-1.5 px-3">
+                          <div className="bg-transparent rounded-[13px] lg:rounded-[20px] w-full aspect-[3/4] mb-2.5 xl:mb-4 overflow-hidden relative py-1.5 px-3">
                             <Link href={`/shop/product/${recBook.id}`} className="w-full h-full block">
                               <img src={recBook.image || null} className="w-full h-full object-contain hover:scale-105 transition-transform duration-300 ease-in-out" alt={recBook.title} />
                             </Link>

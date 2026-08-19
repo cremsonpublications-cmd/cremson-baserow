@@ -50,9 +50,9 @@ export const metadata = {
     siteName: "Cremson Publications",
     images: [
       {
-        url: "/opengraph-image.png",
-        width: 1200,
-        height: 630,
+        url: "/poster.png",
+        width: 1536,
+        height: 1024,
         alt: "Cremson Publications – Quality Educational Books",
       },
     ],
@@ -64,7 +64,7 @@ export const metadata = {
     title: "Cremson Publications | Best Educational Books & Reference Materials",
     description:
       "Discover quality educational books and publications that enhance learning and inspire knowledge.",
-    images: ["/opengraph-image.png"],
+    images: ["/poster.png"],
   },
   robots: {
     index: true,

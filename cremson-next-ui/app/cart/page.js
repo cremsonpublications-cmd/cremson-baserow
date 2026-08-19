@@ -287,7 +287,7 @@ export default function CartPage() {
                     {index > 0 && <hr className="border-t-black/10 mb-4 md:mb-6" />}
                     <div className="flex items-start space-x-4">
                       <Link
-                        className="bg-[#F0EEED] rounded-lg w-full min-w-[100px] max-w-[100px] sm:max-w-[124px] aspect-square overflow-hidden flex items-center justify-center p-2"
+                        className="bg-transparent border border-gray-100 rounded-lg w-full min-w-[100px] max-w-[100px] sm:max-w-[124px] aspect-square overflow-hidden flex items-center justify-center p-2"
                         href={`/shop/product/${book.id}`}
                       >
                         <img

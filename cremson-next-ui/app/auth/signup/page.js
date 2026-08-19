@@ -817,6 +817,9 @@ function SignupFormContent() {
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all cursor-pointer font-medium text-gray-800"
                   >
                     <option value="Teacher">Teacher</option>
+                    <option value="Principal">Principal</option>
+                    <option value="Coordinator">Coordinator</option>
+                    <option value="Contractual Teacher">Contractual Teacher</option>
                     <option value="Guest Teacher">Guest Teacher</option>
                   </select>
                 </div>

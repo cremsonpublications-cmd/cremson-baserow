@@ -98,6 +98,7 @@ function TeacherAuthModal({ isOpen, onClose }) {
 }
 
 function BookCard({ book, selected, onToggle }) {
+  const [showTooltip, setShowTooltip] = useState(false);
   return (
     <button
       type="button"
@@ -131,7 +132,28 @@ function BookCard({ book, selected, onToggle }) {
       )}
 
       <div className="p-3">
-        <p className="text-xs font-bold text-gray-900 leading-snug line-clamp-2">{book.name}</p>
+        <div className="relative">
+          <p
+            className="text-xs font-bold text-gray-900 leading-snug line-clamp-2"
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+            onTouchStart={() => setShowTooltip(true)}
+            onTouchEnd={() => setTimeout(() => setShowTooltip(false), 1500)}
+          >
+            {book.name}
+          </p>
+          {showTooltip && (
+            <div
+              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 pointer-events-none"
+              style={{ minWidth: "160px", maxWidth: "220px" }}
+            >
+              <div className="bg-gray-900 text-white text-[11px] font-medium leading-snug rounded-lg px-3 py-2 shadow-xl text-center">
+                {book.name}
+              </div>
+              <div className="w-2.5 h-2.5 bg-gray-900 rotate-45 mx-auto -mt-1.5 rounded-sm" />
+            </div>
+          )}
+        </div>
         {book.classes && (
           <span className="mt-1 inline-block text-[10px] font-semibold text-red-600 bg-red-50 border border-red-100 rounded-full px-2 py-0.5">
             Class {book.classes}

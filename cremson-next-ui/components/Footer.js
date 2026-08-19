@@ -56,7 +56,7 @@ export default function Footer() {
                     </svg>
                     <div>
                       <span className="text-sm md:text-lg font-semibold text-gray-900">Phone: </span>
-                      <a href="tel:011-4578594" className="text-blue-600 hover:text-blue-800 font-medium transition-colors text-sm md:text-base">011-4578594</a>
+                      <a href="tel:011-45785945" className="text-blue-600 hover:text-blue-800 font-medium transition-colors text-sm md:text-base">011-45785945</a>
                     </div>
                   </div>
 
@@ -99,7 +99,7 @@ export default function Footer() {
                     </svg>
                     <div>
                       <h4 className="text-base md:text-lg font-semibold text-gray-900 mb-1 md:mb-2">Working Hours:</h4>
-                      <p className="text-xs md:text-sm text-gray-700">Monday - Saturday, 09:00 AM - 06:00 PM</p>
+                      <p className="text-xs md:text-sm text-gray-700">Monday - Saturday, 10:00 AM - 06:00 PM</p>
                     </div>
                   </div>
                 </div>

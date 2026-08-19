@@ -128,7 +128,7 @@ export default function Home() {
                 {booksLoading
                   ? Array.from({ length: 8 }).map((_, i) => (
                       <div key={i} className="w-full animate-pulse">
-                        <div className="bg-[#F0EEED] rounded-[13px] lg:rounded-[20px] aspect-square mb-2.5 xl:mb-4 bg-gray-200" />
+                        <div className="bg-gray-200 rounded-[13px] lg:rounded-[20px] aspect-square mb-2.5 xl:mb-4" />
                         <div className="h-4 bg-gray-200 rounded mb-2 w-3/4" />
                         <div className="h-3 bg-gray-200 rounded mb-1 w-1/2" />
                         <div className="h-3 bg-gray-200 rounded mb-3 w-1/3" />
@@ -142,7 +142,7 @@ export default function Home() {
                   return (
                     <div key={book.id} className="w-full">
                       <Link className="flex flex-col items-start aspect-auto group min-h-[325px] sm:min-h-0 text-left" href={`/shop/product/${book.id}`}>
-                        <div className="bg-[#F0EEED] rounded-[13px] lg:rounded-[20px] w-full lg:max-w-[295px] aspect-[3/4] mb-2.5 xl:mb-4 overflow-hidden relative py-1.5 px-3">
+                        <div className="bg-transparent rounded-[13px] lg:rounded-[20px] w-full lg:max-w-[295px] aspect-[3/4] mb-2.5 xl:mb-4 overflow-hidden relative py-1.5 px-3">
                           <img
                             src={book.image || null}
                             className="w-full h-full object-contain hover:scale-105 transition-transform duration-300 ease-in-out"

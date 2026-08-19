@@ -1077,53 +1077,7 @@ export default function AdminCRMHub() {
   const [filters, setFilters] = useState({});
   const [actionLoading, setActionLoading] = useState({});
   const [showCreateSpecimenModal, setShowCreateSpecimenModal] = useState(false);
-  const [teacherStats, setTeacherStats] = useState(null);
-  const [showEditLimitModal, setShowEditLimitModal] = useState(false);
-  const [editLimitValue, setEditLimitValue] = useState("");
-  const [limitSaving, setLimitSaving] = useState(false);
 
-  const loadTeacherStats = () => {
-    api.get("/api/auth/teacher-signup-stats")
-      .then(res => setTeacherStats(res.data))
-      .catch(err => console.error("Failed to load teacher stats:", err));
-  };
-
-  const handleSaveLimit = async () => {
-    if (!editLimitValue || isNaN(editLimitValue) || Number(editLimitValue) < 0) {
-      alert("Please enter a valid limit number.");
-      return;
-    }
-    setLimitSaving(true);
-    try {
-      const rowId = teacherStats?.limit_row_id;
-      if (rowId) {
-        await api.patch(`/api/shipping-settings/${rowId}`, {
-          Name: "teacher_signup_limit",
-          Notes: String(editLimitValue),
-          Active: true
-        });
-      } else {
-        await api.post("/api/shipping-settings/", {
-          Name: "teacher_signup_limit",
-          Notes: String(editLimitValue),
-          Active: true
-        });
-      }
-      loadTeacherStats();
-      setShowEditLimitModal(false);
-    } catch (err) {
-      console.error(err);
-      alert(err?.response?.data?.detail || "Failed to save signup limit.");
-    } finally {
-      setLimitSaving(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === "teachers") {
-      loadTeacherStats();
-    }
-  }, [activeTab]);
 
   // Sync tab search parameter on load and history changes
   useEffect(() => {
@@ -1378,26 +1332,9 @@ export default function AdminCRMHub() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      {/* Page Title & Teacher Limit Settings */}
+      {/* Page Title */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 mt-0">
         <h2 className="text-2xl font-semibold text-gray-900 my-0 py-0">CRM Database</h2>
-        {activeTab === "teachers" && teacherStats && (
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-100">
-              {teacherStats.verified_count} / {teacherStats.limit} Slots Filled ({teacherStats.remaining_slots} remaining)
-            </span>
-            <button
-              onClick={() => {
-                setEditLimitValue(String(teacherStats.limit));
-                setShowEditLimitModal(true);
-              }}
-              className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors cursor-pointer"
-              title="Edit Signup Limit"
-            >
-              <Pen className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
       </div>
 
       <div className="bg-gray-50 min-h-screen">
@@ -1940,56 +1877,7 @@ export default function AdminCRMHub() {
           onClose={() => setHistoryTeacher(null)}
         />
       )}
-      {/* Edit Teacher Signup Limit Modal */}
-      {showEditLimitModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-sm rounded-3xl border border-gray-100 shadow-2xl p-6 text-center space-y-4">
-            <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mx-auto">
-              <Pen className="w-5 h-5 stroke-[2.5]" />
-            </div>
-            <h3 className="text-lg font-bold text-gray-900">Edit Teacher Signup Limit</h3>
-            <p className="text-xs text-gray-500">
-              Set the maximum number of verified teacher accounts allowed to register before triggering WhatsApp redirection.
-            </p>
-            
-            <div className="space-y-2 text-left">
-              <label className="text-xs font-bold text-gray-700">Signup Limit Value</label>
-              <input
-                type="number"
-                min="0"
-                value={editLimitValue}
-                onChange={(e) => setEditLimitValue(e.target.value)}
-                disabled={limitSaving}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
-                placeholder="e.g. 10"
-              />
-            </div>
 
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowEditLimitModal(false)}
-                disabled={limitSaving}
-                className="flex-1 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold rounded-xl text-xs transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  await handleSaveLimit();
-                  setShowEditLimitModal(false);
-                }}
-                disabled={limitSaving}
-                className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md"
-              >
-                {limitSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Update
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

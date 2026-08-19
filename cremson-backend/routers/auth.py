@@ -249,83 +249,8 @@ async def check_phone(phone: str):
     return {"available": True}
 
 
-async def count_verified_teachers() -> int:
-    b_client = BaserowClient()
-    try:
-        # Search Table 769 (auth_users) for "teacher"
-        res = await b_client.get_rows(TABLE_IDS["auth_users"], search="teacher", size=200)
-        results = res.get("results", [])
-        count = 0
-        for r in results:
-            notes = r.get("Notes") or ""
-            is_verified = int(r.get("is_verified") or 0)
-            if "role: teacher" in notes and is_verified == 1:
-                count += 1
-        return count
-    except Exception as e:
-        print("Warning: Failed to count verified teachers:", e)
-        return 0
-
-
-async def get_teacher_signup_limit() -> int:
-    b_client = BaserowClient()
-    try:
-        res = await b_client.get_rows(TABLE_IDS["shipping_settings"], search="teacher_signup_limit", size=10)
-        results = res.get("results", [])
-        for r in results:
-            if r.get("Name") == "teacher_signup_limit":
-                notes = r.get("Notes") or ""
-                if notes.strip().isdigit():
-                    return int(notes.strip())
-        
-        # If not found, let's create it with default value 10
-        await b_client.create_row(TABLE_IDS["shipping_settings"], {
-            "Name": "teacher_signup_limit",
-            "Notes": "10",
-            "Active": True
-        })
-        return 10
-    except Exception as e:
-        print("Warning: Failed to fetch teacher signup limit, using default of 10:", e)
-        return 10
-
-
-@router.get("/teacher-signup-stats", summary="Get stats on teacher signup limit and count")
-async def teacher_signup_stats():
-    verified_count = await count_verified_teachers()
-    limit = await get_teacher_signup_limit()
-    
-    # Get the row ID of the limit setting to allow direct frontend patching
-    b_client = BaserowClient()
-    limit_row_id = None
-    try:
-        res = await b_client.get_rows(TABLE_IDS["shipping_settings"], search="teacher_signup_limit", size=10)
-        for r in res.get("results", []):
-            if r.get("Name") == "teacher_signup_limit":
-                limit_row_id = r.get("id")
-    except Exception as e:
-        print("Warning: Failed to fetch limit row ID:", e)
-
-    return {
-        "verified_count": verified_count,
-        "limit": limit,
-        "remaining_slots": max(0, limit - verified_count),
-        "limit_row_id": limit_row_id
-    }
-
-
-
 @router.post("/teacher-register", status_code=201)
 async def teacher_register(body: TeacherRegisterRequest):
-    # Verify limit of verified teachers
-    verified_count = await count_verified_teachers()
-    limit = await get_teacher_signup_limit()
-    if verified_count >= limit:
-        raise HTTPException(
-            status_code=400,
-            detail="teacher_limit_reached"
-        )
-
     validate_password_strength(body.password)
 
     if body.pincode:
@@ -953,3 +878,26 @@ async def change_password(body: ChangePasswordRequest, user: dict = Depends(curr
     await client.update_row(TABLE_IDS["auth_users"], user["id"], {"password_hash": new_hash})
 
     return {"message": "Password updated successfully."}
+
+
+class ContactUsRequest(BaseModel):
+    full_name: str
+    phone: str
+    email: str
+    message: str
+
+
+@router.post("/contact")
+async def contact_us(body: ContactUsRequest):
+    from services.email import send_contact_us_email
+    try:
+        await send_contact_us_email(
+            full_name=body.full_name,
+            phone=body.phone,
+            email=body.email,
+            message=body.message
+        )
+        return {"success": True, "message": "Email sent successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
+

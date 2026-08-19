@@ -558,3 +558,41 @@ async def send_specimen_rejected_email(to_email: str, name: str, books_requested
     msg.attach(MIMEText(html, "html"))
     await aiosmtplib.send(msg, hostname=SMTP_HOST, port=SMTP_PORT, username=SMTP_USER, password=SMTP_KEY, start_tls=True)
 
+
+async def send_contact_us_email(full_name: str, phone: str, email: str, message: str):
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+      <div style="background:#2563eb;padding:28px 32px;">
+        <h1 style="color:#fff;margin:0;font-size:22px;font-weight:700;">Cremson Publications</h1>
+      </div>
+      <div style="padding:32px;">
+        <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">New Contact Us Message ✉️</h2>
+        <div style="margin-bottom:20px; font-size:14px; line-height:1.6; color:#374151;">
+          <p><strong>Name:</strong> {full_name}</p>
+          <p><strong>Phone:</strong> {phone}</p>
+          <p><strong>Email:</strong> {email}</p>
+          <p><strong>Message:</strong></p>
+          <div style="background:#f3f4f6; padding:15px; border-radius:8px; white-space:pre-wrap; margin-top:8px;">{message}</div>
+        </div>
+      </div>
+    </div>
+    """
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"New website query from {full_name}"
+    msg["From"]    = f"{FROM_NAME} <{FROM_EMAIL}>"
+    msg["To"]      = "info@cremsonpublications.com"
+    if email:
+        msg["Reply-To"] = email
+    msg.attach(MIMEText(html, "html"))
+
+    await aiosmtplib.send(
+        msg,
+        hostname=SMTP_HOST,
+        port=SMTP_PORT,
+        username=SMTP_USER,
+        password=SMTP_KEY,
+        start_tls=True,
+    )
+
+

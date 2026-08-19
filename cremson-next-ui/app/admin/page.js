@@ -37,7 +37,6 @@ export default function AdminDashboard() {
     const endpoints = {
       categories: "/api/categories/?size=1",
       products: "/api/products/?size=1",
-      orders: "/api/orders/?size=1",
     };
     Promise.all(
       Object.entries(endpoints).map(async ([key, path]) => {
@@ -132,14 +131,6 @@ export default function AdminDashboard() {
       emoji: "📦",
       href: "/admin/products",
     },
-    {
-      key: "orders",
-      label: "Total Orders",
-      bg: "bg-yellow-50",
-      iconBg: "bg-yellow-100",
-      emoji: "🛒",
-      href: "/admin/orders",
-    },
   ];
 
   // Filtering reminders by date range first
@@ -179,7 +170,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ── Stat Cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {statCards.map((card) => (
           <Link
             key={card.key}

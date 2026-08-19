@@ -832,7 +832,7 @@ function Shop() {
                       href={`/shop/product/${book.id}`}
                     >
                       {/* Image container */}
-                      <div className="bg-[#F0EEED] rounded-[13px] lg:rounded-[20px] w-full lg:max-w-[295px] aspect-[3/4] mb-2.5 xl:mb-4 overflow-hidden relative py-1.5 px-3">
+                      <div className="bg-transparent rounded-[13px] lg:rounded-[20px] w-full lg:max-w-[295px] aspect-[3/4] mb-2.5 xl:mb-4 overflow-hidden relative py-1.5 px-3">
                         {book.image ? (
                           <img
                             src={book.image}
