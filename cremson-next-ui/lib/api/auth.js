@@ -26,3 +26,8 @@ export async function getMe(token) {
   });
   return data;
 }
+
+export async function getTeacherStatus(phone) {
+  const { data } = await api.get(`/api/auth/teacher-status?phone=${encodeURIComponent(phone)}`);
+  return data;
+}

@@ -130,6 +130,7 @@ export function AppProvider({ children }) {
         .then((u) => {
           setUser(u);
           localStorage.setItem("cremson_role", u.role);
+          localStorage.setItem("cremson_phone", u.phone || "");
           // Load cart + wishlist from backend
           return Promise.all([getCart(), getWishlist()]);
         })
@@ -192,6 +193,7 @@ export function AppProvider({ children }) {
   const authLogin = async (token, userData) => {
     localStorage.setItem("cremson_token", token);
     localStorage.setItem("cremson_role", userData.role || "customer");
+    localStorage.setItem("cremson_phone", userData.phone || "");
     setAuthToken(token);
     setUser(userData);
 

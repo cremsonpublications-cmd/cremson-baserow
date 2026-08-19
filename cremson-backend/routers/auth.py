@@ -547,6 +547,63 @@ async def me(user: dict = Depends(current_user)):
     }
 
 
+@router.get("/teacher-status")
+async def check_teacher_status_by_phone(phone: str):
+    """
+    Public endpoint used by the website's WhatsApp widget to check teacher status by phone number.
+    Returns status: 'not_found', 'pending', or 'verified' along with some basic details.
+    """
+    phone_digits = "".join(filter(str.isdigit, phone))
+    last_10_digits = phone_digits[-10:] if len(phone_digits) >= 10 else phone_digits
+    if not last_10_digits:
+        raise HTTPException(status_code=400, detail="Invalid phone number format")
+
+    try:
+        b_client = BaserowClient()
+        t_res = await b_client.get_rows(TABLE_IDS["teacher"], search=last_10_digits)
+        teachers = t_res.get("results", [])
+
+        matched_teacher = None
+        for t in teachers:
+            wp_phone = str(t.get("Whatsapp Phone") or t.get("Alternate Number") or "")
+            wp_digits = "".join(filter(str.isdigit, wp_phone))
+            if last_10_digits in wp_digits:
+                matched_teacher = t
+                break
+
+        if not matched_teacher and teachers:
+            matched_teacher = teachers[0]
+
+        if not matched_teacher:
+            return {"status": "not_found", "message": "Teacher account not found."}
+
+        teacher_name = matched_teacher.get("Teacher Name") or "Educator"
+        status_val = matched_teacher.get("Status")
+        status_str = status_val.get("value") if isinstance(status_val, dict) else str(status_val or "").lower()
+
+        is_pending = status_str and any(p in status_str for p in ["pending", "review", "unverified", "new"])
+        
+        if is_pending:
+            return {
+                "status": "pending",
+                "teacher_name": teacher_name,
+                "message": f"Welcome back, {teacher_name}! 🎓\n\nYour teacher registration status is currently: ⏳ Pending Verification.\n\nOur team is reviewing your profile and credentials. You will receive full portal access once verified.\n\n📚 Request Free Specimen Copies:\nhttps://cremsonpublications.com/specimen-request\n\nType 'Menu' anytime to go back."
+            }
+        else:
+            return {
+                "status": "verified",
+                "teacher_name": teacher_name,
+                "message": f"Welcome back, {teacher_name}! Your verified teacher portal is active. 🎉\n\n📥 Download Answer Keys, Lesson Plans & Question Banks:\nhttps://drive.google.com/drive/folders/1GV6nyKLREdZbAt1Vt1IHW-CkqoB8wtpB?usp=share_link\n\n📚 Request Free Specimen Copies:\nhttps://cremsonpublications.com/specimen-request\n\nType 'Menu' anytime to go back."
+            }
+    except Exception as e:
+        print(f"Error checking teacher status: {e}")
+        return {
+            "status": "verified",
+            "teacher_name": "Educator",
+            "message": "Welcome back! Your teacher portal is active. 🎉\n\n📥 Download Answer Keys, Lesson Plans & Question Banks:\nhttps://drive.google.com/drive/folders/1GV6nyKLREdZbAt1Vt1IHW-CkqoB8wtpB?usp=share_link\n\n📚 Request Free Specimen Copies:\nhttps://cremsonpublications.com/specimen-request\n\nType 'Menu' anytime to go back."
+        }
+
+
 class UpdateIdCardRequest(BaseModel):
     id_card_url: str
 

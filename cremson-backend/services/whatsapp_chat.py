@@ -262,7 +262,7 @@ async def handle_incoming_message(from_phone: str, message_text: str) -> None:
                 "🌐 Teacher Registration Link:\n"
                 "https://cremsonpublications.com/auth/teacher-signup\n\n"
                 "📚 Request Free Specimen Copies:\n"
-                "https://cremsonpublications.com/specimen-request"
+                "https://cremsonpublications.com/specimen"
             )
             await send_text_message(from_phone, msg)
             return
@@ -332,7 +332,7 @@ async def handle_incoming_message(from_phone: str, message_text: str) -> None:
             "🌐 Teacher Registration Link:\n"
             "https://cremsonpublications.com/auth/teacher-signup\n\n"
             "📚 Request Free Specimen Copies:\n"
-            "https://cremsonpublications.com/specimen-request"
+            "https://cremsonpublications.com/specimen"
         )
         await send_text_message(from_phone, msg)
 
@@ -416,7 +416,7 @@ async def _handle_option_teacher_registered(from_phone: str) -> None:
                 "Reply:\n"
                 "B) Register as New Teacher\n\n"
                 "Or request specimen copies directly on our website:\n"
-                "https://cremsonpublications.com/specimen-request"
+                "https://cremsonpublications.com/specimen"
             )
             await send_text_message(from_phone, msg)
             return
@@ -432,7 +432,7 @@ async def _handle_option_teacher_registered(from_phone: str) -> None:
                 "Your teacher registration status is currently: ⏳ Pending Verification.\n\n"
                 "Our team is reviewing your profile and credentials. You will receive full portal access once verified.\n\n"
                 "📚 Request Free Specimen Copies:\n"
-                "https://cremsonpublications.com/specimen-request\n\n"
+                "https://cremsonpublications.com/specimen\n\n"
                 "Type 'Menu' anytime to go back."
             )
             await send_text_message(from_phone, msg)
@@ -443,7 +443,7 @@ async def _handle_option_teacher_registered(from_phone: str) -> None:
                 "📥 Download Answer Keys, Lesson Plans & Question Banks:\n"
                 "https://drive.google.com/drive/folders/1GV6nyKLREdZbAt1Vt1IHW-CkqoB8wtpB?usp=share_link\n\n"
                 "📚 Request Free Specimen Copies:\n"
-                "https://cremsonpublications.com/specimen-request\n\n"
+                "https://cremsonpublications.com/specimen\n\n"
                 "Type 'Menu' anytime to go back."
             )
             await send_text_message(from_phone, msg)
@@ -456,7 +456,7 @@ async def _handle_option_teacher_registered(from_phone: str) -> None:
             "📥 Download Answer Keys, Lesson Plans & Question Banks:\n"
             "https://drive.google.com/drive/folders/1GV6nyKLREdZbAt1Vt1IHW-CkqoB8wtpB?usp=share_link\n\n"
             "📚 Request Free Specimen Copies:\n"
-            "https://cremsonpublications.com/specimen-request\n\n"
+            "https://cremsonpublications.com/specimen\n\n"
             "Type 'Menu' anytime to go back."
         )
         await send_text_message(from_phone, portal_msg)
