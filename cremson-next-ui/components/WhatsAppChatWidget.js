@@ -514,7 +514,7 @@ export default function WhatsAppChatWidget() {
           className="mb-3 flex flex-col overflow-hidden rounded-xl"
           style={{
             width: "clamp(300px, 90vw, 370px)",
-            height: "min(560px, calc(100vh - 170px))",
+            height: "min(500px, calc(100dvh - 230px))",
             boxShadow: "0 12px 50px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.2)",
             animation: "wa-slide-up 0.22s ease-out",
           }}
