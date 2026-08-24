@@ -223,3 +223,39 @@ input[type="range"]::-moz-range-thumb {
   border: 2px solid #fff;
   box-shadow: 0 0 0 1px #000;
 }
+
+/* --- MDXEditor & Rich Text Rendered List Styling --- */
+
+/* Standard bullet list styling inside MDXEditor and rendered rich text */
+.rich-text ul,
+.mdxeditor-custom ul {
+  list-style-type: disc !important;
+  padding-left: 1.5rem !important;
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+/* Standard numbered list styling inside MDXEditor and rendered rich text */
+.rich-text ol,
+.mdxeditor-custom ol {
+  list-style-type: decimal !important;
+  padding-left: 1.5rem !important;
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.rich-text li,
+.mdxeditor-custom li {
+  display: list-item !important;
+  margin-bottom: 0.25rem !important;
+}
+
+/* Checklist / Tasklist override: remove bullet dots and display checkboxes nicely */
+.rich-text ul li:has(input[type="checkbox"]),
+.mdxeditor-custom ul li:has(input[type="checkbox"]) {
+  list-style-type: none !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  padding-left: 0 !important;
+}
