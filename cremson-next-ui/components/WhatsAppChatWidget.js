@@ -70,8 +70,6 @@ export default function WhatsAppChatWidget() {
   // Hide widget while scrolling, reveal when scrolling stops
   useEffect(() => {
     const handleScroll = () => {
-      // If the chat window is open, never hide
-      if (isOpen) return;
       setIsVisible(false);
       if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
       scrollTimerRef.current = setTimeout(() => {
@@ -83,7 +81,7 @@ export default function WhatsAppChatWidget() {
       window.removeEventListener("scroll", handleScroll);
       if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
     };
-  }, [isOpen]);
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
