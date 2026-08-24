@@ -63,7 +63,27 @@ export default function WhatsAppChatWidget() {
   const [inputText, setInputText] = useState("");
   const [messages, setMessages] = useState([INITIAL_BOT_MESSAGE]);
   const [awaitingPhone, setAwaitingPhone] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
   const messagesEndRef = useRef(null);
+  const scrollTimerRef = useRef(null);
+
+  // Hide widget while scrolling, reveal when scrolling stops
+  useEffect(() => {
+    const handleScroll = () => {
+      // If the chat window is open, never hide
+      if (isOpen) return;
+      setIsVisible(false);
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+      scrollTimerRef.current = setTimeout(() => {
+        setIsVisible(true);
+      }, 300);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    };
+  }, [isOpen]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -505,7 +525,15 @@ export default function WhatsAppChatWidget() {
   );
 
   return (
-    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 font-sans print:hidden">
+    <div
+      className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 font-sans print:hidden"
+      style={{
+        opacity: isVisible ? 1 : 0,
+        transform: isVisible ? "translateY(0)" : "translateY(8px)",
+        transition: "opacity 0.25s ease, transform 0.25s ease",
+        pointerEvents: isVisible ? "auto" : "none",
+      }}
+    >
       {/* ═══════════════════════════════════════════
           CHAT WINDOW
       ═══════════════════════════════════════════ */}
