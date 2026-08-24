@@ -63,27 +63,7 @@ export default function WhatsAppChatWidget() {
   const [inputText, setInputText] = useState("");
   const [messages, setMessages] = useState([INITIAL_BOT_MESSAGE]);
   const [awaitingPhone, setAwaitingPhone] = useState(false);
-  const [isVisible, setIsVisible] = useState(true);
   const messagesEndRef = useRef(null);
-  const scrollTimerRef = useRef(null);
-
-  // On scroll: close chat panel + hide button. After scroll stops: button reappears, chat stays closed.
-  // Messages are preserved in state — clicking the button again reopens with previous conversation.
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsOpen(false);      // close chat panel (messages stay in memory)
-      setIsVisible(false);   // hide the button too
-      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
-      scrollTimerRef.current = setTimeout(() => {
-        setIsVisible(true);  // button reappears after scroll stops
-      }, 400);
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
-    };
-  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -525,15 +505,7 @@ export default function WhatsAppChatWidget() {
   );
 
   return (
-    <div
-      className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 font-sans print:hidden"
-      style={{
-        opacity: isVisible ? 1 : 0,
-        transform: isVisible ? "translateY(0)" : "translateY(8px)",
-        transition: "opacity 0.25s ease, transform 0.25s ease",
-        pointerEvents: isVisible ? "auto" : "none",
-      }}
-    >
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 font-sans print:hidden">
       {/* ═══════════════════════════════════════════
           CHAT WINDOW
       ═══════════════════════════════════════════ */}
@@ -895,58 +867,58 @@ export default function WhatsAppChatWidget() {
       )}
 
       {/* ═══════════════════════════════════════════
-          FLOATING TOGGLE BUTTON — hidden while chat is open
+          FLOATING TOGGLE BUTTON
       ═══════════════════════════════════════════ */}
-      {!isOpen && (
-        <div className="relative group flex justify-end">
-          {/* Hover tooltip */}
+      <div className="relative group flex justify-end">
+        {/* Hover tooltip */}
+        {!isOpen && (
           <div
             className="absolute right-full top-1/2 -translate-y-1/2 mr-3 px-3 py-1.5 rounded-lg whitespace-nowrap text-white text-xs font-medium shadow-xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200"
             style={{ backgroundColor: "#111b21" }}
           >
             Chat with us
           </div>
+        )}
 
-          <button
-            type="button"
-            onClick={handleToggle}
-            className="relative flex items-center justify-center cursor-pointer transition-transform duration-200 hover:scale-105 active:scale-95"
-            style={{ width: "56px", height: "56px" }}
-            aria-label="Toggle WhatsApp Support Chat"
-          >
-            {/* Pulse ring (unread) */}
-            {hasUnread && (
-              <span
-                className="absolute inset-0 rounded-full animate-ping"
-                style={{ backgroundColor: "rgba(37,211,102,0.3)" }}
-              />
-            )}
-
-            {/* Unread badge */}
-            {hasUnread && (
-              <span
-                className="absolute top-0 right-0 flex items-center justify-center rounded-full text-white font-bold border-2 border-white"
-                style={{
-                  width: "20px",
-                  height: "20px",
-                  fontSize: "11px",
-                  backgroundColor: "#ef4444",
-                  zIndex: 10,
-                }}
-              >
-                1
-              </span>
-            )}
-
-            <img
-              src={whatsappIcon.src}
-              alt="WhatsApp Support"
-              className="w-full h-full object-contain"
-              style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.25))" }}
+        <button
+          type="button"
+          onClick={handleToggle}
+          className="relative flex items-center justify-center cursor-pointer transition-transform duration-200 hover:scale-105 active:scale-95"
+          style={{ width: "56px", height: "56px" }}
+          aria-label="Toggle WhatsApp Support Chat"
+        >
+          {/* Pulse ring (unread) */}
+          {hasUnread && !isOpen && (
+            <span
+              className="absolute inset-0 rounded-full animate-ping"
+              style={{ backgroundColor: "rgba(37,211,102,0.3)" }}
             />
-          </button>
-        </div>
-      )}
+          )}
+
+          {/* Unread badge */}
+          {hasUnread && !isOpen && (
+            <span
+              className="absolute top-0 right-0 flex items-center justify-center rounded-full text-white font-bold border-2 border-white"
+              style={{
+                width: "20px",
+                height: "20px",
+                fontSize: "11px",
+                backgroundColor: "#ef4444",
+                zIndex: 10,
+              }}
+            >
+              1
+            </span>
+          )}
+
+          <img
+            src={whatsappIcon.src}
+            alt="WhatsApp Support"
+            className="w-full h-full object-contain"
+            style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.25))" }}
+          />
+        </button>
+      </div>
 
 
       {/* Slide-up animation keyframes */}
