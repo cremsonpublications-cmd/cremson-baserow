@@ -505,7 +505,7 @@ export default function WhatsAppChatWidget() {
   );
 
   return (
-    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 font-sans print:hidden">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 font-sans print:hidden">
       {/* ═══════════════════════════════════════════
           CHAT WINDOW
       ═══════════════════════════════════════════ */}
@@ -870,7 +870,7 @@ export default function WhatsAppChatWidget() {
           FLOATING TOGGLE BUTTON
       ═══════════════════════════════════════════ */}
       <div className="relative group flex justify-end">
-        {/* Hover tooltip */}
+        {/* Hover tooltip — only when closed */}
         {!isOpen && (
           <div
             className="absolute right-full top-1/2 -translate-y-1/2 mr-3 px-3 py-1.5 rounded-lg whitespace-nowrap text-white text-xs font-medium shadow-xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200"
@@ -885,9 +885,9 @@ export default function WhatsAppChatWidget() {
           onClick={handleToggle}
           className="relative flex items-center justify-center cursor-pointer transition-transform duration-200 hover:scale-105 active:scale-95"
           style={{ width: "56px", height: "56px" }}
-          aria-label="Toggle WhatsApp Support Chat"
+          aria-label={isOpen ? "Close WhatsApp Chat" : "Open WhatsApp Support Chat"}
         >
-          {/* Pulse ring (unread) */}
+          {/* Pulse ring (unread, only when closed) */}
           {hasUnread && !isOpen && (
             <span
               className="absolute inset-0 rounded-full animate-ping"
@@ -895,7 +895,7 @@ export default function WhatsAppChatWidget() {
             />
           )}
 
-          {/* Unread badge */}
+          {/* Unread badge (only when closed) */}
           {hasUnread && !isOpen && (
             <span
               className="absolute top-0 right-0 flex items-center justify-center rounded-full text-white font-bold border-2 border-white"
@@ -911,12 +911,41 @@ export default function WhatsAppChatWidget() {
             </span>
           )}
 
-          <img
-            src={whatsappIcon.src}
-            alt="WhatsApp Support"
-            className="w-full h-full object-contain"
-            style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.25))" }}
-          />
+          {/* ── When OPEN: show X close icon ── */}
+          {isOpen ? (
+            <span
+              className="flex items-center justify-center rounded-full"
+              style={{
+                width: "56px",
+                height: "56px",
+                backgroundColor: "#25d366",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.28)",
+              }}
+            >
+              {/* X icon (Lucide-style inline SVG) */}
+              <svg
+                width="26"
+                height="26"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="white"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </span>
+          ) : (
+            /* ── When CLOSED: show WhatsApp icon ── */
+            <img
+              src={whatsappIcon.src}
+              alt="WhatsApp Support"
+              className="w-full h-full object-contain"
+              style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.25))" }}
+            />
+          )}
         </button>
       </div>
 
