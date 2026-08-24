@@ -151,7 +151,7 @@ export default function Header() {
   return (
     <>
       <nav className="sticky top-0 bg-white shadow-sm border-b border-gray-200" style={{ position: "sticky", top: "0px", zIndex: 999 }}>
-        <div className="flex relative max-w-9xl mx-auto items-center justify-between py-5 md:py-6 px-4 md:px-6 xl:px-4">
+        <div className="flex relative max-w-9xl mx-auto items-center justify-between py-3 md:py-6 px-4 md:px-6 xl:px-4">
           
           {/* Logo & Mobile Menu Hamburger */}
           <div className="flex items-center flex-shrink-0 gap-3 md:gap-0">

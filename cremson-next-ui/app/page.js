@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Star, Heart, MapPin, Phone, Smartphone, Mail, Clock } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { BANNER_SLIDES } from "../data/books";
 import { useProducts } from "../lib/api/hooks";
 import api from "../lib/api/axios";
 import Link from "next/link";
@@ -11,19 +10,21 @@ import Link from "next/link";
 export default function Home() {
   const { addToCart, toggleWishlist, wishlist, setSearchQuery, cart, updateQuantity, removeFromCart } = useApp();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [slides, setSlides] = useState(BANNER_SLIDES);
+  const [slides, setSlides] = useState([]);
   const { data: books = [], isLoading: booksLoading } = useProducts();
 
-  // Fetch banners from API (fallback to static data)
+  // Fetch banners from API
   useEffect(() => {
     api.get("/api/banners/?active_only=true")
       .then((res) => {
         const data = res.data;
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setSlides(data.map((b) => ({ id: b.id, image: b.image_url, title: b.title })));
         }
       })
-      .catch(() => {}); // silently fall back to static slides
+      .catch((err) => {
+        console.error("Failed to load banners:", err);
+      });
   }, []);
 
   const [blogs, setBlogs] = useState([]);
@@ -65,56 +66,64 @@ export default function Home() {
   return (
     <div className="w-full">
       {/* CAROUSEL BANNER SECTION */}
-      <section className="relative overflow-hidden aspect-[2.96/1] sm:aspect-auto h-auto sm:h-[450px] md:h-[520px] bg-[#EAEAEA] select-none" id="home">
-        {/* Slides list */}
-        <div
-          className="h-full flex transition-transform duration-700 ease-in-out"
-          style={{ transform: `translateX(-${currentSlide * 100}%)` }}
-        >
-          {slides.map((slide) => (
-            <div key={slide.id} className="w-full h-full flex-shrink-0 relative">
-              <div className="absolute inset-0">
-                <img
-                  src={slide.image}
-                  alt={slide.title}
-                  className="w-full h-full object-contain transition-opacity duration-300 ease-in-out"
-                  style={{ willChange: "opacity" }}
-                />
+      {slides.length > 0 && (
+        <section className="relative overflow-hidden aspect-[2.96/1] sm:aspect-auto h-auto sm:h-[450px] md:h-[520px] bg-[#EAEAEA] select-none" id="home">
+          {/* Slides list */}
+          <div
+            className="h-full flex transition-transform duration-700 ease-in-out"
+            style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+          >
+            {slides.map((slide) => (
+              <div key={slide.id} className="w-full h-full flex-shrink-0 relative">
+                <div className="absolute inset-0">
+                  <img
+                    src={slide.image}
+                    alt={slide.title}
+                    className="w-full h-full object-contain transition-opacity duration-300 ease-in-out"
+                    style={{ willChange: "opacity" }}
+                  />
+                </div>
               </div>
+            ))}
+          </div>
+
+          {/* Controls */}
+          {slides.length > 1 && (
+            <>
+              <button
+                onClick={handlePrevSlide}
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/80 hover:text-black text-white transition-all backdrop-blur-sm shadow-md"
+                aria-label="Previous Slide"
+              >
+                <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
+              </button>
+              <button
+                onClick={handleNextSlide}
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/80 hover:text-black text-white transition-all backdrop-blur-sm shadow-md"
+                aria-label="Next Slide"
+              >
+                <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
+              </button>
+            </>
+          )}
+
+          {/* Indicators */}
+          {slides.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+              {slides.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlide(index)}
+                  className={`w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 rounded-full transition-all ${
+                    index === currentSlide ? "bg-red-600 sm:w-8" : "bg-white/50 hover:bg-white"
+                  }`}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
             </div>
-          ))}
-        </div>
-
-        {/* Controls */}
-        <button
-          onClick={handlePrevSlide}
-          className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/80 hover:text-black text-white transition-all backdrop-blur-sm shadow-md"
-          aria-label="Previous Slide"
-        >
-          <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
-        </button>
-        <button
-          onClick={handleNextSlide}
-          className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/80 hover:text-black text-white transition-all backdrop-blur-sm shadow-md"
-          aria-label="Next Slide"
-        >
-          <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
-        </button>
-
-        {/* Indicators */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-          {slides.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setCurrentSlide(index)}
-              className={`w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 rounded-full transition-all ${
-                index === currentSlide ? "bg-red-600 sm:w-8" : "bg-white/50 hover:bg-white"
-              }`}
-              aria-label={`Go to slide ${index + 1}`}
-            />
-          ))}
-        </div>
-      </section>
+          )}
+        </section>
+      )}
 
       {/* BEST SELLING BOOKS SECTION */}
       <main className="my-6 sm:my-[72px] p-1">
