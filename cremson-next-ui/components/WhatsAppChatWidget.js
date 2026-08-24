@@ -67,14 +67,16 @@ export default function WhatsAppChatWidget() {
   const messagesEndRef = useRef(null);
   const scrollTimerRef = useRef(null);
 
-  // Hide widget while scrolling, reveal when scrolling stops
+  // On scroll: close chat panel + hide button. After scroll stops: button reappears, chat stays closed.
+  // Messages are preserved in state — clicking the button again reopens with previous conversation.
   useEffect(() => {
     const handleScroll = () => {
-      setIsVisible(false);
+      setIsOpen(false);      // close chat panel (messages stay in memory)
+      setIsVisible(false);   // hide the button too
       if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
       scrollTimerRef.current = setTimeout(() => {
-        setIsVisible(true);
-      }, 300);
+        setIsVisible(true);  // button reappears after scroll stops
+      }, 400);
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
