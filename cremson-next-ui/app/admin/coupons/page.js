@@ -33,6 +33,7 @@ const EMPTY_FORM = {
   discount_type: "percentage",
   discount_value: "",
   min_order_amount: "",
+  max_discount_amount: "",
   show_in_ui: true,
   expiry_date: "",
   free_delivery: false,
@@ -279,6 +280,7 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
           discount_type: getScalarVal(coupon.discount_type, "percentage"),
           discount_value: getScalarVal(coupon.discount_value ?? coupon.discount_percentage, ""),
           min_order_amount: getScalarVal(coupon.minimum_order_amount ?? coupon.min_order_amount, ""),
+          max_discount_amount: getScalarVal(coupon.max_discount_amount ?? coupon.max_discount, ""),
           show_in_ui: coupon.show_in_ui ?? true,
           expiry_date: getScalarVal(coupon.valid_until ?? coupon.expiry_date ?? coupon.expires_at, ""),
           free_delivery: coupon.free_delivery ?? false,
@@ -368,6 +370,14 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
       } else {
         payload.minimum_order_amount = null;
         payload.min_order_amount = null;
+      }
+      if (form.max_discount_amount !== "" && form.max_discount_amount !== null && form.max_discount_amount !== undefined) {
+        const maxVal = Math.round(Number(form.max_discount_amount));
+        payload.max_discount_amount = maxVal;
+        payload.max_discount = maxVal;
+      } else {
+        payload.max_discount_amount = null;
+        payload.max_discount = null;
       }
       if (form.expiry_date) {
         payload.valid_until = form.expiry_date;
@@ -516,6 +526,27 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors"
                 />
               </div>
+
+              {/* Maximum Discount Amount (Percentage Only) */}
+              {form.discount_type === "percentage" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Maximum Discount Amount (₹)
+                  </label>
+                  <input
+                    type="number"
+                    name="max_discount_amount"
+                    step="1"
+                    value={form.max_discount_amount}
+                    onChange={handleChange}
+                    placeholder="e.g., 200 (leave empty for no cap)"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Caps maximum discount for percentage coupons (e.g. 20% OFF up to ₹200)
+                  </p>
+                </div>
+              )}
 
               {/* Show in User Interface */}
               <div>
@@ -766,6 +797,11 @@ function CouponCard({ coupon, openEdit, handleDelete }) {
                 <div className="flex items-center space-x-2">
                   <span className="text-sm font-medium text-gray-900">
                     {isPct ? `${discVal}% off on order` : `₹${discVal} off on order`}
+                    {isPct && (coupon.max_discount_amount || coupon.max_discount) ? (
+                      <span className="text-xs font-semibold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100 ml-1.5">
+                        Max ₹{coupon.max_discount_amount || coupon.max_discount}
+                      </span>
+                    ) : null}
                   </span>
                 </div>
               )}

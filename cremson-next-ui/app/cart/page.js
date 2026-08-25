@@ -108,6 +108,7 @@ export default function CartPage() {
         discountType: rawType,
         value: valNum,
         minOrder: (c.minimum_order_amount ?? c.min_order_amount) ? Number(c.minimum_order_amount ?? c.min_order_amount) : null,
+        maxDiscountAmount: (c.max_discount_amount ?? c.max_discount) ? Number(c.max_discount_amount ?? c.max_discount) : null,
         showInUi: c.show_in_ui ?? true,
         freeDelivery: c.free_delivery ?? false,
         firstOrderOnly: Boolean(c.first_order_only),
@@ -155,6 +156,9 @@ export default function CartPage() {
     const typeLower = String(appliedCoupon.discountType || "").toLowerCase();
     if (typeLower === "percentage") {
       disc = (baseAmount * appliedCoupon.value) / 100;
+      if (appliedCoupon.maxDiscountAmount && appliedCoupon.maxDiscountAmount > 0) {
+        disc = Math.min(disc, appliedCoupon.maxDiscountAmount);
+      }
     } else if (typeLower.includes("fixed")) {
       if (appliedCoupon.minOrder && subtotal < appliedCoupon.minOrder) return 0;
       disc = Math.min(appliedCoupon.value, baseAmount);
@@ -537,6 +541,9 @@ export default function CartPage() {
                             )}
                             {coupon.minOrder && (
                               <p className="text-xs text-gray-500 italic">* Requires order minimum of ₹{coupon.minOrder}</p>
+                            )}
+                            {coupon.maxDiscountAmount && coupon.discountType?.toLowerCase() === "percentage" && (
+                              <p className="text-xs text-purple-700 italic">* Maximum discount capped at ₹{coupon.maxDiscountAmount}</p>
                             )}
                             {coupon.firstOrderOnly && (
                               <p className="text-xs text-amber-700 font-semibold flex items-center gap-1">

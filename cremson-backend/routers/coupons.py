@@ -15,6 +15,8 @@ class CouponCreate(BaseModel):
     discount_percentage: Optional[float] = None
     minimum_order_amount: Optional[float] = None
     min_order_amount: Optional[float] = None
+    max_discount_amount: Optional[float] = None
+    max_discount: Optional[float] = None
     max_uses: Optional[int] = None
     expiry_date: Optional[str] = None
     valid_until: Optional[str] = None
@@ -35,6 +37,8 @@ class CouponUpdate(BaseModel):
     discount_percentage: Optional[float] = None
     minimum_order_amount: Optional[float] = None
     min_order_amount: Optional[float] = None
+    max_discount_amount: Optional[float] = None
+    max_discount: Optional[float] = None
     max_uses: Optional[int] = None
     expiry_date: Optional[str] = None
     valid_until: Optional[str] = None
@@ -68,6 +72,14 @@ def _normalize_coupon_row(row: dict) -> dict:
         row["first_order_only"] = str(val).lower() in ("true", "1", "yes")
     else:
         row["first_order_only"] = False
+
+    max_disc = row.get("max_discount_amount") if row.get("max_discount_amount") is not None else row.get("max_discount")
+    if max_disc is not None and str(max_disc).strip() != "":
+        try:
+            row["max_discount_amount"] = float(max_disc)
+            row["max_discount"] = float(max_disc)
+        except (ValueError, TypeError):
+            pass
     return row
 
 
@@ -107,13 +119,20 @@ async def create_coupon(body: CouponCreate):
         data["minimum_order_amount"] = int_min
         data["min_order_amount"] = int_min
 
+    # Ensure max_discount_amount is set
+    max_disc_val = data.get("max_discount_amount") if data.get("max_discount_amount") is not None else data.get("max_discount")
+    if max_disc_val is not None:
+        int_max = int(round(max_disc_val))
+        data["max_discount_amount"] = int_max
+        data["max_discount"] = int_max
+
     # Ensure valid_until is set for Baserow
     date_val = data.get("valid_until") or data.get("expiry_date")
     if date_val:
         data["valid_until"] = date_val
         data["expiry_date"] = date_val
 
-    for field in ["discount_value", "discount_percentage", "minimum_order_amount", "min_order_amount"]:
+    for field in ["discount_value", "discount_percentage", "minimum_order_amount", "min_order_amount", "max_discount_amount", "max_discount"]:
         if field in data and data[field] is not None:
             data[field] = int(round(data[field]))
     res = await client.create_row(TABLE_IDS["coupons"], data)
@@ -130,6 +149,13 @@ async def update_coupon(row_id: int, body: CouponUpdate):
         int_min = int(round(min_val))
         data["minimum_order_amount"] = int_min
         data["min_order_amount"] = int_min
+
+    # Ensure max_discount_amount is set
+    max_disc_val = data.get("max_discount_amount") if data.get("max_discount_amount") is not None else data.get("max_discount")
+    if max_disc_val is not None:
+        int_max = int(round(max_disc_val))
+        data["max_discount_amount"] = int_max
+        data["max_discount"] = int_max
 
     # Ensure valid_until is set for Baserow
     date_val = data.get("valid_until") or data.get("expiry_date")
@@ -148,7 +174,7 @@ async def update_coupon(row_id: int, body: CouponUpdate):
         except Exception:
             pass
 
-    for field in ["discount_value", "discount_percentage", "minimum_order_amount", "min_order_amount"]:
+    for field in ["discount_value", "discount_percentage", "minimum_order_amount", "min_order_amount", "max_discount_amount", "max_discount"]:
         if field in data and data[field] is not None:
             data[field] = int(round(data[field]))
     res = await client.update_row(TABLE_IDS["coupons"], row_id, data)

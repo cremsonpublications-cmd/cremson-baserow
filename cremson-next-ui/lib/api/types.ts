@@ -129,6 +129,7 @@ export interface Coupon {
   discount_type?: "percentage" | "fixed" | string;
   discount_value?: number;
   minimum_order?: number;
+  max_discount_amount?: number;
   max_uses?: number;
   uses_count?: number;
   is_active?: boolean;
