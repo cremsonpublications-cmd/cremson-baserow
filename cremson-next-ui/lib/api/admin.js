@@ -5,6 +5,7 @@ export const adminGetProducts = (params) => api.get("/api/products/", { params }
 export const adminCreateProduct = (data) => api.post("/api/products/", data).then(r => r.data);
 export const adminUpdateProduct = (id, data) => api.patch(`/api/products/${id}`, data).then(r => r.data);
 export const adminDeleteProduct = (id) => api.delete(`/api/products/${id}`).then(r => r.data);
+export const adminReorderProducts = (orders) => api.post("/api/products/reorder", { orders }).then(r => r.data);
 
 // Categories
 export const adminGetCategories = (params) => api.get("/api/categories/", { params }).then(r => r.data);

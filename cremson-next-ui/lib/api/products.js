@@ -73,6 +73,7 @@ export function mapProduct(p) {
     bulkPricing: (() => { try { return JSON.parse(p.bulk_pricing || "[]"); } catch { return []; } })(),
     isCombo,
     comboProductIds: Array.isArray(comboProductIds) ? comboProductIds.map(String) : [],
+    displayOrder: p.display_order ?? 999999,
   };
 }
 

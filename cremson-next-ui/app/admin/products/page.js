@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import {
   adminCreateProduct,
   adminUpdateProduct,
   adminDeleteProduct,
+  adminReorderProducts,
 } from "../../../lib/api/admin";
 import ConfirmModal from "../components/ConfirmModal";
 import {
@@ -29,7 +30,11 @@ import {
   Copy,
   Pen,
   Upload,
-  Download
+  Download,
+  GripVertical,
+  Save,
+  RefreshCw,
+  ArrowUpDown,
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
@@ -2143,6 +2148,94 @@ function AdminProductsContent() {
   const count = data?.count ?? data?.total ?? 0;
   const totalPages = Math.ceil(count / PAGE_SIZE);
 
+  // Drag and drop reordering state (mirrors Home Banner drag & drop behavior)
+  const [productList, setProductList] = useState([]);
+  const [isOrderModified, setIsOrderModified] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [isDraggable, setIsDraggable] = useState(false);
+
+  const productListRef = useRef(productList);
+  const draggedIndexRef = useRef(draggedIndex);
+
+  useEffect(() => {
+    productListRef.current = productList;
+  }, [productList]);
+
+  useEffect(() => {
+    draggedIndexRef.current = draggedIndex;
+  }, [draggedIndex]);
+
+  useEffect(() => {
+    if (data?.results || data?.items) {
+      setProductList(data?.results ?? data?.items ?? []);
+      setIsOrderModified(false);
+    }
+  }, [data]);
+
+  function handleDragStart(e, index) {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", index.toString());
+  }
+
+  function handleDragOver(e, index) {
+    e.preventDefault();
+    const currentDraggedIndex = draggedIndexRef.current;
+    if (currentDraggedIndex === null || currentDraggedIndex === index) return;
+
+    const currentList = productListRef.current;
+    const updated = [...currentList];
+    const [draggedItem] = updated.splice(currentDraggedIndex, 1);
+    updated.splice(index, 0, draggedItem);
+
+    setProductList(updated);
+    setDraggedIndex(index);
+    setIsOrderModified(true);
+  }
+
+  async function handleDragEnd() {
+    setDraggedIndex(null);
+    setIsDraggable(false);
+
+    if (!isOrderModified) return;
+
+    const currentList = productListRef.current;
+    if (!currentList.length) return;
+
+    setSavingOrder(true);
+    const toastId = toast.loading("Saving new product order...", {
+      style: {
+        background: "#ffffff",
+        color: "#000000",
+        border: "1px solid #e5e7eb",
+      },
+    });
+
+    try {
+      const startPos = (page - 1) * PAGE_SIZE;
+      const orders = currentList.map((prod, index) => ({
+        id: prod.id,
+        display_order: startPos + index + 1,
+      }));
+      await adminReorderProducts(orders);
+      toast.success("Product order updated successfully", {
+        id: toastId,
+        style: {
+          background: "#ffffff",
+          color: "#000000",
+          border: "1px solid #e5e7eb",
+        },
+      });
+      setIsOrderModified(false);
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Failed to save product order.", { id: toastId });
+    } finally {
+      setSavingOrder(false);
+    }
+  }
+
   function formatDate(dateStr) {
     if (!dateStr) return "—";
     return new Date(dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -2323,7 +2416,7 @@ function AdminProductsContent() {
 
           {/* Top Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <button
                 onClick={openAdd}
                 className="inline-flex items-center px-4 py-2.5 rounded-lg font-medium transition-colors duration-200 bg-blue-600 hover:bg-blue-700 text-white text-sm cursor-pointer shadow-sm"
@@ -2389,12 +2482,18 @@ function AdminProductsContent() {
             {/* Card Header */}
             <div className="p-6 border-b border-gray-200">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                  {typeFilter === "combo" ? "📦 Combo / Bundle Packs" : typeFilter === "normal" ? "📖 Normal Products" : "All Products"}
-                  <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full border">
-                    {count} items
-                  </span>
-                </h2>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                    {typeFilter === "combo" ? "📦 Combo / Bundle Packs" : typeFilter === "normal" ? "📖 Normal Products" : "All Products"}
+                    <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full border">
+                      {count} items
+                    </span>
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                    <GripVertical className="w-3.5 h-3.5 text-gray-400 inline" />
+                    Drag any book row up/down to change its display order position on the website.
+                  </p>
+                </div>
                 <div className="flex items-center gap-3 flex-wrap justify-end">
                   {/* Search */}
                   <div className="relative">
@@ -2455,7 +2554,10 @@ function AdminProductsContent() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider w-16">S.No</th>
+                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-12" title="Drag to change position">
+                      Move
+                    </th>
+                    <th className="px-4 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider w-16">Pos</th>
                     <th className="px-6 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Product Details</th>
                     <th className="px-6 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Category</th>
                     <th className="px-6 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Sub-Category &amp; Classes</th>
@@ -2468,6 +2570,7 @@ function AdminProductsContent() {
                   {isLoading
                     ? Array.from({ length: 8 }).map((_, i) => (
                       <tr key={i} className="animate-pulse">
+                        <td className="px-3 py-4"><div className="h-4 w-4 bg-gray-200 rounded mx-auto" /></td>
                         <td className="px-4 py-4"><div className="h-4 w-6 bg-gray-200 rounded" /></td>
                         <td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-12 h-12 bg-gray-200 rounded-lg" /><div className="space-y-1"><div className="h-4 w-40 bg-gray-200 rounded" /><div className="h-3 w-28 bg-gray-100 rounded" /></div></div></td>
                         <td className="px-6 py-4"><div className="h-4 w-20 bg-gray-200 rounded" /></td>
@@ -2477,15 +2580,15 @@ function AdminProductsContent() {
                         <td className="px-6 py-4 text-right"><div className="h-5 w-20 bg-gray-200 rounded ml-auto" /></td>
                       </tr>
                     ))
-                    : products.length === 0
+                    : productList.length === 0
                       ? (
                         <tr>
-                          <td colSpan={7} className="px-6 py-16 text-center text-gray-400 text-sm">
+                          <td colSpan={8} className="px-6 py-16 text-center text-gray-400 text-sm">
                             No products found.
                           </td>
                         </tr>
                       )
-                      : products.map((product, index) => {
+                      : productList.map((product, index) => {
                         // Parse sub_categories JSON
                         let subCats = [];
                         try {
@@ -2503,15 +2606,41 @@ function AdminProductsContent() {
                         const isComboProductRow = Boolean(product.is_combo || comboIds.length > 0 || product.author === "Cremson Bundle");
                         const comboBookCount = comboIds.length;
 
+                        const isDragging = index === draggedIndex;
+
                         return (
                           <tr
                             key={product.id}
+                            draggable={isDraggable}
+                            onDragStart={(e) => handleDragStart(e, index)}
+                            onDragOver={(e) => handleDragOver(e, index)}
+                            onDragEnd={handleDragEnd}
+                            onDrop={(e) => e.preventDefault()}
                             onClick={() => router.push(`/admin/products/${product.id}`)}
-                            className="hover:bg-gray-50 transition-colors cursor-pointer"
+                            className={`transition-all duration-200 cursor-pointer ${
+                              isDragging
+                                ? "opacity-40 border-dashed border-2 border-purple-400 bg-purple-50/30 scale-[0.99] shadow-inner"
+                                : "hover:bg-gray-50 bg-white"
+                            }`}
                           >
-                            {/* Serial Number */}
-                            <td className="px-4 py-4 text-sm font-medium text-gray-500">
-                              {sno}
+                            {/* Drag Handle */}
+                            <td
+                              className="px-3 py-4 text-center cursor-grab active:cursor-grabbing text-gray-400 hover:text-purple-600 transition-colors"
+                              onMouseDown={() => setIsDraggable(true)}
+                              onMouseUp={() => setIsDraggable(false)}
+                              onTouchStart={() => setIsDraggable(true)}
+                              onTouchEnd={() => setIsDraggable(false)}
+                              onClick={(e) => e.stopPropagation()}
+                              title="Drag to change book position"
+                            >
+                              <GripVertical className="w-5 h-5 mx-auto" />
+                            </td>
+
+                            {/* Position Number */}
+                            <td className="px-4 py-4 text-sm font-semibold text-gray-700">
+                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
+                                #{sno}
+                              </span>
                             </td>
 
                             {/* Product Details */}

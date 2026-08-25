@@ -42,6 +42,7 @@ class ProductCreate(BaseModel):
     tags: Optional[str] = None
     is_combo: Optional[bool] = False
     combo_product_ids: Optional[str] = None
+    display_order: Optional[int] = None
 
 
 class ProductUpdate(BaseModel):
@@ -77,6 +78,7 @@ class ProductUpdate(BaseModel):
     tags: Optional[str] = None
     is_combo: Optional[bool] = None
     combo_product_ids: Optional[str] = None
+    display_order: Optional[int] = None
 
 
 def map_product_out(row: dict) -> dict:
@@ -137,7 +139,22 @@ def map_product_out(row: dict) -> dict:
 
     if row.get("author") == "Cremson Bundle":
         row["is_combo"] = True
-            
+
+    # 4. Map display_order
+    display_order = row.get("display_order")
+    if display_order is None:
+        notes_str = str(row.get("Notes") or "")
+        if "display_order:" in notes_str:
+            try:
+                part = notes_str.split("display_order:")[1].split(";")[0].split("\n")[0].strip()
+                display_order = int(part)
+            except (ValueError, IndexError):
+                display_order = None
+    try:
+        row["display_order"] = int(display_order) if display_order is not None else 999999
+    except (ValueError, TypeError):
+        row["display_order"] = 999999
+
     return row
 
 
@@ -207,23 +224,25 @@ async def list_products(
 ):
     """Return a paginated list of products with optional server-side filtering and sorting."""
     filters = {}
-    if category_id is not None:
+    if category_id is not None and isinstance(category_id, int):
         filters["category_id"] = category_id
-    if is_active is not None:
+    if is_active is not None and isinstance(is_active, bool):
         filters["is_active"] = str(is_active).lower()
+
+    search_str = search if isinstance(search, str) else None
 
     res = await client.get_rows(
         TABLE_IDS["products"],
         page=1,
         size=200,
-        search=search,
+        search=search_str,
         filters=filters if filters else None,
     )
 
     if isinstance(res, dict) and "results" in res:
-        all_results = sorted([map_product_out(r) for r in res["results"]], key=lambda x: x.get("id", 0), reverse=True)
+        all_results = sorted([map_product_out(r) for r in res["results"]], key=lambda x: (x.get("display_order", 999999), -x.get("id", 0)))
     elif isinstance(res, list):
-        all_results = sorted([map_product_out(r) for r in res], key=lambda x: x.get("id", 0), reverse=True)
+        all_results = sorted([map_product_out(r) for r in res], key=lambda x: (x.get("display_order", 999999), -x.get("id", 0)))
     else:
         return {"count": 0, "results": []}
 
@@ -235,32 +254,36 @@ async def list_products(
             (item.get("combo_product_ids") and str(item.get("combo_product_ids")) != "[]")
         )
 
-    if is_combo is not None:
+    if is_combo is not None and isinstance(is_combo, bool):
         if is_combo:
             all_results = [r for r in all_results if check_combo(r)]
         else:
             all_results = [r for r in all_results if not check_combo(r)]
 
-    if category:
+    if category and isinstance(category, str):
         cat_names = [c.strip().lower() for c in category.split(",")]
         all_results = [r for r in all_results if (r.get("category") or "").lower() in cat_names]
 
-    if author:
+    if author and isinstance(author, str):
         author_names = [a.strip().lower() for a in author.split(",")]
         all_results = [r for r in all_results if (r.get("author") or "").lower() in author_names]
 
-    if edition:
+    if edition and isinstance(edition, str):
         editions = [e.strip() for e in edition.split(",")]
         all_results = [r for r in all_results if (r.get("edition") or "") in editions]
 
-    if stock_status:
+    if stock_status and isinstance(stock_status, str):
         statuses = [s.strip() for s in stock_status.split(",")]
         all_results = [r for r in all_results if (r.get("stock_status") or "") in statuses]
 
     if max_price is not None:
-        all_results = [r for r in all_results if (r.get("price") or 0) <= max_price]
+        try:
+            mp = float(max_price)
+            all_results = [r for r in all_results if (r.get("price") or 0) <= mp]
+        except (ValueError, TypeError):
+            pass
 
-    if classes:
+    if classes and isinstance(classes, str):
         class_names = [c.strip().lower() for c in classes.split(",")]
         def has_class(item):
             cls_raw = item.get("classes") or ""
@@ -271,7 +294,7 @@ async def list_products(
                 return False
         all_results = [r for r in all_results if has_class(r)]
 
-    if sub_category:
+    if sub_category and isinstance(sub_category, str):
         sub_names = [s.strip().lower() for s in sub_category.split(",")]
         def has_sub(item):
             sub_raw = item.get("sub_categories") or ""
@@ -295,6 +318,26 @@ async def list_products(
         "count": len(all_results),
         "results": all_results[start:end],
     }
+
+
+class ProductOrderItem(BaseModel):
+    id: int
+    display_order: int
+
+
+class ReorderProductsPayload(BaseModel):
+    orders: list[ProductOrderItem]
+
+
+@router.post("/reorder", summary="Reorder products display order")
+async def reorder_products(body: ReorderProductsPayload):
+    """Bulk update display_order for products."""
+    for item in body.orders:
+        try:
+            await client.update_row(TABLE_IDS["products"], item.id, {"display_order": item.display_order})
+        except Exception as e:
+            print(f"Error updating product {item.id} display order: {e}")
+    return {"success": True, "count": len(body.orders)}
 
 
 @router.get("/{row_id}", summary="Get a single product")
@@ -324,4 +367,5 @@ async def update_product(row_id: int, body: ProductUpdate):
 async def delete_product(row_id: int):
     await client.delete_row(TABLE_IDS["products"], row_id)
     return {"success": True}
+
 
