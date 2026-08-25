@@ -36,6 +36,7 @@ const EMPTY_FORM = {
   show_in_ui: true,
   expiry_date: "",
   free_delivery: false,
+  first_order_only: false,
   is_active: true,
   benefit: "",
   apply_to: "all",
@@ -281,6 +282,7 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
           show_in_ui: coupon.show_in_ui ?? true,
           expiry_date: getScalarVal(coupon.valid_until ?? coupon.expiry_date ?? coupon.expires_at, ""),
           free_delivery: coupon.free_delivery ?? false,
+          first_order_only: coupon.first_order_only ?? false,
           is_active: coupon.is_active ?? coupon.active ?? true,
           benefit: getScalarVal(coupon.benefit ?? coupon.benefits, ""),
           apply_to: initialApplyTo,
@@ -339,6 +341,7 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
         is_active: form.is_active,
         show_in_ui: form.show_in_ui,
         free_delivery: form.free_delivery,
+        first_order_only: form.first_order_only,
       };
 
       if (form.benefit !== "") {
@@ -562,6 +565,24 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
                     Customer gets free delivery (can combine with coupon discount)
                   </p>
                 </div>
+                <div>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      id="first_order_only"
+                      name="first_order_only"
+                      checked={form.first_order_only}
+                      onChange={handleChange}
+                      className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                    />
+                    <label htmlFor="first_order_only" className="text-sm font-bold text-gray-900 cursor-pointer">
+                      First Order Only
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    ON = valid only for customer's first successful order. OFF = repeat orders allowed.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -680,6 +701,91 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function CouponCard({ coupon, openEdit, handleDelete }) {
+  const rawDiscVal = coupon.discount_value ?? coupon.discount_percentage;
+  const discVal = getScalarVal(rawDiscVal, null);
+  const rawType = getScalarVal(coupon.discount_type, "percentage");
+  const isPct = String(rawType).toLowerCase() === "percentage";
+  const minOrder = getScalarVal(coupon.min_order_amount ?? coupon.minimum_order_amount, null);
+  const expiry = getScalarVal(coupon.valid_until ?? coupon.expiry_date ?? coupon.expires_at, null);
+  const isFreeDelivery = coupon.free_delivery;
+  const delDisc = getScalarVal(coupon.delivery_discount_amount, null);
+  const benefitText = getScalarVal(coupon.benefit || coupon.benefits, null);
+  const isFirstOrderOnly = coupon.first_order_only;
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow duration-300">
+      {/* Ticket Header & Actions */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center space-x-2">
+          <Ticket className="w-5 h-5 text-purple-600" />
+          <h3 className="font-semibold text-gray-900">{getScalarVal(coupon.code, "—")}</h3>
+          {isFirstOrderOnly && (
+            <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded-full border border-amber-200">
+              ⚡ 1st Order Only
+            </span>
+          )}
+        </div>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={(e) => openEdit(e, coupon)}
+            className="text-blue-600 hover:text-blue-800 transition-colors p-1 cursor-pointer"
+            title="Edit"
+          >
+            <Pen className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => handleDelete(e, coupon)}
+            className="text-red-600 hover:text-red-800 transition-colors p-1 cursor-pointer"
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Benefits & Details */}
+      <div className="space-y-3">
+        <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+          <h4 className="text-xs font-semibold text-gray-700 uppercase">Benefits:</h4>
+          
+          {benefitText ? (
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-bold text-purple-900 bg-purple-100/60 px-2 py-1 rounded border border-purple-200/60">
+                {String(benefitText)}
+              </span>
+            </div>
+          ) : (
+            <>
+              {discVal != null && Number(discVal) > 0 && (
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium text-gray-900">
+                    {isPct ? `${discVal}% off on order` : `₹${discVal} off on order`}
+                  </span>
+                </div>
+              )}
+
+              {isFreeDelivery && (
+                <div className="flex items-center space-x-2">
+                  <span className="text-green-600 text-lg">🚚</span>
+                  <span className="text-sm font-medium text-gray-900">Free Delivery</span>
+                </div>
+              )}
+
+              {!isFreeDelivery && delDisc != null && Number(delDisc) > 0 && (
+                <div className="flex items-center space-x-2">
+                  <span className="text-green-600 text-lg">🚚</span>
+                  <span className="text-sm font-medium text-gray-900">₹{delDisc} Delivery Discount</span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

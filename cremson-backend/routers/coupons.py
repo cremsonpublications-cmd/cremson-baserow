@@ -21,6 +21,7 @@ class CouponCreate(BaseModel):
     is_active: Optional[bool] = True
     show_in_ui: Optional[bool] = True
     free_delivery: Optional[bool] = False
+    first_order_only: Optional[bool] = False
     benefit: Optional[str] = None
     benefits: Optional[str] = None
     applicable_products: Optional[str] = None
@@ -40,6 +41,7 @@ class CouponUpdate(BaseModel):
     is_active: Optional[bool] = None
     show_in_ui: Optional[bool] = None
     free_delivery: Optional[bool] = None
+    first_order_only: Optional[bool] = None
     benefit: Optional[str] = None
     benefits: Optional[str] = None
     applicable_products: Optional[str] = None
@@ -61,6 +63,11 @@ def _normalize_coupon_row(row: dict) -> dict:
                 v_clean = v.strip()
                 if k_clean not in row or row[k_clean] is None or row[k_clean] == "":
                     row[k_clean] = v_clean
+    if "first_order_only" in row:
+        val = row["first_order_only"]
+        row["first_order_only"] = str(val).lower() in ("true", "1", "yes")
+    else:
+        row["first_order_only"] = False
     return row
 
 

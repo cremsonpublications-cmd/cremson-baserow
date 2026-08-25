@@ -132,6 +132,7 @@ export interface Coupon {
   max_uses?: number;
   uses_count?: number;
   is_active?: boolean;
+  first_order_only?: boolean;
   valid_from?: string;
   valid_until?: string;
   created_at?: string;

@@ -110,6 +110,7 @@ export default function CartPage() {
         minOrder: (c.minimum_order_amount ?? c.min_order_amount) ? Number(c.minimum_order_amount ?? c.min_order_amount) : null,
         showInUi: c.show_in_ui ?? true,
         freeDelivery: c.free_delivery ?? false,
+        firstOrderOnly: Boolean(c.first_order_only),
         isActive: (c.is_active ?? c.active ?? true) && !isExpired,
         applicableProducts: Array.isArray(applicableProducts) ? applicableProducts.map(String) : [],
         endDate: endDate && !isNaN(endDate.getTime()) ? endDate : null,
@@ -183,13 +184,43 @@ export default function CartPage() {
     return Math.max(0, subtotal + deliveryCharges - promoDiscount);
   }, [subtotal, deliveryCharges, promoDiscount]);
 
-  const handleApplyPromo = () => {
+  async function checkFirstOrderValidity(coupon) {
+    if (!coupon.firstOrderOnly) return { valid: true };
+    if (user && user.email) {
+      try {
+        const res = await api.get(`/api/orders/?email=${encodeURIComponent(user.email)}`);
+        const orders = res.data?.results ?? res.data?.items ?? (Array.isArray(res.data) ? res.data : []);
+        const placedOrders = orders.filter((o) => {
+          const status = String(o.order_status || o.status || "").toLowerCase();
+          return status !== "cancelled" && status !== "failed";
+        });
+        if (placedOrders.length > 0) {
+          return {
+            valid: false,
+            reason: "This coupon is valid only for your first order.",
+          };
+        }
+      } catch (err) {
+        console.warn("Could not verify order history for coupon:", err);
+      }
+    }
+    return { valid: true };
+  }
+
+  const handleApplyPromo = async () => {
     const trimmedCode = promoInput.trim().toUpperCase();
     const coupon = availableCoupons.find((c) => c.code.toUpperCase() === trimmedCode);
     if (!coupon) { setPromoError("Invalid or expired promo code"); return; }
     if (coupon.minOrder && subtotal < coupon.minOrder) {
       setPromoError(`This coupon requires a minimum order of ₹${coupon.minOrder}`);
       return;
+    }
+    if (coupon.firstOrderOnly) {
+      const check = await checkFirstOrderValidity(coupon);
+      if (!check.valid) {
+        setPromoError(check.reason);
+        return;
+      }
     }
     if (coupon.applicableProducts && coupon.applicableProducts.length > 0) {
       const hasEligible = cart.some((item) =>
@@ -209,11 +240,19 @@ export default function CartPage() {
 
   const handleRemovePromo = () => { setAppliedCoupon(null); setPromoError(""); };
 
-  const handleCouponSelect = (coupon) => {
+  const handleCouponSelect = async (coupon) => {
     if (coupon.minOrder && subtotal < coupon.minOrder) {
       setPromoError(`This coupon requires a minimum order of ₹${coupon.minOrder}`);
       showToast(`Requires minimum order of ₹${coupon.minOrder}`, "error");
       return;
+    }
+    if (coupon.firstOrderOnly) {
+      const check = await checkFirstOrderValidity(coupon);
+      if (!check.valid) {
+        setPromoError(check.reason);
+        showToast(check.reason, "error");
+        return;
+      }
     }
     if (coupon.applicableProducts && coupon.applicableProducts.length > 0) {
       const hasEligible = cart.some((item) =>
@@ -498,6 +537,11 @@ export default function CartPage() {
                             )}
                             {coupon.minOrder && (
                               <p className="text-xs text-gray-500 italic">* Requires order minimum of ₹{coupon.minOrder}</p>
+                            )}
+                            {coupon.firstOrderOnly && (
+                              <p className="text-xs text-amber-700 font-semibold flex items-center gap-1">
+                                ⚡ Valid for 1st order only
+                              </p>
                             )}
                           </div>
                         );
