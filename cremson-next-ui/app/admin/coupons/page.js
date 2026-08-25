@@ -13,6 +13,7 @@ import {
   Search, 
   Plus, 
   X, 
+  Check,
   Edit3, 
   Trash2, 
   Tag, 
@@ -548,6 +549,43 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
                 </div>
               )}
 
+              {/* Active / Inactive Status Toggle Button Inside Modal */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <label htmlFor="is_active_toggle" className="text-sm font-bold text-gray-900 cursor-pointer block">
+                      Coupon Status: <span className={form.is_active ? "text-emerald-600" : "text-red-600"}>{form.is_active ? "Active" : "Inactive"}</span>
+                    </label>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {form.is_active
+                        ? "Active: Coupon can be used by customers during checkout."
+                        : "Inactive: Coupon is disabled completely and cannot be applied anywhere."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    id="is_active_toggle"
+                    onClick={() => setForm((f) => ({ ...f, is_active: !f.is_active }))}
+                    className={`relative inline-flex items-center h-8 w-16 rounded-full transition-colors duration-300 ease-in-out cursor-pointer p-0.5 select-none focus:outline-none shadow-inner border border-black/5 shrink-0 ${
+                      form.is_active ? "bg-[#00E676]" : "bg-[#FF1744]"
+                    }`}
+                    title={form.is_active ? "Click to set Inactive" : "Click to set Active"}
+                  >
+                    <span
+                      className={`inline-flex items-center justify-center w-7 h-7 rounded-full bg-white shadow-md transform transition-transform duration-300 ease-in-out ${
+                        form.is_active ? "translate-x-8" : "translate-x-0"
+                      }`}
+                    >
+                      {form.is_active ? (
+                        <Check className="w-4 h-4 text-[#00E676] stroke-[3]" />
+                      ) : (
+                        <X className="w-4 h-4 text-[#FF1744] stroke-[3]" />
+                      )}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
               {/* Show in User Interface */}
               <div>
                 <label className="flex items-center space-x-3 cursor-pointer mt-2">
@@ -862,6 +900,27 @@ export default function AdminCoupons() {
     return new Date(dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   }
 
+  const [togglingId, setTogglingId] = useState(null);
+
+  async function handleToggleActive(e, coupon) {
+    e.stopPropagation();
+    const couponId = coupon.id ?? coupon.row_id;
+    if (!couponId) return;
+    const currentActive = coupon.is_active ?? coupon.active ?? true;
+    const newStatus = !currentActive;
+    setTogglingId(couponId);
+    try {
+      await adminUpdateCoupon(couponId, { is_active: newStatus });
+      toast.success(`Coupon ${coupon.code || ""} ${newStatus ? "activated" : "deactivated"} successfully!`);
+      queryClient.invalidateQueries({ queryKey: ["admin-coupons"] });
+      queryClient.invalidateQueries({ queryKey: ["coupons"] });
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Failed to update coupon status.");
+    } finally {
+      setTogglingId(null);
+    }
+  }
+
   function openAdd() {
     setEditCoupon(null);
     setModalOpen(true);
@@ -960,35 +1019,57 @@ export default function AdminCoupons() {
                   const isFreeDelivery = coupon.free_delivery;
                   const delDisc = getScalarVal(coupon.delivery_discount_amount, null);
                   const benefitText = getScalarVal(coupon.benefit || coupon.benefits, null);
+                  const isActive = coupon.is_active ?? coupon.active ?? true;
+                  const isFirstOrderOnly = coupon.first_order_only;
 
                   return (
                     <div
                       key={coupon.id}
-                      className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow duration-300"
+                      className={`bg-white border-2 rounded-xl p-6 shadow-xs hover:shadow-md transition-all duration-300 ${
+                        isActive
+                          ? "border-emerald-500"
+                          : "border-red-500 bg-red-50/10 opacity-85"
+                      }`}
                     >
                       {/* Ticket Header & Actions */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center space-x-2">
-                          <Ticket className="w-5 h-5 text-purple-600" />
-                          <h3 className="font-semibold text-gray-900">{getScalarVal(coupon.code, "—")}</h3>
+                      <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+                        <div className="flex items-center space-x-2.5">
+                          <Ticket className={`w-5 h-5 ${isActive ? "text-purple-600" : "text-red-500"}`} />
+                          <h3 className="font-bold text-gray-900 text-base tracking-tight">{getScalarVal(coupon.code, "—")}</h3>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                            isActive
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : "bg-red-50 text-red-700 border-red-200"
+                          }`}>
+                            {isActive ? "Active" : "Inactive"}
+                          </span>
                         </div>
+
                         <div className="flex items-center space-x-2">
                           <button
                             onClick={(e) => openEdit(e, coupon)}
-                            className="text-blue-600 hover:text-blue-800 transition-colors p-1 cursor-pointer"
-                            title="Edit"
+                            className="text-gray-500 hover:text-purple-600 transition-colors p-1.5 rounded-lg hover:bg-purple-50 cursor-pointer"
+                            title="Edit Coupon"
                           >
                             <Pen className="w-4 h-4" />
                           </button>
                           <button
                             onClick={(e) => handleDelete(e, coupon)}
-                            className="text-red-600 hover:text-red-800 transition-colors p-1 cursor-pointer"
-                            title="Delete"
+                            className="text-gray-500 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-red-50 cursor-pointer"
+                            title="Delete Coupon"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
+
+                      {isFirstOrderOnly && (
+                        <div className="mb-3">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold bg-amber-50 text-amber-800 rounded-full border border-amber-200">
+                            ⚡ 1st Order Only
+                          </span>
+                        </div>
+                      )}
 
                       {/* Benefits & Details */}
                       <div className="space-y-3">

@@ -169,6 +169,13 @@ export default function CartPage() {
 
   React.useEffect(() => {
     if (appliedCoupon) {
+      const isStillAvailable = availableCoupons.some(
+        (c) => c.code.toUpperCase() === appliedCoupon.code.toUpperCase()
+      );
+      if (!isStillAvailable) {
+        setAppliedCoupon(null);
+        return;
+      }
       if (appliedCoupon.minOrder && subtotal < appliedCoupon.minOrder) {
         setAppliedCoupon(null);
         return;
@@ -182,7 +189,7 @@ export default function CartPage() {
         }
       }
     }
-  }, [subtotal, cart, appliedCoupon, setAppliedCoupon]);
+  }, [subtotal, cart, appliedCoupon, setAppliedCoupon, availableCoupons]);
 
   const finalTotal = useMemo(() => {
     return Math.max(0, subtotal + deliveryCharges - promoDiscount);
