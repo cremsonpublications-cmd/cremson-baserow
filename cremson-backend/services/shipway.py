@@ -298,6 +298,8 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
         s = str(dim_str).lower().strip()
         parts = re.split(r"[,x*]", s)
         if len(parts) < 3:
+            parts = re.split(r"[,x*\s]+", s)
+        if len(parts) < 3:
             return default_dim
         parsed = []
         for p in parts[:3]:

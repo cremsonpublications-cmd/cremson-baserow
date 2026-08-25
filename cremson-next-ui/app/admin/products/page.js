@@ -398,6 +398,29 @@ function ProductModal({ product, onClose, onSaved }) {
       }
   );
 
+  function parseDimension(dimStr) {
+    if (!dimStr) return { length: "", width: "", height: "" };
+    const s = String(dimStr).toLowerCase().trim();
+    const parts = s.split(/[,x*\s]+/).filter(Boolean);
+    const nums = [];
+    for (const part of parts) {
+      const match = part.match(/([0-9]+(?:\.[0-9]+)?)/);
+      if (match) {
+        nums.push(match[1]);
+      }
+    }
+    return {
+      length: nums[0] || "",
+      width: nums[1] || "",
+      height: nums[2] || "",
+    };
+  }
+
+  const initialDim = parseDimension(isEdit ? (product?.dimension || "") : "25cm x 18cm x 2cm");
+  const [dimLength, setDimLength] = useState(initialDim.length);
+  const [dimWidth, setDimWidth] = useState(initialDim.width);
+  const [dimHeight, setDimHeight] = useState(initialDim.height);
+
   const [saving, setSaving] = useState(false);
   const [uploadingMain, setUploadingMain] = useState(false);
   const [uploadingSide, setUploadingSide] = useState(false);
@@ -542,8 +565,8 @@ function ProductModal({ product, onClose, onSaved }) {
       setError("Weight is required.");
       return;
     }
-    if (!form.dimension || !form.dimension.trim()) {
-      setError("Dimension is required.");
+    if (!form.is_combo && (!dimLength?.trim() || !dimWidth?.trim() || !dimHeight?.trim())) {
+      setError("All three dimensions (Length, Width, Height) are required.");
       return;
     }
     if (!form.mrp || form.mrp === "") {
@@ -582,6 +605,10 @@ function ProductModal({ product, onClose, onSaved }) {
         productName = "Combo Product";
       }
 
+      const formattedDim = (dimLength?.trim() && dimWidth?.trim() && dimHeight?.trim())
+        ? `${dimLength.trim()}cm x ${dimWidth.trim()}cm x ${dimHeight.trim()}cm`
+        : (form.dimension?.trim() || "25cm x 18cm x 2cm");
+
       const payload = {
         name: productName,
         author: form.author || null,
@@ -593,7 +620,7 @@ function ProductModal({ product, onClose, onSaved }) {
         stock_status: form.stock_status,
         status: form.status,
         weight: form.weight?.trim() || "500g",
-        dimension: form.dimension?.trim() || "25cm x 18cm x 2cm",
+        dimension: formattedDim,
         short_description: form.short_description,
         description: form.description,
         delivery_info: form.delivery_info,
@@ -954,17 +981,55 @@ function ProductModal({ product, onClose, onSaved }) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Dimension {!form.is_combo && <span className="text-red-500">*</span>}
+                  Dimensions (L × W × H) {!form.is_combo && <span className="text-red-500">*</span>}
                 </label>
-                <input
-                  type="text"
-                  name="dimension"
-                  value={form.dimension}
-                  onChange={handleChange}
-                  required={!form.is_combo}
-                  placeholder="e.g., 25cm x 18cm x 2cm"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors disabled:bg-gray-100 disabled:text-gray-400"
-                />
+                <div className="grid grid-cols-3 gap-2 items-center">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Length"
+                      value={dimLength}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setDimLength(val);
+                        setForm((f) => ({ ...f, dimension: `${val}cm x ${dimWidth}cm x ${dimHeight}cm` }));
+                      }}
+                      required={!form.is_combo}
+                      className="w-full pl-3 pr-7 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm font-medium"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none">cm</span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Width"
+                      value={dimWidth}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setDimWidth(val);
+                        setForm((f) => ({ ...f, dimension: `${dimLength}cm x ${val}cm x ${dimHeight}cm` }));
+                      }}
+                      required={!form.is_combo}
+                      className="w-full pl-3 pr-7 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm font-medium"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none">cm</span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Height"
+                      value={dimHeight}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setDimHeight(val);
+                        setForm((f) => ({ ...f, dimension: `${dimLength}cm x ${dimWidth}cm x ${val}cm` }));
+                      }}
+                      required={!form.is_combo}
+                      className="w-full pl-3 pr-7 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm font-medium"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none">cm</span>
+                  </div>
+                </div>
               </div>
             </div>
 
