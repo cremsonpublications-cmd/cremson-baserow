@@ -6,7 +6,7 @@ import httpx
 from datetime import datetime
 from typing import Optional, List, Union
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, File, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 from pypdf import PdfWriter
@@ -1289,4 +1289,85 @@ async def refund_order(order_id: str, body: RefundOrderRequest):
         "refund_status": "PROCESSED",
         "refunded_at": now_iso,
         "refund_notes": body.refund_notes,
+    }
+
+
+@router.post("/{order_id}/upload-invoice")
+async def upload_order_invoice(
+    order_id: str,
+    file: UploadFile = File(...),
+):
+    """
+    Admin uploads a PDF tax invoice for a specific order.
+    Saves the file, updates Baserow order record, and triggers WhatsApp invoice_available_v1 notification.
+    """
+    import os
+    if not file.filename.lower().endswith(".pdf") and file.content_type != "application/pdf":
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed for tax invoices.")
+
+    # 1. Save PDF file
+    os.makedirs("uploads/invoices", exist_ok=True)
+    filename = f"{order_id}_invoice.pdf"
+    file_path = os.path.join("uploads/invoices", filename)
+    
+    contents = await file.read()
+    with open(file_path, "wb") as f:
+        f.write(contents)
+
+    invoice_url = f"https://cremsonpublications.com/uploads/invoices/{filename}"
+
+    # 2. Update Baserow order record
+    order_row = None
+    row_id = None
+    
+    rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
+    results = rows.get("results", [])
+    if results:
+        order_row = results[0]
+        row_id = order_row["id"]
+    elif order_id.isdigit():
+        try:
+            order_row = await client.get_row(TABLE_IDS["orders"], int(order_id))
+            row_id = order_row.get("id")
+        except Exception:
+            pass
+
+    user_info = {}
+    phone = ""
+    name = "Customer"
+    
+    if order_row:
+        user_info_raw = order_row.get("user_info", "{}")
+        user_info = json.loads(user_info_raw) if isinstance(user_info_raw, str) else (user_info_raw or {})
+        phone = user_info.get("phone") or user_info.get("whatsapp_phone") or ""
+        name = user_info.get("name") or "Customer"
+        
+        # Save invoice_url in delivery JSON
+        delivery_raw = order_row.get("delivery") or "{}"
+        delivery_data = json.loads(delivery_raw) if isinstance(delivery_raw, str) else (delivery_raw or {})
+        delivery_data["invoice_url"] = invoice_url
+        
+        await client.update_row(TABLE_IDS["orders"], row_id, {
+            "delivery": json.dumps(delivery_data),
+        })
+
+    # 3. Send WhatsApp notification
+    if phone:
+        try:
+            from services.whatsapp import send_invoice_available
+            await send_invoice_available(
+                phone=phone,
+                customer_name=name,
+                order_id=order_id,
+                invoice_url=invoice_url,
+            )
+            logger.info(f"[Orders] WhatsApp invoice_available_v1 sent to {phone} for order {order_id}")
+        except Exception as exc:
+            logger.error(f"[Orders] Failed to send WhatsApp invoice notification: {exc}")
+
+    return {
+        "success": True,
+        "order_id": order_id,
+        "invoice_url": invoice_url,
+        "message": "Tax invoice uploaded successfully and WhatsApp notification sent to customer.",
     }

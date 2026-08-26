@@ -46,6 +46,30 @@ export default function AdminRemindersPage() {
 
   const reminders = Array.isArray(data?.reminders) ? data.reminders : [];
 
+  const { data: reorderData, isLoading: loadingReorder } = useQuery({
+    queryKey: ["reorder-eligible"],
+    queryFn: async () => {
+      const res = await api.get("/api/reminders/reorder-eligible?days=60");
+      return res.data;
+    },
+  });
+
+  const reorderOrders = Array.isArray(reorderData?.results) ? reorderData.results : [];
+  const [sendingReorderId, setSendingReorderId] = useState(null);
+
+  const handleSendReorderReminder = async (orderId) => {
+    setSendingReorderId(orderId);
+    try {
+      await api.post(`/api/reminders/send-reorder-reminder/${orderId}`);
+      toast.success(`60-Day Reorder Reminder WhatsApp message sent for order #${orderId}!`);
+      queryClient.invalidateQueries({ queryKey: ["reorder-eligible"] });
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Failed to send reorder reminder.");
+    } finally {
+      setSendingReorderId(null);
+    }
+  };
+
   // Categorize reminders
   const pendingReminders = reminders.filter((r) => r.status === "pending");
   const overdueReminders = pendingReminders.filter((r) => r.is_overdue);
@@ -210,6 +234,7 @@ export default function AdminRemindersPage() {
         <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
           {[
             { id: "all", label: `All (${reminders.length})` },
+            { id: "reorder", label: `60-Day Reorder Reminders (${reorderOrders.length})` },
             { id: "overdue", label: `Overdue (${overdueReminders.length})` },
             { id: "today", label: `Due Today (${todayReminders.length})` },
             { id: "pending", label: `Pending (${pendingReminders.length})` },
@@ -241,8 +266,81 @@ export default function AdminRemindersPage() {
         </div>
       </div>
 
-      {/* ── Reminders List ── */}
-      <div className="space-y-3">
+      {/* ── 60-Day Reorder Reminders View ── */}
+      {activeFilter === "reorder" ? (
+        <div className="space-y-4 text-left">
+          <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-purple-900">60-Day Reorder Reminders</h3>
+              <p className="text-xs text-purple-700 mt-0.5">
+                Orders placed 60+ days ago eligible for reorder WhatsApp reminder notifications.
+              </p>
+            </div>
+            <span className="text-xs font-bold bg-purple-600 text-white px-3 py-1 rounded-full">
+              {reorderOrders.length} Eligible Orders
+            </span>
+          </div>
+
+          {loadingReorder ? (
+            <div className="p-12 text-center text-gray-400 font-medium">
+              <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              Loading eligible orders...
+            </div>
+          ) : reorderOrders.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center text-gray-400 space-y-2">
+              <Clock className="w-10 h-10 mx-auto text-gray-300" />
+              <p className="text-sm font-bold text-gray-800">No Orders Older Than 60 Days</p>
+              <p className="text-xs text-gray-500">All recent orders are within the 60-day window.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {reorderOrders.map((ord) => (
+                <div key={ord.order_id} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs hover:border-purple-200 transition-all space-y-3">
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                    <div>
+                      <span className="text-xs font-mono font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-100">
+                        #{ord.order_id}
+                      </span>
+                      <p className="text-xs text-gray-400 mt-1 font-medium">Order Date: {ord.order_date}</p>
+                    </div>
+                    <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+                      ⏳ {ord.days_elapsed} days ago
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs text-gray-700">
+                    <p className="font-bold text-gray-900 flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-purple-600" /> {ord.customer_name}
+                    </p>
+                    <p className="text-gray-600 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-gray-400" /> Books: <span className="font-semibold text-gray-800">{ord.items_desc}</span>
+                    </p>
+                    <p className="text-gray-500">Phone: {ord.phone || "—"}</p>
+                  </div>
+
+                  <button
+                    onClick={() => handleSendReorderReminder(ord.order_id)}
+                    disabled={sendingReorderId === ord.order_id || !ord.phone}
+                    className="w-full py-2.5 px-4 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 active:bg-purple-800 disabled:opacity-50 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {sendingReorderId === ord.order_id ? (
+                      <>
+                        <Clock className="w-3.5 h-3.5 animate-spin" /> Sending WhatsApp...
+                      </>
+                    ) : (
+                      <>
+                        📲 Send 60-Day Reorder Reminder (WhatsApp)
+                      </>
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* ── Reminders List ── */
+        <div className="space-y-3">
         {isLoading ? (
           <div className="p-12 text-center text-gray-400 font-medium">
             <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -336,6 +434,7 @@ export default function AdminRemindersPage() {
           ))
         )}
       </div>
+      )}
 
       {/* ── Create Reminder Modal ── */}
       {createModalOpen && (

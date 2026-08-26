@@ -5,6 +5,8 @@ import { useApp } from "../../../../context/AppContext";
 import { useProduct, useProducts } from "../../../../lib/api/hooks";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import api from "../../../../lib/api/axios";
+import { toast } from "sonner";
 
 // Star rating helper component
 function StarRating({ rating, size = 19 }) {
@@ -65,12 +67,56 @@ export default function ProductDetailClient({ initialBook, bookId }) {
     router.push("/cart");
   };
 
-  // Handle URL fetch for sharing links
+  // Handle URL fetch for sharing links & auto-open review form on ?review=true
   useEffect(() => {
     if (typeof window !== "undefined") {
       setCurrentUrl(window.location.href);
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.get("review") === "true") {
+        setShowReviewForm(true);
+        setTimeout(() => {
+          const reviewElem = document.getElementById("reviews-section");
+          if (reviewElem) {
+            reviewElem.scrollIntoView({ behavior: "smooth" });
+          }
+        }, 500);
+      }
     }
   }, []);
+
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  // Submit review to backend API & store locally
+  const handleAddReviewSubmit = async (e) => {
+    e.preventDefault();
+    if (!reviewerName.trim() || !reviewText.trim()) return;
+    setSubmittingReview(true);
+    try {
+      await api.post("/api/reviews/", {
+        product_id: Number(book.id),
+        rating: Number(reviewRating),
+        user_name: reviewerName,
+        comment: reviewText,
+      });
+      const newReview = {
+        id: Date.now(),
+        name: reviewerName,
+        text: reviewText,
+        rating: reviewRating,
+        date: new Date().toLocaleDateString("en-IN")
+      };
+      setReviews([newReview, ...reviews]);
+      setReviewerName("");
+      setReviewText("");
+      setReviewRating(5);
+      setShowReviewForm(false);
+      toast.success("Thank you for your feedback! Your review has been saved.");
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Failed to submit review. Please try again.");
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   const boughtTogetherCandidates = React.useMemo(() => {
     if (!book || book.isCombo) return [];
@@ -794,7 +840,7 @@ export default function ProductDetailClient({ initialBook, bookId }) {
         )}
 
         {/* Dynamic Reviews Section */}
-        <section className="mb-11 text-left">
+        <section id="reviews-section" className="mb-11 text-left">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 lg:p-8">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Reviews &amp; Ratings</h2>

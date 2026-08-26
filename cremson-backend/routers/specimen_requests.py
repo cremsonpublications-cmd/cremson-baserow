@@ -103,6 +103,26 @@ async def get_specimen_request(row_id: int):
     return row
 
 
+@router.get("/my-requested-books", summary="Get list of books already requested by logged in teacher")
+async def get_my_requested_books(user: dict = Depends(current_user)):
+    """Return a list of book titles that the logged-in user/teacher has previously requested."""
+    user_email = (user.get("email") or "").lower().strip()
+    requested_books = []
+    try:
+        if user_email:
+            prev_res = await client.get_rows(TABLE_IDS["specimen_requests"], filters={"Email": user_email}, size=200)
+            for prow in prev_res.get("results", []):
+                b_raw = prow.get("BooksRequested") or ""
+                for b_item in b_raw.split(","):
+                    b_clean = b_item.strip()
+                    if b_clean and b_clean not in requested_books:
+                        requested_books.append(b_clean)
+    except Exception as exc:
+        logger.warning(f"Error fetching my requested books: {exc}")
+
+    return {"requested_books": requested_books}
+
+
 @router.post("/", summary="Create specimen request")
 async def create_specimen_request(body: dict, user: dict = Depends(current_user)):
     role = user.get("role", "customer")
@@ -146,6 +166,77 @@ async def create_specimen_request(body: dict, user: dict = Depends(current_user)
         except Exception as e:
             print("Warning: Failed to auto-link/update teacher profile for specimen request:", e)
 
+    # Deduplication logic: Check previously requested books for this teacher/user
+    user_email = (user.get("email") or "").lower().strip()
+    user_phone = user.get("phone") or ""
+    user_name = user.get("name") or "Educator"
+
+    prev_requested_map = {}  # { clean_book_name: request_date }
+    try:
+        filters_to_try = []
+        if teacher_id:
+            filters_to_try.append({"TeacherID": teacher_id})
+        if user_email:
+            filters_to_try.append({"Email": user_email})
+
+        for flt in filters_to_try:
+            prev_res = await client.get_rows(TABLE_IDS["specimen_requests"], filters=flt, size=200)
+            for prow in prev_res.get("results", []):
+                req_date = prow.get("RequestDate") or prow.get("created_at") or "Previous Request"
+                b_raw = prow.get("BooksRequested") or ""
+                for b_item in b_raw.split(","):
+                    b_clean = b_item.strip().lower()
+                    if b_clean:
+                        prev_requested_map[b_clean] = req_date
+    except Exception as exc:
+        logger.warning(f"Error checking previous specimen requests: {exc}")
+
+    raw_books_str = body.get("BooksRequested") or ""
+    incoming_books = [b.strip() for b in raw_books_str.split(",") if b.strip()]
+
+    new_books = []
+    duplicate_books = []
+
+    for btitle in incoming_books:
+        b_clean = btitle.lower().strip()
+        matched_prev_date = None
+        for prev_clean, prev_date in prev_requested_map.items():
+            if b_clean == prev_clean or b_clean in prev_clean or prev_clean in b_clean:
+                matched_prev_date = prev_date
+                break
+
+        if matched_prev_date:
+            duplicate_books.append({"title": btitle, "prev_date": matched_prev_date})
+        else:
+            new_books.append(btitle)
+
+    # Trigger WhatsApp for duplicate books
+    if duplicate_books and user_phone:
+        for dup in duplicate_books:
+            try:
+                from services.whatsapp import send_specimen_already_submitted
+                await send_specimen_already_submitted(
+                    phone=user_phone,
+                    teacher_name=user_name,
+                    book_title=dup["title"],
+                    prev_date=dup["prev_date"],
+                )
+                logger.info(f"[Specimen Dup Check] WhatsApp specimen_already_submitted sent to {user_phone} for '{dup['title']}'")
+            except Exception as wa_err:
+                logger.error(f"[Specimen Dup Check] Failed to send WhatsApp for duplicate '{dup['title']}': {wa_err}")
+
+    # If ALL requested books were duplicates -> Block creation! Do NOT send to Admin Panel!
+    if not new_books:
+        dup_titles = [d["title"] for d in duplicate_books]
+        dup_str = ", ".join(dup_titles)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Specimen copy already requested previously for: {dup_str}. A WhatsApp message has been sent to your phone."
+        )
+
+    # Otherwise, update BooksRequested to ONLY contain the NEW non-duplicate books!
+    body["BooksRequested"] = ", ".join(new_books)
+
     # Remove lookup/read-only fields from body to prevent Baserow validation errors
     for readonly_field in ["Teacheer Name", "School Name", "Phone", "Email", "City", "SchoolID"]:
         body.pop(readonly_field, None)
@@ -159,9 +250,6 @@ async def create_specimen_request(body: dict, user: dict = Depends(current_user)
         books_str = body.get("BooksRequested") or ""
         b_list = [b.strip() for b in books_str.split(",") if b.strip()]
         count_str = str(len(b_list)) if b_list else "1"
-        user_phone = user.get("phone") or ""
-        user_name = user.get("name") or "Educator"
-        user_email = user.get("email") or ""
         
         if user_email:
             try:

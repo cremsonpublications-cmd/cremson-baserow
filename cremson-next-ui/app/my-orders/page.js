@@ -27,6 +27,7 @@ import {
   Loader2,
   Clock,
   AlertCircle,
+  FileText,
 } from "lucide-react";
 
 // ─── Razorpay Script Loader ───────────────────────────────────────────────────
@@ -869,10 +870,36 @@ export default function MyOrdersPage() {
               </div>
             </div>
 
-            <div className="p-4 bg-white border-t border-gray-200">
+            <div className="p-4 bg-white border-t border-gray-200 space-y-2">
+              {(() => {
+                let invUrl = selectedOrder.invoice_url || selectedOrder.invoiceUrl;
+                if (!invUrl) {
+                  try {
+                    const del = typeof selectedOrder.delivery === "string" ? JSON.parse(selectedOrder.delivery) : selectedOrder.delivery;
+                    invUrl = del?.invoice_url;
+                  } catch (e) {}
+                }
+                if (!invUrl) {
+                  try {
+                    const pDel = typeof selectedOrder.parentOrder?.delivery === "string" ? JSON.parse(selectedOrder.parentOrder.delivery) : selectedOrder.parentOrder?.delivery;
+                    invUrl = pDel?.invoice_url;
+                  } catch (e) {}
+                }
+                if (!invUrl) return null;
+                return (
+                  <a
+                    href={invUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded text-xs transition-all cursor-pointer shadow-xs"
+                  >
+                    <FileText className="w-4 h-4" /> Download Tax Invoice (PDF)
+                  </a>
+                );
+              })()}
               {selectedOrder.trackingUrl && (
                 <a href={selectedOrder.trackingUrl} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded text-xs transition-all cursor-pointer mb-3">
+                  className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded text-xs transition-all cursor-pointer">
                   <Truck className="w-4 h-4" /> Track Order
                 </a>
               )}

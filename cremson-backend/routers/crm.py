@@ -620,3 +620,156 @@ async def update_subject(row_id: int, body: dict):
 async def delete_subject(row_id: int):
     await client.delete_row(TABLE_IDS["subject"], row_id)
     return {"message": "Subject deleted successfully"}
+
+
+# ------------------- SUPPORT TICKETS ROUTER -------------------
+import json
+import os
+import time
+from datetime import datetime
+
+_TICKETS_FILE = "uploads/support_tickets.json"
+
+def _load_tickets() -> list:
+    if not os.path.exists(_TICKETS_FILE):
+        return []
+    try:
+        with open(_TICKETS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+def _save_tickets(tickets: list):
+    os.makedirs(os.path.dirname(_TICKETS_FILE), exist_ok=True)
+    with open(_TICKETS_FILE, "w", encoding="utf-8") as f:
+        json.dump(tickets, f, indent=2, ensure_ascii=False)
+
+
+class CreateSupportTicketRequest(BaseModel):
+    full_name: str
+    phone: str
+    email: str
+    message: str
+    subject: Optional[str] = "Contact Us Enquiry"
+
+
+class UpdateSupportTicketStatusRequest(BaseModel):
+    status: str   # "Pending", "Resolved", "Cancelled"
+    notes: Optional[str] = ""
+
+
+@router.post("/support-tickets", summary="Create support ticket / Contact Us submission")
+async def create_support_ticket(body: CreateSupportTicketRequest):
+    ticket_id = f"TKT-{int(time.time() * 1000) % 1000000:06d}"
+    created_at = datetime.now().isoformat()
+
+    new_ticket = {
+        "id": ticket_id,
+        "full_name": body.full_name,
+        "phone": body.phone,
+        "email": body.email,
+        "subject": body.subject or "Contact Us Enquiry",
+        "message": body.message,
+        "status": "Pending",
+        "notes": "",
+        "created_at": created_at,
+        "updated_at": created_at,
+    }
+
+    tickets = _load_tickets()
+    tickets.insert(0, new_ticket)
+    _save_tickets(tickets)
+
+    # 1. Send Email
+    try:
+        from services.email import send_contact_us_email
+        await send_contact_us_email(
+            full_name=body.full_name,
+            phone=body.phone,
+            email=body.email,
+            message=body.message,
+        )
+    except Exception as exc:
+        print(f"[Support Ticket] Email send error: {exc}")
+
+    # 2. Send WhatsApp Notification
+    if body.phone:
+        try:
+            from services.whatsapp import send_support_request
+            await send_support_request(
+                phone=body.phone,
+                customer_name=body.full_name,
+                subject_or_type=body.subject or "Contact Us Enquiry",
+                ticket_id=ticket_id,
+            )
+        except Exception as exc:
+            print(f"[Support Ticket] WhatsApp send error: {exc}")
+
+    return {
+        "success": True,
+        "ticket_id": ticket_id,
+        "message": "Support ticket created successfully and WhatsApp notification sent.",
+    }
+
+
+@router.get("/support-tickets", summary="List support tickets for admin")
+async def list_support_tickets(
+    status: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=200),
+):
+    tickets = _load_tickets()
+
+    if status and status.lower() != "all":
+        tickets = [t for t in tickets if str(t.get("status")).lower() == status.lower()]
+
+    if search:
+        s = search.lower()
+        tickets = [
+            t for t in tickets
+            if s in str(t.get("id")).lower()
+            or s in str(t.get("full_name")).lower()
+            or s in str(t.get("email")).lower()
+            or s in str(t.get("phone")).lower()
+            or s in str(t.get("message")).lower()
+        ]
+
+    total = len(tickets)
+    start = (page - 1) * size
+    end = start + size
+    paginated = tickets[start:end]
+
+    return {
+        "count": total,
+        "page": page,
+        "size": size,
+        "results": paginated,
+    }
+
+
+@router.patch("/support-tickets/{ticket_id}", summary="Update support ticket status")
+async def update_support_ticket(ticket_id: str, body: UpdateSupportTicketStatusRequest):
+    valid_statuses = {"Pending", "Resolved", "Cancelled"}
+    if body.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+
+    tickets = _load_tickets()
+    found = False
+    updated_ticket = None
+
+    for t in tickets:
+        if t["id"] == ticket_id:
+            t["status"] = body.status
+            if body.notes:
+                t["notes"] = body.notes
+            t["updated_at"] = datetime.now().isoformat()
+            updated_ticket = t
+            found = True
+            break
+
+    if not found:
+        raise HTTPException(status_code=404, detail="Support ticket not found.")
+
+    _save_tickets(tickets)
+    return {"success": True, "ticket": updated_ticket}

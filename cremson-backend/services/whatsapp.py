@@ -137,7 +137,7 @@ async def send_teacher_signup_confirmation(phone: str, teacher_name: str):
     return None
 
 
-async def send_teacher_approved_notification(phone: str, teacher_name: str, signin_url: str = "http://localhost:3000/auth/signin"):
+async def send_teacher_approved_notification(phone: str, teacher_name: str, signin_url: str = "https://cremsonpublications.com/auth/signin"):
     """Notification sent to teacher upon admin approval. (Disabled)"""
     return None
 
@@ -237,13 +237,39 @@ async def send_payment_failed(
     customer_name: str,
     order_id: str,
     amount: float,
+    retry_url: Optional[str] = None,
 ):
-    """Payment failed alert. Template: payment_failed_v6"""
+    """
+    Payment failed alert. Template: payment_failed_v6
+    Body vars: {{1}}=customer_name, {{2}}=amount, {{3}}=order_id
+    Button 0 (Retry Payment): retry_url (default: https://cremsonpublications.com/cart)
+    """
+    if not retry_url:
+        retry_url = "https://cremsonpublications.com/cart"
+
+    components = [
+        {
+            "type": "body",
+            "parameters": [
+                _txt(customer_name),
+                _txt(f"₹{amount:.2f}"),
+                _txt(order_id),
+            ],
+        },
+        {
+            "type": "button",
+            "sub_type": "url",
+            "index": "0",
+            "parameters": [_txt(retry_url)],
+        },
+    ]
+
     await _send_template(
-        phone,
-        "payment_failed_v6",
-        [_txt(customer_name), _txt(f"₹{amount:.2f}"), _txt(order_id)],
+        phone=phone,
+        template_name="payment_failed_v6",
+        parameters=[],
         log_tag=f"payment_failed order={order_id}",
+        components=components,
     )
 
 
@@ -264,18 +290,33 @@ async def send_shipment_created(
     Triggered right after Shipway creates the shipment (background task).
     Template: shipment_created_v1
     Body vars: {{1}}=name  {{2}}=order_id  {{3}}=awb  {{4}}=courier  {{5}}=tracking_url
+    Button 0 (Track your Order): tracking_url
     """
+    components = [
+        {
+            "type": "body",
+            "parameters": [
+                _txt(customer_name),
+                _txt(order_id),
+                _txt(awb),
+                _txt(courier_name),
+                _txt(tracking_url),
+            ],
+        },
+        {
+            "type": "button",
+            "sub_type": "url",
+            "index": "0",
+            "parameters": [_txt(tracking_url)],
+        },
+    ]
+
     await _send_template(
-        phone,
-        "shipment_created_v1",
-        [
-            _txt(customer_name),
-            _txt(order_id),
-            _txt(awb),
-            _txt(courier_name),
-            _txt(tracking_url),
-        ],
+        phone=phone,
+        template_name="shipment_created_v1",
+        parameters=[],
         log_tag=f"shipment_created order={order_id} awb={awb}",
+        components=components,
     )
 
 
@@ -291,44 +332,6 @@ async def send_pickup_requested(
     """
     logger.info(f"[WhatsApp] send_pickup_requested skipped for order {order_id} (template removed).")
     return None
-
-
-async def send_picked_up(
-    phone: str,
-    customer_name: str,
-    order_id: str,
-    tracking_url: str,
-):
-    """
-    Triggered by PICKED_UP webhook event from Shipway.
-    Template: picked_up_v1
-    Body vars: {{1}}=name  {{2}}=order_id  {{3}}=tracking_url
-    """
-    await _send_template(
-        phone,
-        "picked_up_v1",
-        [_txt(customer_name), _txt(order_id), _txt(tracking_url)],
-        log_tag=f"picked_up order={order_id}",
-    )
-
-
-async def send_in_transit(
-    phone: str,
-    customer_name: str,
-    order_id: str,
-    tracking_url: str,
-):
-    """
-    Triggered by IN_TRANSIT webhook event from Shipway.
-    Template: in_transit_v1
-    Body vars: {{1}}=name  {{2}}=order_id  {{3}}=tracking_url
-    """
-    await _send_template(
-        phone,
-        "in_transit_v1",
-        [_txt(customer_name), _txt(order_id), _txt(tracking_url)],
-        log_tag=f"in_transit order={order_id}",
-    )
 
 
 async def send_out_for_delivery(
@@ -392,11 +395,11 @@ async def send_rto(
 
 
 async def send_bulk_order_received(phone: str, name: str, school: str, order_link: str):
-    """Sent to teacher upon bulk order submission."""
+    """Sent to teacher upon bulk order submission. Template: bulk_order_requested_v1."""
     params = [
-        {"type": "text", "text": name},
-        {"type": "text", "text": school},
-        {"type": "text", "text": order_link},
+        _txt(name),
+        _txt(school),
+        _txt(order_link),
     ]
     await _send_template(
         phone=phone,
@@ -428,18 +431,30 @@ async def send_bulk_order_approved(
     order_link: str,
     school: str = "School"
 ):
-    """Sent to teacher upon admin approval & discount application."""
-    params = [
-        {"type": "text", "text": name},
-        {"type": "text", "text": school},
-        {"type": "text", "text": f"{final_amount:,.2f}"},
-        {"type": "text", "text": order_link},
+    """Sent to teacher upon admin approval & discount application. Template: bulk_order_approved_v10 with Make Payment CTA button."""
+    components = [
+        {
+            "type": "body",
+            "parameters": [
+                _txt(name),
+                _txt(school),
+                _txt(f"₹{final_amount:,.2f}"),
+                _txt(order_link),
+            ],
+        },
+        {
+            "type": "button",
+            "sub_type": "url",
+            "index": "0",
+            "parameters": [_txt(order_link)],
+        },
     ]
     await _send_template(
         phone=phone,
         template_name="bulk_order_approved_v10",
-        parameters=params,
+        parameters=[],
         log_tag=f"bulk_order_approved name={name}",
+        components=components,
     )
 
 
@@ -457,19 +472,31 @@ async def send_bulk_order_payment_received(phone: str, name: str, school: str, a
     await _send_text_message(phone, msg, log_tag=f"bulk_order_payment_received name={name}")
 
 
-async def send_bulk_order_shipped(phone: str, name: str, school: str, awb: str, tracking_link: str, order_link: str):
-    """Sent to teacher when bulk order shipment is dispatched via Shipway."""
-    params = [
-        {"type": "text", "text": name},
-        {"type": "text", "text": school},
-        {"type": "text", "text": awb},
-        {"type": "text", "text": tracking_link},
+async def send_bulk_order_shipped(phone: str, name: str, school: str, awb: str, tracking_link: str, order_link: str = ""):
+    """Sent to teacher when bulk order shipment is dispatched via Shipway. Template: bulk_order_shipped_v1 with Track Shipment CTA button."""
+    components = [
+        {
+            "type": "body",
+            "parameters": [
+                _txt(name),
+                _txt(school),
+                _txt(awb),
+                _txt(tracking_link),
+            ],
+        },
+        {
+            "type": "button",
+            "sub_type": "url",
+            "index": "0",
+            "parameters": [_txt(tracking_link)],
+        },
     ]
     await _send_template(
         phone=phone,
         template_name="bulk_order_shipped_v1",
-        parameters=params,
+        parameters=[],
         log_tag=f"bulk_order_shipped name={name}",
+        components=components,
     )
 
 
@@ -520,5 +547,233 @@ async def send_specimen_rejected_whatsapp(phone: str, name: str, books_requested
         template_name="specimen_rejected_v1",
         parameters=[_txt(name), _txt(b_desc)],
         log_tag=f"specimen_rejected name={name}",
+    )
+
+
+# ── Refund Notifications ──────────────────────────────────────────────────────
+
+
+async def send_refund_initiated(
+    phone: str,
+    customer_name: str,
+    order_id: str,
+    amount: float,
+    refund_id: str = "-",
+):
+    """
+    Triggered when a refund is submitted to payment gateway.
+    Template: refund_initiated_v1
+    Body vars: {{1}}=customer_name, {{2}}=amount, {{3}}=order_id, {{4}}=refund_id
+    """
+    await _send_template(
+        phone=phone,
+        template_name="refund_initiated_v1",
+        parameters=[
+            _txt(customer_name),
+            _txt(f"₹{amount:.2f}"),
+            _txt(order_id),
+            _txt(refund_id),
+        ],
+        log_tag=f"refund_initiated order={order_id} refund_id={refund_id}",
+    )
+
+
+async def send_refund_completed(
+    phone: str,
+    customer_name: str,
+    order_id: str,
+    amount: float,
+    refund_id: str = "-",
+):
+    """
+    Triggered when a refund is successfully processed by payment gateway/bank.
+    Template: refund_completed_v1
+    Body vars: {{1}}=customer_name, {{2}}=amount, {{3}}=order_id, {{4}}=refund_id
+    """
+    await _send_template(
+        phone=phone,
+        template_name="refund_completed_v1",
+        parameters=[
+            _txt(customer_name),
+            _txt(f"₹{amount:.2f}"),
+            _txt(order_id),
+            _txt(refund_id),
+        ],
+        log_tag=f"refund_completed order={order_id} refund_id={refund_id}",
+    )
+
+
+# ── Tax Invoice Notification ──────────────────────────────────────────────────
+
+
+async def send_invoice_available(
+    phone: str,
+    customer_name: str,
+    order_id: str,
+    invoice_url: str,
+):
+    """
+    Triggered when tax invoice PDF becomes downloadable.
+    Template: invoice_available_v1
+    Body vars: {{1}}=customer_name, {{2}}=order_id, {{3}}=invoice_url
+    Button 0 (Download Invoice): invoice_url
+    """
+    components = [
+        {
+            "type": "body",
+            "parameters": [
+                _txt(customer_name),
+                _txt(order_id),
+                _txt(invoice_url),
+            ],
+        },
+        {
+            "type": "button",
+            "sub_type": "url",
+            "index": "0",
+            "parameters": [_txt(invoice_url)],
+        },
+    ]
+
+    await _send_template(
+        phone=phone,
+        template_name="invoice_available_v1",
+        parameters=[],
+        log_tag=f"invoice_available order={order_id}",
+        components=components,
+    )
+
+
+# ── Support Request Notification ──────────────────────────────────────────────
+
+
+async def send_support_request(
+    phone: str,
+    customer_name: str,
+    subject_or_type: str,
+    ticket_id: str,
+):
+    """
+    Triggered when customer submits a complaint or enquiry through Contact Us.
+    Template: support_request_v1
+    Body vars: {{1}}=customer_name, {{2}}=subject_or_type, {{3}}=ticket_id
+    """
+    await _send_template(
+        phone=phone,
+        template_name="support_request_v1",
+        parameters=[
+            _txt(customer_name),
+            _txt(subject_or_type),
+            _txt(ticket_id),
+        ],
+        log_tag=f"support_request ticket={ticket_id}",
+    )
+
+
+# ── Specimen Already Submitted Notification ───────────────────────────────────
+
+
+async def send_specimen_already_submitted(
+    phone: str,
+    teacher_name: str,
+    book_title: str,
+    prev_date: str = "Previous Request",
+):
+    """
+    Triggered when a teacher requests a specimen copy for a book they have ALREADY requested.
+    Template: specimen_already_submitted_v1
+    Body vars: {{1}}=teacher_name, {{2}}=book_title, {{3}}=prev_date
+    """
+    await _send_template(
+        phone=phone,
+        template_name="specimen_already_submitted_v1",
+        parameters=[
+            _txt(teacher_name),
+            _txt(book_title),
+            _txt(prev_date),
+        ],
+        log_tag=f"specimen_already_submitted book={book_title}",
+    )
+
+
+# ── Review / Feedback Request Notification ────────────────────────────────────
+
+
+async def send_review_request(
+    phone: str,
+    customer_name: str,
+    book_or_items_name: str,
+    review_url: str,
+):
+    """
+    Triggered 24 hours after order delivery to request feedback / book review.
+    Template: review_request_v1
+    Body vars: {{1}}=customer_name, {{2}}=book_or_items_name, {{3}}=review_url
+    Button 0 (Leave Review): review_url
+    """
+    components = [
+        {
+            "type": "body",
+            "parameters": [
+                _txt(customer_name),
+                _txt(book_or_items_name),
+                _txt(review_url),
+            ],
+        },
+        {
+            "type": "button",
+            "sub_type": "url",
+            "index": "0",
+            "parameters": [_txt(review_url)],
+        },
+    ]
+
+    await _send_template(
+        phone=phone,
+        template_name="review_request_v1",
+        parameters=[],
+        log_tag=f"review_request product={book_or_items_name}",
+        components=components,
+    )
+
+
+# ── Reorder Reminder Notification ─────────────────────────────────────────────
+
+
+async def send_reorder_reminder(
+    phone: str,
+    customer_name: str,
+    book_or_items_name: str,
+    reorder_url: str = "https://cremsonpublications.com/shop",
+):
+    """
+    Triggered 60 days after an order to remind customer/teacher to reorder.
+    Template: reorder_reminder_v1
+    Body vars: {{1}}=customer_name, {{2}}=book_or_items_name, {{3}}=reorder_url
+    Button 0 (Reorder Now): reorder_url
+    """
+    components = [
+        {
+            "type": "body",
+            "parameters": [
+                _txt(customer_name),
+                _txt(book_or_items_name),
+                _txt(reorder_url),
+            ],
+        },
+        {
+            "type": "button",
+            "sub_type": "url",
+            "index": "0",
+            "parameters": [_txt(reorder_url)],
+        },
+    ]
+
+    await _send_template(
+        phone=phone,
+        template_name="reorder_reminder_v1",
+        parameters=[],
+        log_tag=f"reorder_reminder product={book_or_items_name}",
+        components=components,
     )
 

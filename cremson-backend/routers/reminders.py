@@ -231,3 +231,122 @@ async def delete_reminder(reminder_id: str):
     except Exception as exc:
         logger.error(f"[Reminders API] Error deleting reminder {reminder_id}: {exc}")
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ── 60-Day Reorder Reminders API ──────────────────────────────────────────────
+import json
+
+
+@router.get("/reorder-eligible", summary="List orders eligible for 60-day reorder reminders")
+async def get_reorder_eligible_orders(
+    days: int = Query(60, ge=1, description="Minimum days elapsed since order date"),
+):
+    """
+    Find orders placed >= days (default 60 days) ago from Baserow Table 762.
+    Returns list of orders with customer name, phone, books ordered, order date, and days elapsed.
+    """
+    baserow_client = BaserowClient()
+    today = date.today()
+    eligible_list = []
+
+    try:
+        data = await baserow_client.get_rows(TABLE_IDS["orders"], page=1, size=200, order_by="-id")
+        results = data.get("results", [])
+
+        for order in results:
+            order_id = str(order.get("order_id") or order.get("id"))
+            raw_date = order.get("order_date") or order.get("created_at") or ""
+            if not raw_date:
+                continue
+
+            order_d = None
+            try:
+                clean_d_str = str(raw_date)[:10]
+                order_d = datetime.strptime(clean_d_str, "%Y-%m-%d").date()
+            except Exception:
+                continue
+
+            elapsed = (today - order_d).days
+            if elapsed >= days:
+                # Extract customer details
+                u_raw = order.get("user_info") or "{}"
+                user_info = json.loads(u_raw) if isinstance(u_raw, str) else (u_raw or {})
+                customer_name = user_info.get("name") or "Customer"
+                phone = user_info.get("phone") or user_info.get("whatsapp_phone") or ""
+
+                # Extract items description
+                items_raw = order.get("items") or "[]"
+                items = json.loads(items_raw) if isinstance(items_raw, str) else (items_raw or [])
+                book_names = [i.get("name") or i.get("title") for i in items if isinstance(i, dict) and (i.get("name") or i.get("title"))]
+                items_desc = ", ".join(book_names[:2]) if book_names else "Educational Books"
+
+                eligible_list.append({
+                    "order_id": order_id,
+                    "row_id": order.get("id"),
+                    "customer_name": customer_name,
+                    "phone": phone,
+                    "order_date": str(order_d),
+                    "days_elapsed": elapsed,
+                    "items_desc": items_desc,
+                    "total_amount": order.get("total_amount") or 0,
+                    "order_status": order.get("order_status") or "CONFIRMED",
+                })
+    except Exception as exc:
+        logger.error(f"[Reorder Reminders API] Error fetching eligible orders: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    return {"count": len(eligible_list), "results": eligible_list}
+
+
+@router.post("/send-reorder-reminder/{order_id}", summary="Send 60-day reorder reminder WhatsApp notification")
+async def send_reorder_reminder_endpoint(order_id: str):
+    """
+    Send the reorder_reminder_v1 WhatsApp notification for a specific order.
+    """
+    baserow_client = BaserowClient()
+    order_row = None
+
+    rows = await baserow_client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
+    results = rows.get("results", [])
+    if results:
+        order_row = results[0]
+    elif order_id.isdigit():
+        try:
+            order_row = await baserow_client.get_row(TABLE_IDS["orders"], int(order_id))
+        except Exception:
+            pass
+
+    if not order_row:
+        raise HTTPException(status_code=404, detail=f"Order #{order_id} not found.")
+
+    u_raw = order_row.get("user_info") or "{}"
+    user_info = json.loads(u_raw) if isinstance(u_raw, str) else (u_raw or {})
+    customer_name = user_info.get("name") or "Customer"
+    phone = user_info.get("phone") or user_info.get("whatsapp_phone") or ""
+
+    if not phone:
+        raise HTTPException(status_code=400, detail="Customer phone number is missing for this order.")
+
+    items_raw = order_row.get("items") or "[]"
+    items = json.loads(items_raw) if isinstance(items_raw, str) else (items_raw or [])
+    book_names = [i.get("name") or i.get("title") for i in items if isinstance(i, dict) and (i.get("name") or i.get("title"))]
+    items_desc = ", ".join(book_names[:2]) if book_names else "Educational Books"
+
+    try:
+        from services.whatsapp import send_reorder_reminder
+        await send_reorder_reminder(
+            phone=phone,
+            customer_name=customer_name,
+            book_or_items_name=items_desc,
+            reorder_url="https://cremsonpublications.com/shop",
+        )
+        logger.info(f"[Reorder Reminder] Sent to {phone} for order #{order_id}")
+        return {
+            "success": True,
+            "order_id": order_id,
+            "phone": phone,
+            "message": f"60-Day Reorder Reminder WhatsApp message sent to {customer_name} ({phone})!",
+        }
+    except Exception as exc:
+        logger.error(f"[Reorder Reminder] Failed to send WhatsApp: {exc}")
+        raise HTTPException(status_code=500, detail=f"Failed to send WhatsApp message: {str(exc)}")

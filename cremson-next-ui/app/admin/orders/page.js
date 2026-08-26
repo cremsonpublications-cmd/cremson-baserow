@@ -664,6 +664,73 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal, onOpen
                   </div>
                 )}
 
+                {/* Tax Invoice PDF Card */}
+                <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.01)] space-y-4 text-left">
+                  <div className="flex items-center gap-2 border-b border-slate-50 pb-3">
+                    <FileText className="w-4 h-4 text-purple-600" />
+                    <h3 className="text-sm font-bold text-slate-800">Tax Invoice PDF</h3>
+                  </div>
+
+                  {delivery.invoice_url ? (
+                    <div className="bg-purple-50 border border-purple-100 rounded-2xl p-3.5 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-purple-600 shrink-0" />
+                        <div>
+                          <p className="text-xs font-bold text-purple-900">Tax Invoice Uploaded</p>
+                          <p className="text-[10px] text-purple-700">WhatsApp notification sent to customer</p>
+                        </div>
+                      </div>
+                      <a
+                        href={delivery.invoice_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 text-xs font-bold text-purple-700 bg-white border border-purple-200 hover:bg-purple-100 rounded-xl transition-colors inline-flex items-center gap-1 shrink-0"
+                      >
+                        View PDF <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500">No tax invoice uploaded for this order yet.</p>
+                  )}
+
+                  <div className="space-y-2 pt-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      {delivery.invoice_url ? "Replace Tax Invoice (PDF):" : "Upload Tax Invoice (PDF):"}
+                    </label>
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
+                          toast.error("Please select a valid PDF document.");
+                          return;
+                        }
+                        const orderId = order.order_id || order.id;
+                        const formData = new FormData();
+                        formData.append("file", file);
+                        try {
+                          toast.loading("Uploading tax invoice PDF...", { id: "upload-invoice" });
+                          const res = await api.post(`/api/orders/${orderId}/upload-invoice`, formData, {
+                            headers: { "Content-Type": "multipart/form-data" },
+                          });
+                          toast.success("Tax invoice uploaded & WhatsApp message sent!", { id: "upload-invoice" });
+                          if (res.data?.invoice_url) {
+                            onStatusUpdated(order.id, order.order_status ?? order.status);
+                          }
+                        } catch (err) {
+                          toast.error(err?.response?.data?.detail || "Invoice upload failed.", { id: "upload-invoice" });
+                        }
+                      }}
+                      className="block w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 cursor-pointer"
+                    />
+                    <p className="text-[10px] text-slate-400">
+                      Uploading PDF will automatically trigger the <strong className="text-purple-600">Invoice Available</strong> WhatsApp notification to the customer.
+                    </p>
+                  </div>
+                </div>
+
                 {/* Mark Packed and Request Pickup Action */}
                 {["ready_to_pack", "ready to pack"].includes(currentStatusLower) && (
                   <div className="bg-amber-50/60 border border-amber-100/50 rounded-2xl p-4 space-y-3 text-left">

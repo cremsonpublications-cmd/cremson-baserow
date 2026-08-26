@@ -457,3 +457,45 @@ async def payment_failed(body: PaymentFailedRequest):
     except Exception as exc:
         logger.error(f"[Payment] send_payment_failed error: {exc}")
     return {"success": True}
+
+
+class RefundNotificationRequest(BaseModel):
+    phone: str
+    name: str
+    order_id: str
+    amount: float
+    refund_id: Optional[str] = "-"
+
+
+@router.post("/refund/initiated")
+async def refund_initiated(body: RefundNotificationRequest):
+    """Trigger WhatsApp notification when a refund is initiated."""
+    try:
+        from services.whatsapp import send_refund_initiated
+        await send_refund_initiated(
+            phone=body.phone,
+            customer_name=body.name,
+            order_id=body.order_id,
+            amount=body.amount,
+            refund_id=body.refund_id or "-",
+        )
+    except Exception as exc:
+        logger.error(f"[Payment] send_refund_initiated error: {exc}")
+    return {"success": True}
+
+
+@router.post("/refund/completed")
+async def refund_completed(body: RefundNotificationRequest):
+    """Trigger WhatsApp notification when a refund is completed."""
+    try:
+        from services.whatsapp import send_refund_completed
+        await send_refund_completed(
+            phone=body.phone,
+            customer_name=body.name,
+            order_id=body.order_id,
+            amount=body.amount,
+            refund_id=body.refund_id or "-",
+        )
+    except Exception as exc:
+        logger.error(f"[Payment] send_refund_completed error: {exc}")
+    return {"success": True}

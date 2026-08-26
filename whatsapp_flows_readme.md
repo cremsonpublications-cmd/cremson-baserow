@@ -52,10 +52,11 @@ Incoming messages from users on your WhatsApp number trigger the automated chatb
 
 ## 3. Shipping Status Updates (Shipway Webhooks)
 
-When packages are processed by your courier company, Shipway posts webhook events to `/api/webhooks/whatsapp` (in `routers/webhooks.py`). This automatically sends the following template notifications:
+When packages are processed by your courier company, Shipway posts webhook events to `/api/webhooks/whatsapp` (in `routers/webhooks.py`). This automatically updates order status in Baserow, logs ShipmentHistory rows, and sends the following template notifications:
 
-1. **`PICKED_UP`** $\rightarrow$ Triggers template **`picked_up_v1`**
-2. **`IN_TRANSIT`** $\rightarrow$ Triggers template **`in_transit_v1`**
-3. **`OUT_FOR_DELIVERY`** Triggers template **`out_for_delivery_v2`**
-4. **`DELIVERED`** $\rightarrow$ Triggers template **`delivered_v2`**
-5. **`RTO` (Return to Origin)** $\rightarrow$ Triggers template **`rto_v2`**
+1. **`SHIPMENT_CREATED`** $\rightarrow$ Triggers template **`shipment_created_v1`** (with *Track your Order* CTA button)
+2. **`OUT_FOR_DELIVERY`** $\rightarrow$ Triggers template **`out_for_delivery_v2`**
+3. **`DELIVERED`** $\rightarrow$ Triggers template **`delivered_v2`**
+4. **`RTO` (Return to Origin)** $\rightarrow$ Triggers template **`rto_v2`**
+
+*(Note: `picked_up_v1` and `in_transit_v1` templates have been removed per specification. `PICKED_UP` and `IN_TRANSIT` status events continue to update Baserow and send email updates without sending WhatsApp notifications.)*

@@ -19,9 +19,7 @@ from services.baserow import BaserowClient
 from services.shipway import parse_webhook_status
 from services.whatsapp import (
     send_delivered,
-    send_in_transit,
     send_out_for_delivery,
-    send_picked_up,
     send_rto,
 )
 
@@ -29,10 +27,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 baserow = BaserowClient()
 
-# Maps our internal status → WhatsApp sender function
+# Maps our internal status → WhatsApp sender function (PICKED_UP & IN_TRANSIT templates removed per spec)
 _WA_SENDERS: Dict[str, Callable[..., Coroutine]] = {
-    "PICKED_UP": send_picked_up,
-    "IN_TRANSIT": send_in_transit,
     "OUT_FOR_DELIVERY": send_out_for_delivery,
     "DELIVERED": send_delivered,
     "RTO": send_rto,

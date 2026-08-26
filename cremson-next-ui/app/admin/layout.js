@@ -37,6 +37,7 @@ const coreLinks = [
   { href: "/admin/specimen-requests", label: "Specimen Requests", Icon: FileText, badgeKey: "specimenRequests" },
   { href: "/admin/specimen-books", label: "Specimen Books", Icon: BookOpen },
   { href: "/admin/crm?tab=schools", label: "CRM Database Hub", Icon: Database },
+  { href: "/admin/support-tickets", label: "Support & Enquiries", Icon: MessageSquare },
   { href: "/admin/reminders", label: "Reminders", Icon: Bell, badgeKey: "reminders" },
 ];
 

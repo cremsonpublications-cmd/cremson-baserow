@@ -23,6 +23,8 @@ export default function ContactUs() {
     setFormData((prev) => ({ ...prev, [name]: val }));
   };
 
+  const [ticketId, setTicketId] = useState("");
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (formData.phone.length !== 10 || !/^\d{10}$/.test(formData.phone)) {
@@ -32,14 +34,18 @@ export default function ContactUs() {
     setLoading(true);
 
     try {
-      await api.post("/api/auth/contact", {
+      const res = await api.post("/api/crm/support-tickets", {
         full_name: formData.fullName,
         phone: formData.phone,
         email: formData.email,
         message: formData.message,
+        subject: "Contact Us Enquiry",
       });
+      if (res.data?.ticket_id) {
+        setTicketId(res.data.ticket_id);
+      }
       setSubmitted(true);
-      toast.success("Message sent successfully!");
+      toast.success("Support ticket created! Check WhatsApp for confirmation.");
     } catch (err) {
       console.error(err);
       toast.error(err?.response?.data?.detail || "Failed to send message. Please try again.");
@@ -117,9 +123,14 @@ export default function ContactUs() {
               <div className="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto font-bold text-xl">
                 ✓
               </div>
-              <h3 className="text-xl font-bold text-gray-900">Message Sent!</h3>
+              <h3 className="text-xl font-bold text-gray-900">Support Request Received!</h3>
+              {ticketId && (
+                <div className="inline-block px-3 py-1 bg-green-100 text-green-800 text-xs font-mono font-bold rounded-full border border-green-200">
+                  Ticket ID: {ticketId}
+                </div>
+              )}
               <p className="text-sm text-gray-600 max-w-md mx-auto">
-                Thank you for reaching out. We have successfully received your query and will get back to you as soon as possible.
+                Thank you for reaching out! We have sent a WhatsApp confirmation to your phone. Our support team will review your enquiry and get back to you shortly.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                 <button

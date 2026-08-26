@@ -52,14 +52,26 @@ templates = [
                 "type": "BODY",
                 "text": (
                     "Hello {{1}},\n\n"
-                    "We noticed that your payment of {{2}} for Order {{3}} failed or was cancelled. \n\n"
-                    "Thank you!"
+                    "We noticed that your payment of {{2}} for Order ID {{3}} was unsuccessful.\n\n"
+                    "Don't worry! Your items are still saved in your cart. You can retry the payment by clicking the link below or visiting your cart.\n\n"
+                    "If the amount was deducted from your account, please check with your bank or contact our support team with the payment reference.\n\n"
+                    "Best regards,\nCremson Publications Team"
                 ),
                 "example": {
                     "body_text": [
                         ["Arjunan Cahippa", "₹950.00", "BOOK2304"]
                     ]
                 }
+            },
+            {
+                "type": "BUTTONS",
+                "buttons": [
+                    {
+                        "type": "URL",
+                        "text": "Retry Payment",
+                        "url": "https://cremsonpublications.com/cart"
+                    }
+                ]
             }
         ]
     },
@@ -72,10 +84,9 @@ templates = [
                 "type": "BODY",
                 "text": (
                     "Hello {{1}},\n\n"
-                    "Your order {{2}} has been shipped! 🚀\n\n"
-                    "📦 Courier: {{4}}\n"
-                    "🔢 AWB Number: {{3}}\n"
-                    "🔗 Track your shipment: {{5}}\n\n"
+                    "Great news! Your order {{2}} has been packed and dispatched via {{4}}.\n\n"
+                    "AWB Tracking Number: {{3}}\n"
+                    "Track your parcel live: {{5}}\n\n"
                     "Thank you for shopping with Cremson Publications!"
                 ),
                 "example": {
@@ -83,48 +94,16 @@ templates = [
                         ["Arjunan Cahippa", "BOOK2304", "AWB12345678", "BlueDart", "https://cremsonpublications.shipway.com/tracking/forward/AWB12345678/"]
                     ]
                 }
-            }
-        ]
-    },
-    {
-        "name": "picked_up_v1",
-        "category": "UTILITY",
-        "language": "en",
-        "components": [
+            },
             {
-                "type": "BODY",
-                "text": (
-                    "Hello {{1}},\n\n"
-                    "Your order {{2}} has been picked up by our courier partner and is on its way! 🚚\n\n"
-                    "🔗 Track status: {{3}}\n\n"
-                    "Thank you!"
-                ),
-                "example": {
-                    "body_text": [
-                        ["Arjunan Cahippa", "BOOK2304", "https://cremsonpublications.shipway.com/tracking/forward/AWB12345678/"]
-                    ]
-                }
-            }
-        ]
-    },
-    {
-        "name": "in_transit_v1",
-        "category": "UTILITY",
-        "language": "en",
-        "components": [
-            {
-                "type": "BODY",
-                "text": (
-                    "Hello {{1}},\n\n"
-                    "Your order {{2}} is currently in transit. 🚚\n\n"
-                    "🔗 Track status: {{3}}\n\n"
-                    "Thank you for your patience!"
-                ),
-                "example": {
-                    "body_text": [
-                        ["Arjunan Cahippa", "BOOK2304", "https://cremsonpublications.shipway.com/tracking/forward/AWB12345678/"]
-                    ]
-                }
+                "type": "BUTTONS",
+                "buttons": [
+                    {
+                        "type": "URL",
+                        "text": "Track your Order",
+                        "url": "{{1}}"
+                    }
+                ]
             }
         ]
     },
@@ -285,6 +264,192 @@ templates = [
                         ["Teacher Name", "Physical Education Class 12"]
                     ]
                 }
+            }
+        ]
+    },
+    {
+        "name": "refund_initiated_v1",
+        "category": "UTILITY",
+        "language": "en",
+        "components": [
+            {
+                "type": "BODY",
+                "text": (
+                    "Hello {{1}},\n\n"
+                    "Your refund of {{2}} for Order {{3}} has been initiated successfully.\n\n"
+                    "Refund Reference ID: {{4}}\n\n"
+                    "It usually takes 3-5 business days for the amount to reflect in your original payment source.\n\n"
+                    "Thank you for your patience!\n"
+                    "Cremson Publications Team"
+                ),
+                "example": {
+                    "body_text": [
+                        ["Rahul Sharma", "₹450.00", "ORD-84019", "rfnd_Pz92kL10s"]
+                    ]
+                }
+            }
+        ]
+    },
+    {
+        "name": "refund_completed_v1",
+        "category": "UTILITY",
+        "language": "en",
+        "components": [
+            {
+                "type": "BODY",
+                "text": (
+                    "Hello {{1}},\n\n"
+                    "Great news! Your refund of {{2}} for Order {{3}} has been successfully processed and credited to your original payment source.\n\n"
+                    "Refund Reference ID: {{4}}\n\n"
+                    "Thank you for choosing Cremson Publications!\n"
+                    "Cremson Publications Team"
+                ),
+                "example": {
+                    "body_text": [
+                        ["Rahul Sharma", "₹450.00", "ORD-84019", "rfnd_Pz92kL10s"]
+                    ]
+                }
+            }
+        ]
+    },
+    {
+        "name": "invoice_available_v1",
+        "category": "UTILITY",
+        "language": "en",
+        "components": [
+            {
+                "type": "BODY",
+                "text": (
+                    "Hello {{1}},\n\n"
+                    "Great news! Your tax invoice for Order {{2}} is now available for download.\n\n"
+                    "View and download your official invoice PDF here: {{3}}\n\n"
+                    "Thank you for choosing Cremson Publications!\n"
+                    "Cremson Publications Team"
+                ),
+                "example": {
+                    "body_text": [
+                        ["Rahul Sharma", "ORD-84019", "https://cremsonpublications.com/uploads/invoices/ORD-84019_invoice.pdf"]
+                    ]
+                }
+            },
+            {
+                "type": "BUTTONS",
+                "buttons": [
+                    {
+                        "type": "URL",
+                        "text": "Download Invoice",
+                        "url": "{{1}}"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "name": "support_request_v1",
+        "category": "UTILITY",
+        "language": "en",
+        "components": [
+            {
+                "type": "BODY",
+                "text": (
+                    "Hello {{1}},\n\n"
+                    "We have received your support request regarding \"{{2}}\". Our team is reviewing your message (Ticket ID: {{3}}) and will get back to you shortly.\n\n"
+                    "Thank you for contacting Cremson Publications!\n"
+                    "Cremson Publications Team"
+                ),
+                "example": {
+                    "body_text": [
+                        ["Rahul Sharma", "General Inquiry", "TKT-840192"]
+                    ]
+                }
+            }
+        ]
+    },
+    {
+        "name": "specimen_already_submitted_v1",
+        "category": "UTILITY",
+        "language": "en",
+        "components": [
+            {
+                "type": "BODY",
+                "text": (
+                    "Hello {{1}},\n\n"
+                    "We noticed you requested a specimen copy of \"{{2}}\". Our records show that a specimen copy for this book was already requested/processed on {{3}}.\n\n"
+                    "Each book can only be requested once per teacher. If you need additional copies for your institution, please place a regular or bulk order.\n\n"
+                    "Thank you for your understanding!\n"
+                    "Cremson Publications Team"
+                ),
+                "example": {
+                    "body_text": [
+                        ["Rahul Sharma", "Mathematics Class 10", "2026-08-15"]
+                    ]
+                }
+            }
+        ]
+    },
+    {
+        "name": "review_request_v1",
+        "category": "UTILITY",
+        "language": "en",
+        "components": [
+            {
+                "type": "BODY",
+                "text": (
+                    "Hello {{1}},\n\n"
+                    "We hope you are enjoying your recent order of \"{{2}}\" from Cremson Publications!\n\n"
+                    "Could you please take a quick moment to share your feedback and rate your experience? Your review helps us continue delivering high-quality educational materials.\n\n"
+                    "Leave your review here: {{3}}\n\n"
+                    "Thank you for your support!\n"
+                    "Cremson Publications Team"
+                ),
+                "example": {
+                    "body_text": [
+                        ["Rahul Sharma", "Mathematics Class 10", "https://cremsonpublications.com/shop/product/12?review=true"]
+                    ]
+                }
+            },
+            {
+                "type": "BUTTONS",
+                "buttons": [
+                    {
+                        "type": "URL",
+                        "text": "Leave Review",
+                        "url": "{{1}}"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "name": "reorder_reminder_v1",
+        "category": "UTILITY",
+        "language": "en",
+        "components": [
+            {
+                "type": "BODY",
+                "text": (
+                    "Hello {{1}},\n\n"
+                    "Thank you for choosing Cremson Publications! We hope your recent books (\"{{2}}\") have been very helpful for your studies/teaching.\n\n"
+                    "Need extra copies or new academic books for your upcoming session, students, or institution? Explore our latest curriculum and place a reorder easily today.\n\n"
+                    "Browse Catalog & Reorder: {{3}}\n\n"
+                    "Thank you for your continued support!\n"
+                    "Cremson Publications Team"
+                ),
+                "example": {
+                    "body_text": [
+                        ["Rahul Sharma", "Mathematics Class 10", "https://cremsonpublications.com/shop"]
+                    ]
+                }
+            },
+            {
+                "type": "BUTTONS",
+                "buttons": [
+                    {
+                        "type": "URL",
+                        "text": "Reorder Now",
+                        "url": "{{1}}"
+                    }
+                ]
             }
         ]
     }

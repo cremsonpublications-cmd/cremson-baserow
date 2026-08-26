@@ -218,25 +218,10 @@ C. Shipping Status Notifications (Shipway Integration)
      - {{3}} = AWB Tracking Number
      - {{4}} = Courier Name
      - {{5}} = Live Tracking URL
+   - Button 0: "Track your Order" URL button
    - Trigger: Fired when Shipway generates the AWB/shipping label.
 
-2. Picked Up
-   - Template Name: picked_up_v1
-   - Parameters:
-     - {{1}} = Customer Name
-     - {{2}} = Order ID
-     - {{3}} = Live Tracking URL
-   - Trigger: Fired on Shipway PICKED_UP event.
-
-3. In Transit
-   - Template Name: in_transit_v1
-   - Parameters:
-     - {{1}} = Customer Name
-     - {{2}} = Order ID
-     - {{3}} = Live Tracking URL
-   - Trigger: Fired on Shipway IN_TRANSIT event.
-
-4. Out For Delivery
+2. Out For Delivery
    - Template Name: out_for_delivery_v2
    - Parameters:
      - {{1}} = Customer Name
@@ -244,14 +229,14 @@ C. Shipping Status Notifications (Shipway Integration)
      - {{3}} = Live Tracking URL
    - Trigger: Fired on Shipway OUT_FOR_DELIVERY event.
 
-5. Delivered
+3. Delivered
    - Template Name: delivered_v2
    - Parameters:
      - {{1}} = Customer Name
      - {{2}} = Order ID
    - Trigger: Fired on Shipway DELIVERED event.
 
-6. Return To Origin (RTO)
+4. Return To Origin (RTO)
    - Template Name: rto_v2
    - Parameters:
      - {{1}} = Customer Name

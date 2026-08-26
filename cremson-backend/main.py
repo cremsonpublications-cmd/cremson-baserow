@@ -110,6 +110,14 @@ app.include_router(banners_router.router, prefix="/api/banners", tags=["Banners"
 app.include_router(reminders_router.router, prefix="/api/reminders", tags=["Reminders"])
 
 
+import os
+from fastapi.staticfiles import StaticFiles
+
+# Mount uploads directory for static invoice PDFs and media
+os.makedirs("uploads/invoices", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+
 @app.get("/", tags=["Health"])
 def root():
     return {"status": "ok", "message": "Cremson Backend API running"}

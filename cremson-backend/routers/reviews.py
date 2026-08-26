@@ -57,3 +57,43 @@ async def get_review(row_id: int):
 async def delete_review(row_id: int):
     await client.delete_row(TABLE_IDS["reviews"], row_id)
     return {"success": True}
+
+
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
+from fastapi import HTTPException
+
+
+class CreateReviewRequest(BaseModel):
+    product_id: int
+    rating: int  # 1 to 5
+    user_name: str
+    user_email: Optional[str] = ""
+    comment: Optional[str] = ""
+
+
+@router.post("/", summary="Create a new product review")
+async def create_review(body: CreateReviewRequest):
+    """
+    Save customer star rating and optional review comment to Baserow Table 765.
+    """
+    if not (1 <= body.rating <= 5):
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5 stars.")
+
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
+    review_row = {
+        "product_id": body.product_id,
+        "rating": body.rating,
+        "user_name": body.user_name or "Verified Customer",
+        "user_email": body.user_email or "",
+        "comment": body.comment or "",
+        "created_at": today_str,
+    }
+
+    try:
+        res = await client.create_row(TABLE_IDS["reviews"], review_row)
+        return {"success": True, "review": res, "message": "Thank you for your feedback and review!"}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to submit review: {str(exc)}")
