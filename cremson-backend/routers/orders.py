@@ -1170,6 +1170,7 @@ async def return_order(order_id: str, body: ReturnOrderRequest):
         "state": state,
         "pincode": pincode,
         "weight_grams": weight_grams,
+        "items": body.returned_items,
     }
 
     reverse_result = await create_reverse_shipment(

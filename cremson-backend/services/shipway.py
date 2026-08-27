@@ -552,20 +552,6 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
 async def create_reverse_shipment(order: Dict[str, Any], reason: str = "") -> Dict[str, Any]:
     """
     Schedule a reverse shipment pickup from customer's address back to Cremson warehouse.
-
-    Expected keys in `order`:
-        order_id, total_amount, items, customer_name, customer_email, customer_phone,
-        address, address2, city, state, pincode, weight_grams
-
-    Returns:
-        {
-            success: bool,
-            reverse_shipment_id: str,
-            reverse_awb: str,
-            courier_name: str,
-            tracking_url: str,
-            error: str (on failure)
-        }
     """
     username, license_key, base_url, warehouse_id, _ = _cfg()
     url = f"{base_url}/api/v2reverseorders"
@@ -578,12 +564,38 @@ async def create_reverse_shipment(order: Dict[str, Any], reason: str = "") -> Di
     ret_order_id = f"RET_{order['order_id']}"
     weight_grams = str(order.get("weight_grams") or 500)
 
+    items = order.get("items") or []
+    items_desc_parts = []
+    total_qty = 0
+    for item in items:
+        name = item.get("name") or item.get("title") or "Book"
+        qty = int(item.get("quantity") or item.get("qty") or 1)
+        items_desc_parts.append(f"{name} (x{qty})")
+        total_qty += qty
+        
+    combined_desc = ", ".join(items_desc_parts) or "Returned Books"
+    if len(combined_desc) > 200:
+        suffix = f" ... (Total: {total_qty} items)"
+        allowed_len = 200 - len(suffix)
+        combined_desc = combined_desc[:allowed_len] + suffix
+
+    products = [{
+        "product": combined_desc,
+        "price": float(order.get("total_amount") or 0),
+        "product_code": "RET",
+        "product_quantity": total_qty or 1,
+        "discount": 0,
+        "tax_rate": 0,
+        "tax_title": "GST",
+    }]
+
     payload: Dict[str, Any] = {
         "order_id": ret_order_id,
         "reference_order_id": order["order_id"],
         "order_date": datetime.now().strftime("%Y-%m-%d"),
         "payment_type": "P",
         "order_type": "R",  # Reverse
+        "products": products,
         "shipping_firstname": order.get("customer_name", ""),
         "shipping_email": order.get("customer_email", ""),
         "shipping_phone": order.get("customer_phone", ""),
@@ -605,50 +617,71 @@ async def create_reverse_shipment(order: Dict[str, Any], reason: str = "") -> Di
         payload["warehouse_id"] = warehouse_id
         payload["return_warehouse_id"] = warehouse_id
 
-    logger.info(f"[Shipway] → create_reverse_shipment: order={ret_order_id} reason={reason}")
+    cust_pincode = str(order.get("pincode", "")).strip()
+    candidate_carriers: List[Dict[str, Any]] = []
+    if cust_pincode:
+        candidate_carriers = await get_all_available_carriers(
+            delivery_pincode=cust_pincode,
+            weight_grams=int(weight_grams),
+            payment_type="P",
+        )
+    
+    carriers_to_try = candidate_carriers if candidate_carriers else [{"id": "0", "name": "default", "price": 0}]
+    last_error = "Unknown Shipway error"
 
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(url, headers=headers, json=payload)
-            # If v2reverseorders isn't enabled, fallback to v2orders with order_type='R'
-            if resp.status_code == 404:
-                url_alt = f"{base_url}/api/v2orders"
-                resp = await client.post(url_alt, headers=headers, json=payload)
+    for attempt_idx, carrier_opt in enumerate(carriers_to_try):
+        payload["carrier_id"] = str(carrier_opt["id"])
+        logger.info(f"[Shipway] → create_reverse_shipment: order={ret_order_id} carrier={carrier_opt['id']} reason={reason}")
 
-            raw = resp.text
-            logger.info(f"[Shipway] ← create_reverse_shipment HTTP {resp.status_code}: {raw[:400]}")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+                if resp.status_code == 404:
+                    url_alt = f"{base_url}/api/v2orders"
+                    resp = await client.post(url_alt, headers=headers, json=payload)
 
-            try:
-                data = resp.json()
-            except Exception:
-                return {"success": False, "error": f"Non-JSON response: {raw[:300]}"}
+                raw = resp.text
+                logger.info(f"[Shipway] ← create_reverse_shipment HTTP {resp.status_code}: {raw[:400]}")
 
-            if not data.get("success") and resp.status_code != 200:
-                err = data.get("message") or data.get("error") or "Reverse shipment failed"
-                return {"success": False, "error": err}
+                try:
+                    data = resp.json()
+                except Exception:
+                    last_error = f"Non-JSON response: {raw[:300]}"
+                    continue
 
-            awb_resp = data.get("awb_response") or {}
-            if not isinstance(awb_resp, dict):
-                awb_resp = {}
+                if not data.get("success") and resp.status_code != 200:
+                    last_error = data.get("message") or data.get("error") or "Reverse shipment failed"
+                    continue
 
-            awb = awb_resp.get("AWB") or awb_resp.get("awb") or data.get("awb") or ""
-            carrier = str(awb_resp.get("courier_name") or awb_resp.get("carrier_id") or "Shipway")
-            tracking_url = f"https://cremsonpublications.shipway.com/tracking/forward/{awb}/" if awb else "https://cremsonpublications.shipway.com/"
-            shipment_id = str(data.get("shipment_id") or awb_resp.get("shipment_id") or awb or ret_order_id)
-            label_url = awb_resp.get("shipping_url") or awb_resp.get("label") or data.get("shipping_url") or data.get("label") or ""
+                awb_resp = data.get("awb_response") or {}
+                if not isinstance(awb_resp, dict):
+                    awb_resp = {}
+                    
+                if not data.get("success") or awb_resp.get("success") is False:
+                    last_error = str(awb_resp.get("error") or data.get("message") or "Shipway AWB generation failed")
+                    logger.warning(f"[Shipway] Carrier {carrier_opt['id']} failed: {last_error}")
+                    continue
 
-            return {
-                "success": True,
-                "reverse_shipment_id": shipment_id,
-                "reverse_awb": awb,
-                "courier_name": carrier,
-                "tracking_url": tracking_url,
-                "label_url": label_url,
-            }
-    except Exception as exc:
-        logger.error(f"[Shipway] create_reverse_shipment exception: {exc}")
-        return {"success": False, "error": str(exc)}
+                awb = awb_resp.get("AWB") or awb_resp.get("awb") or data.get("awb") or ""
+                carrier = str(awb_resp.get("courier_name") or awb_resp.get("carrier_id") or "Shipway")
+                tracking_url = f"https://cremsonpublications.shipway.com/tracking/forward/{awb}/" if awb else "https://cremsonpublications.shipway.com/"
+                shipment_id = str(data.get("shipment_id") or awb_resp.get("shipment_id") or awb or ret_order_id)
+                label_url = awb_resp.get("shipping_url") or awb_resp.get("label") or data.get("shipping_url") or data.get("label") or ""
 
+                return {
+                    "success": True,
+                    "reverse_shipment_id": shipment_id,
+                    "reverse_awb": awb,
+                    "courier_name": carrier,
+                    "tracking_url": tracking_url,
+                    "label_url": label_url,
+                }
+        except Exception as exc:
+            logger.error(f"[Shipway] create_reverse_shipment exception: {exc}")
+            last_error = str(exc)
+            continue
+            
+    return {"success": False, "error": last_error}
 
 # ── Request Pickup ────────────────────────────────────────────────────────────
 
