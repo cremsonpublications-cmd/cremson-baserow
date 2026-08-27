@@ -597,8 +597,7 @@ async def send_whatsapp_otp(phone: str, otp: str):
     """Sends a 6-digit verification code via WhatsApp AUTHENTICATION / UTILITY template (cremson_otp).
     Requires both body + button components because the template has a Copy Code button.
     """
-    import os
-    template_name = os.getenv("WHATSAPP_OTP_TEMPLATE_NAME", "cremson_otp_v100")
+    template_name = "cremson_otp_v100"
 
     components = [
         {
