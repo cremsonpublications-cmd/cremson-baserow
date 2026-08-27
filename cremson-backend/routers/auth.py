@@ -557,6 +557,7 @@ async def me(user: dict = Depends(current_user)):
         "residence": t_details.get("residence") or user.get("residence", ""),
         "city": t_details.get("city") or user.get("city", ""),
         "pincode": t_details.get("pincode") or user.get("pincode", ""),
+        "already_requested_books": t_details.get("already_requested_books", []),
         "permissions": user.get("permissions", []),
     }
 
