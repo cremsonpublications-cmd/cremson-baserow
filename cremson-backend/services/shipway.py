@@ -15,7 +15,7 @@ from config import TABLE_IDS
 
 import httpx
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 def _cfg():
