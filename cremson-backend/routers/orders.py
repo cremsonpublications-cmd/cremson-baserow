@@ -876,8 +876,15 @@ async def ready_for_pickup(order_id: str, background_tasks: BackgroundTasks):
     5. Sends WhatsApp to customer (background task)
     """
     # ── 1. Find order ─────────────────────────────────────────────────────────
-    rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
-    results = rows.get("results", [])
+    if order_id.startswith("BOOK") and order_id[4:].isdigit():
+        try:
+            row = await client.get_row(TABLE_IDS["orders"], int(order_id[4:]))
+            results = [row] if row else []
+        except Exception:
+            results = []
+    else:
+        rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
+        results = rows.get("results", [])
     is_bulk = False
     
     if not results:
@@ -1083,8 +1090,15 @@ async def return_order(order_id: str, body: ReturnOrderRequest):
     """
     from services.shipway import create_reverse_shipment
 
-    rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
-    results = rows.get("results", [])
+    if order_id.startswith("BOOK") and order_id[4:].isdigit():
+        try:
+            row = await client.get_row(TABLE_IDS["orders"], int(order_id[4:]))
+            results = [row] if row else []
+        except Exception:
+            results = []
+    else:
+        rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
+        results = rows.get("results", [])
     is_bulk = False
     
     if not results:
@@ -1230,8 +1244,15 @@ async def refund_order(order_id: str, body: RefundOrderRequest):
     """
     from services.razorpay import issue_refund
 
-    rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
-    results = rows.get("results", [])
+    if order_id.startswith("BOOK") and order_id[4:].isdigit():
+        try:
+            row = await client.get_row(TABLE_IDS["orders"], int(order_id[4:]))
+            results = [row] if row else []
+        except Exception:
+            results = []
+    else:
+        rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
+        results = rows.get("results", [])
     is_bulk = False
     
     if not results:
@@ -1381,8 +1402,15 @@ async def upload_order_invoice(
     order_row = None
     row_id = None
     
-    rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
-    results = rows.get("results", [])
+    if order_id.startswith("BOOK") and order_id[4:].isdigit():
+        try:
+            row = await client.get_row(TABLE_IDS["orders"], int(order_id[4:]))
+            results = [row] if row else []
+        except Exception:
+            results = []
+    else:
+        rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
+        results = rows.get("results", [])
     if results:
         order_row = results[0]
         row_id = order_row["id"]

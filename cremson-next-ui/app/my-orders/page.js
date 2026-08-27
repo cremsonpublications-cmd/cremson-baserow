@@ -732,21 +732,17 @@ export default function MyOrdersPage() {
                           </div>
                         )
                       ) : (
-                        <div className="flex items-center -space-x-3 shrink-0">
-                          {item.items.slice(0, 3).map((subItem, sidx) => (
-                            subItem.image ? (
-                              <img key={sidx} src={subItem.image} alt={subItem.title} className="w-14 h-14 object-contain bg-white border border-gray-200 rounded p-1 shadow-sm shrink-0" />
-                            ) : (
-                              <div key={sidx} className="w-14 h-14 bg-gray-50 border border-gray-200 rounded flex items-center justify-center text-gray-400 shrink-0 shadow-sm">
-                                <BookOpen className="w-5 h-5" />
-                              </div>
-                            )
-                          ))}
-                          {item.items.length > 3 && (
-                            <div className="w-10 h-10 bg-gray-100 border border-gray-200 rounded-full flex items-center justify-center text-gray-650 text-xs font-bold shrink-0 z-10 shadow-sm">
-                              +{item.items.length - 3}
+                        <div className="relative shrink-0">
+                          {item.items[0].image ? (
+                            <img src={item.items[0].image} alt={item.items[0].title} className="w-16 h-16 object-contain bg-white border border-gray-200 rounded p-1 shadow-sm" />
+                          ) : (
+                            <div className="w-16 h-16 bg-gray-50 border border-gray-200 rounded flex items-center justify-center text-gray-400 shadow-sm">
+                              <BookOpen className="w-6 h-6" />
                             </div>
                           )}
+                          <div className="absolute -bottom-2 -right-2 w-7 h-7 bg-blue-100 border border-blue-200 rounded-full flex items-center justify-center text-blue-700 text-[10px] font-bold shadow-sm">
+                            +{item.items.length - 1}
+                          </div>
                         </div>
                       )}
                       <div>

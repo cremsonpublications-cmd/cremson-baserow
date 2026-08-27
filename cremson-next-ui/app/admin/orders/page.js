@@ -128,7 +128,7 @@ function ReturnModal({ order, onClose, onReturnSuccess }) {
     setError("");
 
     try {
-      const orderId = order.order_id || order.id;
+      const orderId = order.order_id || `BOOK${order.id}`;
       const res = await adminReturnOrder(orderId, {
         return_reason: reason,
         return_notes: notes,
@@ -265,7 +265,7 @@ function RefundModal({ order, onClose, onRefundSuccess }) {
     setError("");
 
     try {
-      const orderId = order.order_id || order.id;
+      const orderId = order.order_id || `BOOK${order.id}`;
       const res = await adminIssueRefund(orderId, {
         refund_amount: parseFloat(refundAmount) || totalAmount,
         refund_reason: reason,
@@ -437,7 +437,7 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal, onOpen
   }
 
   async function handleReadyForPickup() {
-    const orderId = order.order_id || order.id;
+    const orderId = order.order_id || `BOOK${order.id}`;
     if (!orderId) return;
     setReadyingPickup(true);
     setPickupError("");
