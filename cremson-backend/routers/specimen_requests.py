@@ -174,9 +174,9 @@ async def create_specimen_request(body: dict, user: dict = Depends(current_user)
     try:
         filters_to_try = []
         if teacher_id:
-            filters_to_try.append({"TeacherID": teacher_id})
+            filters_to_try.append({"TeacherID__contains": teacher_id})
         if user_email:
-            filters_to_try.append({"Email": user_email})
+            filters_to_try.append({"Email__contains": user_email})
 
         for flt in filters_to_try:
             prev_res = await client.get_rows(TABLE_IDS["specimen_requests"], filters=flt, size=200)

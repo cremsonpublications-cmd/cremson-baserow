@@ -445,7 +445,7 @@ async def get_teacher_details(email: str) -> dict:
 
             requested_books = []
             try:
-                prev_res = await b_client.get_rows(TABLE_IDS["specimen_requests"], filters={"Email": email}, size=200)
+                prev_res = await b_client.get_rows(TABLE_IDS["specimen_requests"], filters={"Email__contains": email}, size=200)
                 for prow in prev_res.get("results", []):
                     b_raw = prow.get("BooksRequested") or ""
                     for b_item in b_raw.split(","):
