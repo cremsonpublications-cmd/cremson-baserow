@@ -497,25 +497,6 @@ function SpecimenContent() {
             </ul>
           </div>
           <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setSubmitted(false);
-                setSubmittedBooks([]);
-                setSelectedBooks([]);
-                setFormData((prev) => ({
-                  ...prev,
-                  address: user?.residence || user?.full_address || user?.address || "",
-                  comments: "",
-                }));
-                const params = new URLSearchParams(window.location.search);
-                params.delete("step");
-                router.push(`${window.location.pathname}`);
-              }}
-              className="w-full sm:w-auto px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow transition-all cursor-pointer"
-            >
-              Submit Another Request
-            </button>
             <Link
               href="/"
               onClick={() => {
@@ -523,7 +504,7 @@ function SpecimenContent() {
                 setSubmittedBooks([]);
                 setSelectedBooks([]);
               }}
-              className="w-full sm:w-auto px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer text-center"
+              className="w-full sm:w-auto px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow transition-all cursor-pointer text-center"
             >
               Return to Home
             </Link>
@@ -1002,24 +983,13 @@ function SpecimenContent() {
           </ul>
         </div>
         <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              setSubmitted(false);
-              setSelectedBooks([]);
-              router.push("/specimen");
-            }}
-            className="w-full sm:w-auto px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow transition-all cursor-pointer"
-          >
-            Submit Another Request
-          </button>
           <Link
             href="/"
             onClick={() => {
               setSubmitted(false);
               setSelectedBooks([]);
             }}
-            className="w-full sm:w-auto px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer text-center"
+            className="w-full sm:w-auto px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow transition-all cursor-pointer text-center"
           >
             Return to Home
           </Link>
