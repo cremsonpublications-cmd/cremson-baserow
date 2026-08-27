@@ -711,7 +711,7 @@ async def list_orders(
                 if potential_order_id in approved_spec_ids:
                     continue
 
-                raw_status = (sr.get("DeliveryStatus") or "Pending").strip().lower()
+                raw_status = _extract_val(sr.get("DeliveryStatus") or "Pending").lower()
                 mapped_status = spec_status_map.get(raw_status, raw_status)
 
                 # Apply order_status filter if set
