@@ -606,9 +606,9 @@ async def send_whatsapp_otp(phone: str, otp: str):
         },
         {
             "type": "button",
-            "sub_type": "copy_code",
+            "sub_type": "url",
             "index": "0",
-            "parameters": [{"type": "coupon_code", "coupon_code": str(otp).strip()}],
+            "parameters": [{"type": "text", "text": str(otp).strip()}],
         },
     ]
 
