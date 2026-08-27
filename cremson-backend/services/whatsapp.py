@@ -733,7 +733,7 @@ async def send_invoice_available(
             "type": "button",
             "sub_type": "url",
             "index": "0",
-            "parameters": [_txt(_clean_url_param(invoice_url, "https://cremsonpublications.com/uploads/invoices/"))],
+            "parameters": [_txt(_clean_url_param(invoice_url, "https://api.cremsonpublications.com/uploads/invoices/"))],
         },
     ]
 

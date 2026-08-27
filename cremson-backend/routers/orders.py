@@ -1314,7 +1314,7 @@ async def upload_order_invoice(
     with open(file_path, "wb") as f:
         f.write(contents)
 
-    invoice_url = f"https://cremsonpublications.com/uploads/invoices/{filename}"
+    invoice_url = f"https://api.cremsonpublications.com/uploads/invoices/{filename}"
 
     # 2. Update Baserow order record
     order_row = None
