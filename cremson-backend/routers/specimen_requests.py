@@ -405,7 +405,7 @@ async def approve_specimen_request(row_id: int):
         if matched_p:
             items.append({
                 "productId": matched_p.get("id"),
-                "name": matched_p.get("name"),
+                "name": re.sub(r'\(.*?\)', '', bname).strip(),
                 "author": matched_p.get("author") or "Cremson Publications",
                 "weight": matched_p.get("weight") or "0.5kg",
                 "image": matched_p.get("main_image") or "",
