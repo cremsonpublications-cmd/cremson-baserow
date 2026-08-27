@@ -64,6 +64,7 @@ class BulkOrderCreate(BaseModel):
     city: str
     state: str
     pincode: str
+    email: Optional[str] = None
     items: List[BulkOrderItem]
 
 

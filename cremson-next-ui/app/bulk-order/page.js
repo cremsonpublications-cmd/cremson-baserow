@@ -204,6 +204,7 @@ export default function PublicBulkOrderPage() {
       const payload = {
         ...form,
         items,
+        email: user?.email || undefined,
       };
       const res = await api.post("/api/bulk-orders/", payload);
       setSubmittedData(res.data);
