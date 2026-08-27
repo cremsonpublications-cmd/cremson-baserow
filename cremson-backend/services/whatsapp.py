@@ -264,6 +264,22 @@ async def send_teacher_rejected_notification(phone: str, teacher_name: str):
 # ── Existing notifications (unchanged behaviour) ───────────────────────────────
 
 
+async def send_return_initiated(
+    phone: str,
+    customer_name: str,
+    order_id: str,
+    courier_name: str,
+    label_url: str
+):
+    """WhatsApp notification for return initiated with AWB label download link"""
+    await _send_template(
+        phone,
+        "return_initiated_v1",
+        [_txt(customer_name), _txt(order_id), _txt(courier_name), _txt(label_url)],
+        log_tag=f"return_initiated order={order_id}"
+    )
+
+
 async def send_order_confirmation(
     phone: str,
     customer_name: str,

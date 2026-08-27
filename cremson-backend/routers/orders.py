@@ -1177,7 +1177,6 @@ async def return_order(order_id: str, body: ReturnOrderRequest):
     )
 
     now_iso = datetime.now().isoformat()
-    delivery_data["status"] = "RETURN_INITIATED"
     delivery_data["return_status"] = "RETURN_INITIATED"
     delivery_data["return_initiated_at"] = now_iso
     delivery_data["return_reason"] = body.return_reason
@@ -1190,7 +1189,6 @@ async def return_order(order_id: str, body: ReturnOrderRequest):
         try:
             bulk_row = await client.get_row(TABLE_IDS["bulk_orders"], row_id)
             norm = _normalize_bulk_row(bulk_row)
-            norm["status"] = "return_initiated"
             norm["return_status"] = "RETURN_INITIATED"
             norm["return_initiated_at"] = now_iso
             norm["return_reason"] = body.return_reason
@@ -1202,7 +1200,6 @@ async def return_order(order_id: str, body: ReturnOrderRequest):
             logger.error(f"[Orders Return] Error updating bulk Baserow row {row_id}: {exc}")
     else:
         update_payload = {
-            "order_status": "RETURN_INITIATED",
             "delivery": json.dumps(delivery_data),
         }
         try:
@@ -1237,21 +1234,18 @@ async def return_order(order_id: str, body: ReturnOrderRequest):
                 # Trigger WhatsApp Return Initiated Message
                 label_url = reverse_result.get("label_url", "")
                 if cust_phone and label_url:
-                    from services.whatsapp import send_template_message
-                    bg_tasks = BackgroundTasks()
-                    bg_tasks.add_task(
-                        send_template_message,
-                        to=cust_phone,
-                        template_name="return_initiated_v1",
-                        body_params=[cust_name, order_id, reverse_result.get("courier_name", "Courier"), label_url]
-                    )
-                    # We have to await it if not using actual BackgroundTasks properly here, 
-                    # but wait, return_order doesn't inject BackgroundTasks. Let's just await it.
-                    await send_template_message(
-                        to=cust_phone,
-                        template_name="return_initiated_v1",
-                        body_params=[cust_name, order_id, reverse_result.get("courier_name", "Courier"), label_url]
-                    )
+                    from services.whatsapp import send_return_initiated
+                    
+                    try:
+                        await send_return_initiated(
+                            phone=cust_phone,
+                            customer_name=cust_name,
+                            order_id=order_id,
+                            courier_name=reverse_result.get("courier_name", "Courier"),
+                            label_url=label_url
+                        )
+                    except Exception as w_err:
+                        logger.error(f"[Orders Return] WhatsApp Error for {order_id}: {w_err}")
 
         except Exception as exc:
             logger.error(f"[Orders Return] Error updating Baserow row {row_id} or creating return order: {exc}")
@@ -1259,7 +1253,7 @@ async def return_order(order_id: str, body: ReturnOrderRequest):
     return {
         "success": True,
         "order_id": order_id,
-        "status": "RETURN_INITIATED",
+        "status": order.get("order_status", "Delivered"),
         "returned_at": now_iso,
         "reverse_shipment": reverse_result,
         "return_reason": body.return_reason,
