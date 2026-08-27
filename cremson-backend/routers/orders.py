@@ -1074,7 +1074,7 @@ async def ready_for_pickup(order_id: str, background_tasks: BackgroundTasks):
 class ReturnOrderRequest(BaseModel):
     return_reason: str
     return_notes: Optional[str] = None
-    returned_items: List[Dict[str, Any]] = []
+    returned_items: list[dict] = []
 
 
 @router.post(
