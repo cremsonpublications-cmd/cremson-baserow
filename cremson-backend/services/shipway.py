@@ -367,7 +367,10 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
             
         combined_desc = ", ".join(items_desc_parts)
         if len(combined_desc) > 200:
-            combined_desc = combined_desc[:197] + "..."
+            suffix = f" ... (Total: {total_qty} items)"
+            # Leave enough room for the suffix
+            allowed_len = 200 - len(suffix)
+            combined_desc = combined_desc[:allowed_len] + suffix
             
         products = [{
             "product": combined_desc,
