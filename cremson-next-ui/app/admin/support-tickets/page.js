@@ -206,25 +206,27 @@ export default function AdminSupportTicketsPage() {
                   </div>
                 </div>
 
-                {/* Customer Details & Message */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                  <div className="space-y-1 bg-slate-50/70 p-3 rounded-xl border border-slate-100">
-                    <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                {/* Customer Details & Message in One Box */}
+                <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-100 space-y-3 text-xs">
+                  {/* Top Row: User Contact Details */}
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-200/60 pb-2.5 text-slate-600">
+                    <span className="font-bold text-slate-900 flex items-center gap-1.5">
                       <User className="w-3.5 h-3.5 text-purple-600" /> {ticket.full_name || "Customer"}
-                    </p>
-                    <p className="text-slate-600 flex items-center gap-1.5">
+                    </span>
+                    <span className="flex items-center gap-1.5">
                       <Phone className="w-3.5 h-3.5 text-slate-400" /> {ticket.phone || "—"}
-                    </p>
-                    <p className="text-slate-600 flex items-center gap-1.5">
+                    </span>
+                    <span className="flex items-center gap-1.5">
                       <Mail className="w-3.5 h-3.5 text-slate-400" /> {ticket.email || "—"}
-                    </p>
+                    </span>
                   </div>
 
-                  <div className="md:col-span-2 space-y-1 bg-slate-50/70 p-3 rounded-xl border border-slate-100">
+                  {/* Message Subject & Content */}
+                  <div className="space-y-1">
                     <p className="font-bold text-slate-900 flex items-center gap-1.5">
                       <FileText className="w-3.5 h-3.5 text-purple-600" /> Subject: {ticket.subject || "Contact Us Enquiry"}
                     </p>
-                    <p className="text-slate-700 whitespace-pre-wrap leading-relaxed mt-1">
+                    <p className="text-slate-700 whitespace-pre-wrap leading-relaxed mt-1.5 pl-5">
                       {ticket.message || "No message body provided."}
                     </p>
                   </div>
