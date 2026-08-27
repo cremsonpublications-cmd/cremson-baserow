@@ -233,7 +233,7 @@ async def submit_template_to_meta(template_data: Dict[str, Any]) -> Dict[str, An
                 meta_status = res_data.get("status", "PENDING").upper()
                 logger.info(f"[Meta Template Submit] Successfully submitted template '{name}' to Meta (id: {res_data['id']}, status: {meta_status})")
                 return {"submitted": True, "status": meta_status, "meta_id": res_data["id"], "name": name, "error": ""}
-            elif "already exists" in str(res_data).lower() or res_data.get("error", {}).get("code") == 100:
+            elif any(x in str(res_data).lower() for x in ["already exists", "already associated", "exists on meta"]):
                 # Name collision on Meta — retry with incremented version name!
                 versioned_name = get_next_template_version_name(name)
                 meta_payload["name"] = versioned_name
