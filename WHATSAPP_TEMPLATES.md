@@ -309,19 +309,26 @@ This document contains all Meta-approved WhatsApp Cloud API message templates in
 ## 📖 6. Specimen Book Request Templates
 
 ### A. Specimen Request Received
-- **Template Name**: `specimen_received_v1`
-- **Status**: `KEEP — NO CHANGE`
+- **Template Name**: `specimen_received_v3`
+- **Status**: `NEWLY CREATED`
 
 #### **Message Content**:
-> Hello `{{1}}`,
+> Hello `{{1}}` 👋
 >
-> Thank you for requesting specimen copies (`{{2}}`) from Cremson Publications. Our team is verifying your school details and will dispatch your copies soon.
+> Thank you for requesting specimen copies from Cremson Publications! 📚
 >
+> Books Requested:`{{2}}`
+>
+> 🏫 Our team is currently verifying your school details. Once verification is complete, we’ll dispatch your specimen copies soon.
+>
+> Thank you for your interest in Cremson Publications! 🙏
+>
+> Best regards,
 > Cremson Publications
 
 - **Variables**:
   - `{{1}}` = Teacher Name
-  - `{{2}}` = List of Books Requested
+  - `{{2}}` = Bulleted List of Books Requested
 
 ---
 

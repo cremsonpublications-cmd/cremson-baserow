@@ -651,7 +651,7 @@ async def send_specimen_received_whatsapp(phone: str, name: str, books_requested
     """Sends a WhatsApp template notification to teacher when a specimen request is created."""
     await _send_template(
         phone=phone,
-        template_name="specimen_received_v2",
+        template_name="specimen_received_v3",
         parameters=[_txt(name), _txt(books_requested)],
         log_tag=f"specimen_received name={name} books={books_requested[:50]}",
     )
