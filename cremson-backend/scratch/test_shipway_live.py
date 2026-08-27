@@ -17,12 +17,19 @@ async def run():
     print(f"Fetching order {order_id} from Baserow...")
     rows = await client.get_rows(TABLE_IDS["orders"], size=100)
     order_row = None
-    for r in rows.get("results", []):
+    # Sort by ID descending to get the newest orders first
+    sorted_orders = sorted(rows.get("results", []), key=lambda x: x.get("id", 0), reverse=True)
+    print("Newest 5 orders in Baserow:")
+    for o in sorted_orders[:5]:
+        print(f"ID: {o.get('id')} | order_id: {o.get('order_id')} | status: {o.get('order_status')} | date: {o.get('order_date')} | total: {o.get('total_amount')} | user_info: {o.get('user_info')[:120] if o.get('user_info') else None}")
+
+    order_row = None
+    for r in sorted_orders:
         row_str = str(r)
-        if "26002" in row_str or "CP26" in row_str:
+        if "CP26002" in row_str or "CP26003" in row_str:
             order_row = r
             order_id = r.get("order_id") or f"BOOK{r.get('id')}"
-            print(f"Found matching order row! ID: {r.get('id')}, order_id column: {order_id}")
+            print(f"\nFound matching order! ID: {r.get('id')}, order_id column: {order_id}")
             break
             
     if not order_row:
