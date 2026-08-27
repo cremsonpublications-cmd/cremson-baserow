@@ -8,6 +8,7 @@ BASEROW_TOKEN = os.getenv("BASEROW_TOKEN", "HkWj6pCpBqAxEeFqyGDDQOqr92m3iauI")
 SITE_URL = os.getenv("SITE_URL", "https://cremsonpublications.com")
 WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
 WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "264411460083166")
+WHATSAPP_WABA_ID = os.getenv("WHATSAPP_WABA_ID", "2467890800356408")
 WHATSAPP_TEMPLATE_NAME = os.getenv("WHATSAPP_TEMPLATE_NAME", "hello_world")
 WHATSAPP_TEMPLATE_LANGUAGE = os.getenv("WHATSAPP_TEMPLATE_LANGUAGE", "en")
 WHATSAPP_MAIN_PHONE = os.getenv("WHATSAPP_MAIN_PHONE", "919205153617")
@@ -47,4 +48,12 @@ TABLE_IDS = {
     "shipment_history": int(os.getenv("TABLE_SHIPMENT_HISTORY", "774")),
     "bulk_orders": int(os.getenv("TABLE_BULK_ORDERS", "767")),
     "banner_images": int(os.getenv("TABLE_BANNER_IMAGES", "0")),
+    "whatsapp_campaigns": int(os.getenv("TABLE_WHATSAPP_CAMPAIGNS", "881")),
+    "whatsapp_campaign_recipients": int(os.getenv("TABLE_WHATSAPP_CAMPAIGN_RECIPIENTS", "882")),
 }
+
+# Campaign Queue & Rate Limiting Configuration
+WHATSAPP_CAMPAIGN_BATCH_SIZE = int(os.getenv("WHATSAPP_CAMPAIGN_BATCH_SIZE", "10"))
+WHATSAPP_CAMPAIGN_CONCURRENCY = int(os.getenv("WHATSAPP_CAMPAIGN_CONCURRENCY", "2"))
+WHATSAPP_CAMPAIGN_DELAY_MS = int(os.getenv("WHATSAPP_CAMPAIGN_DELAY_MS", "200"))
+WHATSAPP_CAMPAIGN_DRY_RUN = os.getenv("WHATSAPP_CAMPAIGN_DRY_RUN", "false").lower() == "true"

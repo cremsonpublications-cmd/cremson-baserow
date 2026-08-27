@@ -282,24 +282,6 @@ export default function ProductDetailClient({ initialBook, bookId }) {
     setIsCartOpen(true);
   };
 
-  // Submit local review
-  const handleAddReviewSubmit = (e) => {
-    e.preventDefault();
-    if (!reviewerName.trim() || !reviewText.trim()) return;
-    const newReview = {
-      id: Date.now(),
-      name: reviewerName,
-      text: reviewText,
-      rating: reviewRating,
-      date: new Date().toLocaleDateString()
-    };
-    setReviews([newReview, ...reviews]);
-    setReviewerName("");
-    setReviewText("");
-    setReviewRating(5);
-    setShowReviewForm(false);
-  };
-
   // Clipboard copy link
   const handleCopyLink = () => {
     navigator.clipboard.writeText(currentUrl);

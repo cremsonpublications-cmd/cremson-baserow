@@ -30,12 +30,18 @@ from routers import teaching_resource_posts as teaching_resource_posts_router
 from routers import bulk_orders as bulk_orders_router
 from routers import banners as banners_router
 from routers import reminders as reminders_router
+from routers import whatsapp_campaigns as whatsapp_campaigns_router
+from db.campaigns_db import init_campaigns_db
 
 app = FastAPI(
     title="Cremson Backend API",
     version="1.0.0",
     description="REST API layer that proxies Baserow tables for the Cremson Next.js frontend.",
 )
+
+@app.on_event("startup")
+async def on_startup():
+    init_campaigns_db()
 
 
 @app.exception_handler(httpx.HTTPStatusError)
@@ -108,6 +114,7 @@ app.include_router(teaching_resource_posts_router.router, prefix="/api/teaching-
 app.include_router(bulk_orders_router.router, prefix="/api/bulk-orders", tags=["Bulk Orders"])
 app.include_router(banners_router.router, prefix="/api/banners", tags=["Banners"])
 app.include_router(reminders_router.router, prefix="/api/reminders", tags=["Reminders"])
+app.include_router(whatsapp_campaigns_router.router, prefix="/api/admin/whatsapp", tags=["WhatsApp Campaigns"])
 
 
 import os

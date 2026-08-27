@@ -77,14 +77,16 @@ async def receive_whatsapp_webhook(request: Request, background_tasks: Backgroun
         return {"status": "error", "message": "Invalid JSON"}
 
     # Extract incoming message details from standard Meta payload
-    # Payload structure: entry -> changes -> value -> messages
+    # Payload structure: entry -> changes -> value -> messages / statuses
     entry_list = payload.get("entry", [])
     for entry in entry_list:
         changes = entry.get("changes", [])
         for change in changes:
             value = change.get("value", {})
             messages = value.get("messages", [])
+            statuses = value.get("statuses", [])
 
+            # 1. Incoming chat messages
             for msg in messages:
                 msg_type = msg.get("type")
                 from_phone = msg.get("from")
@@ -99,6 +101,25 @@ async def receive_whatsapp_webhook(request: Request, background_tasks: Backgroun
                     )
                 else:
                     logger.info(f"[WhatsApp Webhook] Received non-text message type '{msg_type}' from {from_phone}")
+
+            # 2. Campaign message delivery status updates (sent, delivered, read, failed)
+            for st in statuses:
+                wamid = st.get("id")
+                status_val = st.get("status")  # 'sent', 'delivered', 'read', 'failed'
+                errors = st.get("errors", [])
+                err_code = str(errors[0].get("code")) if errors else ""
+                err_msg = str(errors[0].get("title") or errors[0].get("message") or "") if errors else ""
+
+                if wamid and status_val:
+                    from services.whatsapp_campaigns import update_recipient_status_by_wamid
+                    background_tasks.add_task(
+                        update_recipient_status_by_wamid,
+                        wamid,
+                        status_val,
+                        None,
+                        err_code,
+                        err_msg,
+                    )
 
     # Return 200 OK to Meta immediately
     return {"status": "success"}

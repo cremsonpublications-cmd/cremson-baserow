@@ -27,12 +27,14 @@ import {
   UploadCloud,
   Shield,
   Bell,
-  Lock,
+  Send,
 } from "lucide-react";
 
 const coreLinks = [
   { href: "/admin", label: "Dashboard", Icon: LayoutDashboard },
   { href: "/admin/orders", label: "Orders", Icon: ShoppingCart, badgeKey: "orders" },
+  { href: "/admin/whatsapp/campaigns", label: "WhatsApp Campaigns", Icon: Send },
+  { href: "/admin/whatsapp/templates", label: "WhatsApp Templates", Icon: FileText },
   { href: "/admin/bulk-orders", label: "Bulk Orders", Icon: Package, badgeKey: "bulkOrders" },
   { href: "/admin/specimen-requests", label: "Specimen Requests", Icon: FileText, badgeKey: "specimenRequests" },
   { href: "/admin/specimen-books", label: "Specimen Books", Icon: BookOpen },

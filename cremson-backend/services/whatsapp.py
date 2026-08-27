@@ -95,6 +95,99 @@ async def _send_template(
         return False
 
 
+async def send_campaign_template_raw(
+    phone: str,
+    template_name: str,
+    parameters: List[dict],
+    components: Optional[List[dict]] = None,
+    language: str = "en",
+    log_tag: str = "",
+) -> dict:
+    """
+    Sends one campaign template message to Meta Graph API and returns response dict:
+    {"success": bool, "wamid": str | None, "error_code": str | None, "error_message": str | None}
+    """
+    from config import WHATSAPP_CAMPAIGN_DRY_RUN
+
+    formatted = _format_phone(phone)
+    if not formatted:
+        return {
+            "success": False,
+            "wamid": None,
+            "error_code": "INVALID_PHONE",
+            "error_message": f"Invalid phone format: {phone}",
+        }
+
+    if WHATSAPP_CAMPAIGN_DRY_RUN:
+        import uuid
+        mock_id = f"wamid.mock_{uuid.uuid4().hex[:16]}"
+        logger.info(f"[WhatsApp DRY-RUN] → {log_tag} template={template_name} to={formatted} wamid={mock_id}")
+        return {
+            "success": True,
+            "wamid": mock_id,
+            "error_code": None,
+            "error_message": None,
+        }
+
+    if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
+        return {
+            "success": False,
+            "wamid": None,
+            "error_code": "MISSING_CREDENTIALS",
+            "error_message": "WhatsApp Cloud API credentials not configured in environment.",
+        }
+
+    if components is None:
+        components = [{"type": "body", "parameters": parameters}]
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": formatted,
+        "type": "template",
+        "template": {
+            "name": template_name,
+            "language": {"code": language or WHATSAPP_TEMPLATE_LANGUAGE},
+            "components": components,
+        },
+    }
+
+    logger.info(f"[WhatsApp Campaign] → {log_tag} template={template_name} to={formatted}")
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(_GRAPH_URL, headers=_HEADERS, json=payload)
+            resp_data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+
+            if resp.status_code == 200:
+                messages = resp_data.get("messages", [])
+                wamid = messages[0].get("id") if messages else None
+                logger.info(f"[WhatsApp Campaign] ✓ {log_tag} sent wamid={wamid}")
+                return {
+                    "success": True,
+                    "wamid": wamid,
+                    "error_code": None,
+                    "error_message": None,
+                }
+            else:
+                error_obj = resp_data.get("error", {})
+                err_code = str(error_obj.get("code") or resp.status_code)
+                err_msg = error_obj.get("message") or resp.text[:200]
+                logger.error(f"[WhatsApp Campaign] ✗ {log_tag} HTTP {resp.status_code}: code={err_code} msg={err_msg}")
+                return {
+                    "success": False,
+                    "wamid": None,
+                    "error_code": err_code,
+                    "error_message": err_msg,
+                }
+    except Exception as exc:
+        logger.error(f"[WhatsApp Campaign] Error sending {log_tag}: {exc}")
+        return {
+            "success": False,
+            "wamid": None,
+            "error_code": "EXCEPTION",
+            "error_message": str(exc)[:200],
+        }
+
+
 def _txt(value: str) -> dict:
     val = str(value).strip() if value is not None else ""
     if not val:
@@ -183,7 +276,7 @@ async def send_order_confirmation(
     template = (
         WHATSAPP_TEMPLATE_NAME
         if WHATSAPP_TEMPLATE_NAME != "hello_world"
-        else "order_confirmation_v6"
+        else "order_confirmation_v7"
     )
 
     await _send_template(
@@ -266,7 +359,7 @@ async def send_payment_failed(
 
     await _send_template(
         phone=phone,
-        template_name="payment_failed_v6",
+        template_name="payment_failed_v7",
         parameters=[],
         log_tag=f"payment_failed order={order_id}",
         components=components,
@@ -313,7 +406,7 @@ async def send_shipment_created(
 
     await _send_template(
         phone=phone,
-        template_name="shipment_created_v1",
+        template_name="shipment_created_v2",
         parameters=[],
         log_tag=f"shipment_created order={order_id} awb={awb}",
         components=components,
@@ -347,7 +440,7 @@ async def send_out_for_delivery(
     """
     await _send_template(
         phone,
-        "out_for_delivery_v2",
+        "out_for_delivery_v3",
         [_txt(customer_name), _txt(order_id), _txt(tracking_url)],
         log_tag=f"out_for_delivery order={order_id}",
     )
@@ -366,7 +459,7 @@ async def send_delivered(
     """
     await _send_template(
         phone,
-        "delivered_v2",
+        "delivered_v3",
         [_txt(customer_name), _txt(order_id)],
         log_tag=f"delivered order={order_id}",
     )
@@ -385,7 +478,7 @@ async def send_rto(
     """
     await _send_template(
         phone,
-        "rto_v2",
+        "rto_v3",
         [_txt(customer_name), _txt(order_id)],
         log_tag=f"rto order={order_id}",
     )
@@ -403,7 +496,7 @@ async def send_bulk_order_received(phone: str, name: str, school: str, order_lin
     ]
     await _send_template(
         phone=phone,
-        template_name="bulk_order_requested_v1",
+        template_name="bulk_order_requested_v2",
         parameters=params,
         log_tag=f"bulk_order_received name={name}",
     )
@@ -451,7 +544,7 @@ async def send_bulk_order_approved(
     ]
     await _send_template(
         phone=phone,
-        template_name="bulk_order_approved_v10",
+        template_name="bulk_order_approved_v11",
         parameters=[],
         log_tag=f"bulk_order_approved name={name}",
         components=components,
@@ -493,7 +586,7 @@ async def send_bulk_order_shipped(phone: str, name: str, school: str, awb: str, 
     ]
     await _send_template(
         phone=phone,
-        template_name="bulk_order_shipped_v1",
+        template_name="bulk_order_shipped_v2",
         parameters=[],
         log_tag=f"bulk_order_shipped name={name}",
         components=components,
@@ -501,11 +594,11 @@ async def send_bulk_order_shipped(phone: str, name: str, school: str, awb: str, 
 
 
 async def send_whatsapp_otp(phone: str, otp: str):
-    """Sends a 6-digit verification code via WhatsApp AUTHENTICATION template (cremson_otp).
-    Requires both body + button components because the template has a COPY_CODE URL button.
+    """Sends a 6-digit verification code via WhatsApp AUTHENTICATION / UTILITY template (cremson_otp).
+    Requires both body + button components because the template has a Copy Code button.
     """
     import os
-    template_name = os.getenv("WHATSAPP_OTP_TEMPLATE_NAME", "cremson_otp")
+    template_name = os.getenv("WHATSAPP_OTP_TEMPLATE_NAME", "cremson_otp_v100")
 
     components = [
         {
@@ -514,9 +607,9 @@ async def send_whatsapp_otp(phone: str, otp: str):
         },
         {
             "type": "button",
-            "sub_type": "url",
+            "sub_type": "copy_code",
             "index": "0",
-            "parameters": [_txt(otp)],
+            "parameters": [{"type": "coupon_code", "coupon_code": str(otp).strip()}],
         },
     ]
 
@@ -533,7 +626,7 @@ async def send_specimen_received_whatsapp(phone: str, name: str, book_count: str
     """Sends a WhatsApp template notification to teacher when a specimen request is created."""
     await _send_template(
         phone=phone,
-        template_name="specimen_received_v1",
+        template_name="specimen_received_v2",
         parameters=[_txt(name), _txt(book_count)],
         log_tag=f"specimen_received name={name} count={book_count}",
     )
@@ -544,7 +637,7 @@ async def send_specimen_rejected_whatsapp(phone: str, name: str, books_requested
     b_desc = books_requested if books_requested else "Requested Specimen Copy"
     await _send_template(
         phone=phone,
-        template_name="specimen_rejected_v1",
+        template_name="specimen_rejected_v2",
         parameters=[_txt(name), _txt(b_desc)],
         log_tag=f"specimen_rejected name={name}",
     )
@@ -567,7 +660,7 @@ async def send_refund_initiated(
     """
     await _send_template(
         phone=phone,
-        template_name="refund_initiated_v1",
+        template_name="refund_initiated_v2",
         parameters=[
             _txt(customer_name),
             _txt(f"₹{amount:.2f}"),
@@ -592,7 +685,7 @@ async def send_refund_completed(
     """
     await _send_template(
         phone=phone,
-        template_name="refund_completed_v1",
+        template_name="refund_completed_v2",
         parameters=[
             _txt(customer_name),
             _txt(f"₹{amount:.2f}"),
@@ -637,7 +730,7 @@ async def send_invoice_available(
 
     await _send_template(
         phone=phone,
-        template_name="invoice_available_v1",
+        template_name="invoice_available_v2",
         parameters=[],
         log_tag=f"invoice_available order={order_id}",
         components=components,
@@ -660,7 +753,7 @@ async def send_support_request(
     """
     await _send_template(
         phone=phone,
-        template_name="support_request_v1",
+        template_name="support_request_v2",
         parameters=[
             _txt(customer_name),
             _txt(subject_or_type),
@@ -686,7 +779,7 @@ async def send_specimen_already_submitted(
     """
     await _send_template(
         phone=phone,
-        template_name="specimen_already_submitted_v1",
+        template_name="specimen_already_submitted_v2",
         parameters=[
             _txt(teacher_name),
             _txt(book_title),
@@ -730,7 +823,7 @@ async def send_review_request(
 
     await _send_template(
         phone=phone,
-        template_name="review_request_v1",
+        template_name="review_request_v2",
         parameters=[],
         log_tag=f"review_request product={book_or_items_name}",
         components=components,
@@ -771,7 +864,7 @@ async def send_reorder_reminder(
 
     await _send_template(
         phone=phone,
-        template_name="reorder_reminder_v1",
+        template_name="reorder_reminder_v2",
         parameters=[],
         log_tag=f"reorder_reminder product={book_or_items_name}",
         components=components,
