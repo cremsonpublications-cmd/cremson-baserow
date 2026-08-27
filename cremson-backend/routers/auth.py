@@ -129,6 +129,7 @@ def make_token(user: dict) -> str:
             "email": user["email"],
             "name": user["name"],
             "role": user.get("role", "customer"),
+            "phone": user.get("phone", ""),
             "is_approved": int(user.get("is_approved") or (0 if user.get("role") == "teacher" else 1)),
             "permissions": user.get("permissions", []),
             "exp": expire,
