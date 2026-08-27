@@ -17,13 +17,12 @@ async def run():
     print(f"Fetching order {order_id} from Baserow...")
     rows = await client.get_rows(TABLE_IDS["orders"], size=100)
     order_row = None
-    order_ids_found = [r.get("order_id") for r in rows.get("results", [])]
-    print(f"Total orders found in Baserow: {len(order_ids_found)}")
-    print(f"Order IDs: {order_ids_found}")
-    
     for r in rows.get("results", []):
-        if r.get("order_id") == order_id:
+        row_str = str(r)
+        if "26002" in row_str or "CP26" in row_str:
             order_row = r
+            order_id = r.get("order_id") or f"BOOK{r.get('id')}"
+            print(f"Found matching order row! ID: {r.get('id')}, order_id column: {order_id}")
             break
             
     if not order_row:
