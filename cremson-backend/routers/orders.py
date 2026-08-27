@@ -528,6 +528,8 @@ def _map_bulk_to_standard_order(bulk: dict) -> dict:
     bulk_status = bulk.get("status", "")
     if bulk_status == "shipped":
         order_status = "SHIPPED"
+    elif bulk_status == "pickup_requested":
+        order_status = "PICKUP_REQUESTED"
     elif bulk_status in ["fully_paid", "approved", "partially_paid"]:
         order_status = "READY_TO_PACK"
     else:
@@ -536,13 +538,13 @@ def _map_bulk_to_standard_order(bulk: dict) -> dict:
     payment = {
         "amount": float(bulk.get("final_amount", 0)),
         "method": "Razorpay (Bulk Split)" if bulk.get("split_count", 0) > 0 else "Razorpay",
-        "status": "Paid" if bulk_status in ["fully_paid", "shipped"] else "Partially Paid" if bulk_status == "partially_paid" else "Unpaid",
+        "status": "Paid" if bulk_status in ["fully_paid", "shipped", "pickup_requested"] else "Partially Paid" if bulk_status == "partially_paid" else "Unpaid",
         "transactionId": bulk.get("razorpay_payment_id") or ""
     }
     
     delivery = {
         "notes": bulk.get("admin_notes", ""),
-        "status": "Shipped" if bulk_status == "shipped" else "Confirmed",
+        "status": "Shipped" if bulk_status == "shipped" else "Pickup Requested" if bulk_status == "pickup_requested" else "Confirmed",
         "awb": bulk.get("shipway_awb") or "",
         "tracking_url": f"https://shipway.in/track/{bulk.get('shipway_awb')}" if bulk.get("shipway_awb") else "",
         "label_url": bulk.get("label_url") or "",
@@ -850,6 +852,8 @@ async def update_order(row_id: str, body: OrderStatusUpdate):
         std_status = body.order_status
         if std_status == "SHIPPED":
             norm["status"] = "shipped"
+        elif std_status == "PICKUP_REQUESTED":
+            norm["status"] = "pickup_requested"
         elif std_status == "READY_TO_PACK":
             norm["status"] = "fully_paid"
             
@@ -1060,7 +1064,7 @@ async def ready_for_pickup(order_id: str, background_tasks: BackgroundTasks):
         from routers.bulk_orders import _normalize_bulk_row, _save_bulk_data
         bulk_row = await client.get_row(TABLE_IDS["bulk_orders"], row_id)
         norm = _normalize_bulk_row(bulk_row)
-        norm["status"] = "shipped"
+        norm["status"] = "pickup_requested"
         norm["shipway_awb"] = awb
         norm["shipment_id"] = shipment_id
         norm["label_url"] = delivery_data.get("label_url") or label_url
