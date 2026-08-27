@@ -663,9 +663,10 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal, onOpen
                     <p className="text-xs font-semibold text-slate-400">No active shipping label generated yet.</p>
                   </div>
                 )}
+              </div>
 
-                {/* Tax Invoice PDF Card */}
-                <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.01)] space-y-4 text-left">
+              {/* Tax Invoice PDF Card */}
+              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.01)] space-y-4 text-left">
                   <div className="flex items-center gap-2 border-b border-slate-50 pb-3">
                     <FileText className="w-4 h-4 text-purple-600" />
                     <h3 className="text-sm font-bold text-slate-800">Tax Invoice PDF</h3>
@@ -828,7 +829,6 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal, onOpen
                     </div>
                   )}
                 </div>
-              </div>
 
 
 
