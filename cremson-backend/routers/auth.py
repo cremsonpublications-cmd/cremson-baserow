@@ -449,6 +449,11 @@ async def get_teacher_details(email: str) -> dict:
                 if teacher_row_id:
                     prev_res = await b_client.get_rows(TABLE_IDS["specimen_requests"], filters={"TeacherID": teacher_row_id}, size=200)
                     for prow in prev_res.get("results", []):
+                        d_status = prow.get("DeliveryStatus")
+                        status_str = d_status.get("value") if isinstance(d_status, dict) else str(d_status or "")
+                        if status_str.strip().lower() == "rejected":
+                            continue
+                            
                         b_raw = prow.get("BooksRequested") or ""
                         for b_item in b_raw.split(","):
                             b_clean = b_item.strip()
