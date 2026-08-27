@@ -351,20 +351,33 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
                 except Exception as e:
                     logger.error(f"[Shipway] Error fetching product {prod_id} details: {e}")
             
-            products.append({
-                "product": name,
-                "price": price,
-                "product_code": sku_val,
-                "product_quantity": qty,
-                "discount": 0,
-                "tax_rate": 0,
-                "tax_title": "GST",
-            })
-            
             total_weight_kg += weight_kg * qty
             max_length = max(max_length, length)
             max_breadth = max(max_breadth, breadth)
             total_height += height * qty
+        
+        # Consolidate all items into a single product entry for the shipping label
+        items_desc_parts = []
+        total_qty = 0
+        for item in items:
+            name = item.get("name") or item.get("title") or "Book"
+            qty = int(item.get("quantity") or item.get("qty") or 1)
+            items_desc_parts.append(f"{name} (x{qty})")
+            total_qty += qty
+            
+        combined_desc = ", ".join(items_desc_parts)
+        if len(combined_desc) > 200:
+            combined_desc = combined_desc[:197] + "..."
+            
+        products = [{
+            "product": combined_desc,
+            "price": float(order.get("total_amount") or 0),
+            "product_code": "MULTIPLE",
+            "product_quantity": total_qty,
+            "discount": 0,
+            "tax_rate": 0,
+            "tax_title": "GST",
+        }]
     else:
         products = [
             {
