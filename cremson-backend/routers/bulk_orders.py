@@ -255,10 +255,12 @@ async def create_bulk_order(body: BulkOrderCreate, bg: BackgroundTasks):
         for r in cps_results:
             notes_raw = r.get("Notes") or ""
             oid = ""
-            if isinstance(notes_raw, str) and "CPS" in notes_raw:
-                m_note = pattern.search(notes_raw)
-                if m_note:
-                    oid = m_note.group(0)
+            if isinstance(notes_raw, str) and notes_raw.strip():
+                try:
+                    notes_data = json.loads(notes_raw)
+                    oid = notes_data.get("order_id") or ""
+                except Exception:
+                    pass
             m = pattern.match(oid)
             if m:
                 num = int(m.group(1))

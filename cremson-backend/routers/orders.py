@@ -475,6 +475,24 @@ async def bulk_request_pickup(payload: BulkPickupRequest, background_tasks: Back
 # ── List / Get / Patch (unchanged) ────────────────────────────────────────────
 
 
+async def _get_bulk_order_by_order_id(order_id: str) -> Optional[dict]:
+    """Look up a bulk order by its parsed order_id from the Notes JSON string."""
+    try:
+        bulk_rows = await client.get_rows(TABLE_IDS["bulk_orders"], search=order_id)
+        for r in bulk_rows.get("results", []):
+            try:
+                notes_raw = r.get("Notes") or ""
+                if isinstance(notes_raw, str) and notes_raw.strip():
+                    notes_data = json.loads(notes_raw)
+                    if notes_data.get("order_id") == order_id:
+                        return r
+            except Exception:
+                continue
+    except Exception as exc:
+        logger.error(f"Error querying bulk orders by order_id '{order_id}': {exc}")
+    return None
+
+
 def _map_bulk_to_standard_order(bulk: dict) -> dict:
     items = []
     for item in bulk.get("items", []):
@@ -888,12 +906,11 @@ async def ready_for_pickup(order_id: str, background_tasks: BackgroundTasks):
     is_bulk = False
     
     if not results:
-        bulk_rows = await client.get_rows(TABLE_IDS["bulk_orders"], filters={"order_id": order_id})
-        results = bulk_rows.get("results", [])
-        if not results:
+        bulk_row = await _get_bulk_order_by_order_id(order_id)
+        if not bulk_row:
             raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
         from routers.bulk_orders import _normalize_bulk_row
-        bulk_norm = _normalize_bulk_row(results[0])
+        bulk_norm = _normalize_bulk_row(bulk_row)
         order = _map_bulk_to_standard_order(bulk_norm)
         is_bulk = True
         row_id = bulk_norm["id"]
@@ -1103,12 +1120,11 @@ async def return_order(order_id: str, body: ReturnOrderRequest):
     is_bulk = False
     
     if not results:
-        bulk_rows = await client.get_rows(TABLE_IDS["bulk_orders"], filters={"order_id": order_id})
-        results = bulk_rows.get("results", [])
-        if not results:
+        bulk_row = await _get_bulk_order_by_order_id(order_id)
+        if not bulk_row:
             raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
         from routers.bulk_orders import _normalize_bulk_row
-        bulk_norm = _normalize_bulk_row(results[0])
+        bulk_norm = _normalize_bulk_row(bulk_row)
         order = _map_bulk_to_standard_order(bulk_norm)
         is_bulk = True
         row_id = bulk_norm["id"]
@@ -1298,12 +1314,11 @@ async def refund_order(order_id: str, body: RefundOrderRequest):
     is_bulk = False
     
     if not results:
-        bulk_rows = await client.get_rows(TABLE_IDS["bulk_orders"], filters={"order_id": order_id})
-        results = bulk_rows.get("results", [])
-        if not results:
+        bulk_row = await _get_bulk_order_by_order_id(order_id)
+        if not bulk_row:
             raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
         from routers.bulk_orders import _normalize_bulk_row
-        bulk_norm = _normalize_bulk_row(results[0])
+        bulk_norm = _normalize_bulk_row(bulk_row)
         order = _map_bulk_to_standard_order(bulk_norm)
         is_bulk = True
         row_id = bulk_norm["id"]
