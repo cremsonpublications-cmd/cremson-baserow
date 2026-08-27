@@ -257,10 +257,10 @@ async def create_specimen_request(body: dict, user: dict = Depends(current_user)
                 print("Warning: Failed to send Email specimen received notification:", mail_err)
                 
         if user_phone:
-            # Join up to 10 book titles with bullet points
-            b_list_display = "\n• " + "\n• ".join(b_list[:10])
+            # Join up to 10 book titles with commas (Meta blocks newlines in WhatsApp parameters)
+            b_list_display = " " + ", ".join(b_list[:10])
             if len(b_list) > 10:
-                b_list_display += f"\n• ... and {len(b_list) - 10} more books"
+                b_list_display += f" and {len(b_list) - 10} more books"
                 
             await send_specimen_received_whatsapp(user_phone, user_name, b_list_display)
     except Exception as w_err:
