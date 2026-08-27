@@ -245,11 +245,15 @@ async def submit_template_to_meta(template_data: Dict[str, Any]) -> Dict[str, An
                     return {"submitted": True, "status": meta_status, "meta_id": res_retry_data["id"], "name": versioned_name, "error": ""}
                 else:
                     err = res_retry_data.get("error", {})
-                    msg = err.get("message") or res_retry.text
+                    msg = err.get("error_user_msg") or err.get("message") or res_retry.text
+                    if err.get("error_user_title"):
+                        msg = f"{err['error_user_title']}: {msg}"
                     return {"submitted": False, "status": "PENDING", "meta_id": "", "name": versioned_name, "error": msg}
             else:
                 err = res_data.get("error", {})
-                msg = err.get("message") or res.text
+                msg = err.get("error_user_msg") or err.get("message") or res.text
+                if err.get("error_user_title"):
+                    msg = f"{err['error_user_title']}: {msg}"
                 logger.error(f"[Meta Template Submit] Graph API error submitting '{name}': {msg}")
                 return {"submitted": False, "status": "PENDING", "meta_id": "", "name": name, "error": msg}
     except Exception as exc:
