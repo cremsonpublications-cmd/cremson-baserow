@@ -1,0 +1,30 @@
+#!/usr/bin/expect -f
+
+set timeout 30
+set host "200.141.5.200"
+set user "root"
+set password "Possible@007"
+
+spawn ssh -o StrictHostKeyChecking=no "$user@$host"
+
+expect {
+    "*password:" {
+        send "$password\r"
+        exp_continue
+    }
+    "*# " {
+        # Logged in successfully
+    }
+}
+
+send "cd /opt/cremson-baserow/cremson-backend\r"
+expect "*# "
+
+send "source venv/bin/activate\r"
+expect "*# "
+
+send "python3 scratch/test_shipway_live.py\r"
+expect "*# "
+
+send "exit\r"
+expect eof

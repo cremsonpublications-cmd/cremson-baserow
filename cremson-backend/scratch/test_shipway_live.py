@@ -17,6 +17,10 @@ async def run():
     print(f"Fetching order {order_id} from Baserow...")
     rows = await client.get_rows(TABLE_IDS["orders"], size=100)
     order_row = None
+    order_ids_found = [r.get("order_id") for r in rows.get("results", [])]
+    print(f"Total orders found in Baserow: {len(order_ids_found)}")
+    print(f"Order IDs: {order_ids_found}")
+    
     for r in rows.get("results", []):
         if r.get("order_id") == order_id:
             order_row = r
