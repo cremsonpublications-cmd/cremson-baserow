@@ -97,26 +97,35 @@ function TeacherAuthModal({ isOpen, onClose }) {
   );
 }
 
-function BookCard({ book, selected, onToggle }) {
+function BookCard({ book, selected, onToggle, alreadyRequested }) {
   const [showTooltip, setShowTooltip] = useState(false);
   return (
     <button
       type="button"
+      disabled={alreadyRequested}
       onClick={() => onToggle(book)}
-      className={`relative group text-left rounded-2xl border-2 transition-all duration-200 overflow-hidden cursor-pointer w-full ${
-        selected
+      className={`relative group text-left rounded-2xl border-2 transition-all duration-200 overflow-hidden w-full ${
+        alreadyRequested ? "opacity-60 cursor-not-allowed border-gray-200 bg-gray-50" : "cursor-pointer"
+      } ${
+        !alreadyRequested && selected
           ? "border-red-500 bg-red-50/40 shadow-md shadow-red-100"
-          : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-md"
+          : !alreadyRequested ? "border-gray-200 bg-white hover:border-gray-300 hover:shadow-md" : ""
       }`}
     >
       {/* Selection tick */}
-      <div
-        className={`absolute top-2.5 right-2.5 z-10 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-          selected ? "bg-red-500 border-red-500" : "bg-white border-gray-300 group-hover:border-red-400"
-        }`}
-      >
-        {selected && <Check className="w-3 h-3 text-white stroke-[3]" />}
-      </div>
+      {alreadyRequested ? (
+        <div className="absolute top-2.5 right-2.5 z-10 w-5 h-5 rounded-full border-2 bg-gray-200 border-gray-300 flex items-center justify-center">
+          <Check className="w-3 h-3 text-gray-400 stroke-[3]" />
+        </div>
+      ) : (
+        <div
+          className={`absolute top-2.5 right-2.5 z-10 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+            selected ? "bg-red-500 border-red-500" : "bg-white border-gray-300 group-hover:border-red-400"
+          }`}
+        >
+          {selected && <Check className="w-3 h-3 text-white stroke-[3]" />}
+        </div>
+      )}
 
       {/* Book cover */}
       {book.main_image ? (
@@ -161,6 +170,11 @@ function BookCard({ book, selected, onToggle }) {
         )}
         {book.author && (
           <p className="mt-1 text-[10px] text-gray-400 truncate">{book.author}</p>
+        )}
+        {alreadyRequested && (
+          <span className="mt-1 inline-block text-[10px] font-semibold text-gray-500 bg-gray-200 border border-gray-300 rounded-full px-2 py-0.5">
+            Already Requested
+          </span>
         )}
       </div>
     </button>
@@ -598,14 +612,19 @@ function SpecimenContent() {
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {products.map((book) => (
-                <BookCard
-                  key={book.id}
-                  book={book}
-                  selected={selectedBooks.some((b) => b.id === book.id)}
-                  onToggle={toggleBook}
-                />
-              ))}
+              {products.map((book) => {
+                const isSelected = selectedBooks.some((b) => b.id === book.id);
+                const isAlreadyRequested = user?.already_requested_books?.some(b => b.toLowerCase().trim() === book.name.toLowerCase().trim());
+                return (
+                  <BookCard
+                    key={book.id}
+                    book={book}
+                    selected={isSelected}
+                    alreadyRequested={isAlreadyRequested}
+                    onToggle={toggleBook}
+                  />
+                );
+              })}
             </div>
 
             {/* Fixed bottom bar */}

@@ -443,6 +443,18 @@ async def get_teacher_details(email: str) -> dict:
                 if m:
                     limit = int(m.group(1))
 
+            requested_books = []
+            try:
+                prev_res = await b_client.get_rows(TABLE_IDS["specimen_requests"], filters={"Email": email}, size=200)
+                for prow in prev_res.get("results", []):
+                    b_raw = prow.get("BooksRequested") or ""
+                    for b_item in b_raw.split(","):
+                        b_clean = b_item.strip()
+                        if b_clean:
+                            requested_books.append(b_clean)
+            except Exception as e:
+                print("Warning: Failed to fetch previous specimen requests for auth:", e)
+
             return {
                 "teacher_row_id": t_row.get("id"),
                 "school_name": s_name,
@@ -451,10 +463,11 @@ async def get_teacher_details(email: str) -> dict:
                 "residence": t_row.get("Residence") or "",
                 "city": t_row.get("City") or "",
                 "pincode": t_row.get("Pin Code") or "",
+                "already_requested_books": requested_books,
             }
     except Exception as e:
         print("Warning: Failed to fetch teacher details:", e)
-    return {"teacher_row_id": None, "school_name": "", "id_card_url": "", "specimen_limit": 2, "residence": "", "city": "", "pincode": ""}
+    return {"teacher_row_id": None, "school_name": "", "id_card_url": "", "specimen_limit": 2, "residence": "", "city": "", "pincode": "", "already_requested_books": []}
 
 
 async def get_teacher_school_name(email: str) -> str:
@@ -516,6 +529,7 @@ async def login(body: LoginRequest):
             "residence": t_details.get("residence") or user.get("residence", ""),
             "city": t_details.get("city") or user.get("city", ""),
             "pincode": t_details.get("pincode") or user.get("pincode", ""),
+            "already_requested_books": t_details.get("already_requested_books", []),
             "permissions": user.get("permissions", []),
         },
     }
