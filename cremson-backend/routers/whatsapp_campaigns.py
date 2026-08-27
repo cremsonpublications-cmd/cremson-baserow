@@ -115,7 +115,7 @@ async def delete_template_endpoint(name: str):
     """Delete a custom WhatsApp template from Meta WABA account and local DB."""
     result = await delete_template(name)
     if not result.get("success"):
-        raise HTTPException(status_code=404, detail=f"Template '{name}' not found.")
+        raise HTTPException(status_code=400, detail=result.get("error", f"Failed to delete template '{name}'."))
     return result
 
 

@@ -339,6 +339,12 @@ async def delete_template(name: str) -> Dict[str, Any]:
             logger.error(f"[Meta Template Delete] Exception deleting '{name}' from Meta: {exc}")
             meta_msg = str(exc)
 
+        if not meta_deleted:
+            return {
+                "success": False,
+                "error": f"Failed to delete template from Meta WABA: {meta_msg}"
+            }
+
     conn = get_campaign_db()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM custom_whatsapp_templates WHERE name = ?", (name,))
@@ -347,11 +353,8 @@ async def delete_template(name: str) -> Dict[str, Any]:
     conn.close()
 
     return {
-        "success": local_deleted or meta_deleted,
-        "local_deleted": local_deleted,
-        "meta_deleted": meta_deleted,
-        "meta_message": meta_msg,
-        "message": f"Template '{name}' deleted."
+        "success": True,
+        "message": f"Template '{name}' successfully deleted from Meta WABA and local database."
     }
 
 
