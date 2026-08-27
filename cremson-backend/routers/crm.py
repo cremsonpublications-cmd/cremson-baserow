@@ -760,12 +760,34 @@ async def update_support_ticket(ticket_id: str, body: UpdateSupportTicketStatusR
 
     for t in tickets:
         if t["id"] == ticket_id:
+            old_status = t.get("status", "Pending")
             t["status"] = body.status
             if body.notes:
                 t["notes"] = body.notes
             t["updated_at"] = datetime.now().isoformat()
             updated_ticket = t
             found = True
+            
+            # Send WhatsApp notification if status changed to Resolved or Cancelled
+            if body.status in ("Resolved", "Cancelled") and old_status != body.status:
+                try:
+                    from services.whatsapp import send_ticket_status_update_whatsapp
+                    cust_phone = t.get("phone") or ""
+                    cust_name = t.get("full_name") or "Customer"
+                    cust_subject = t.get("subject") or "Support Enquiry"
+                    
+                    if cust_phone:
+                        comment = body.notes or "Your support ticket has been closed."
+                        await send_ticket_status_update_whatsapp(
+                            phone=cust_phone,
+                            name=cust_name,
+                            ticket_id=ticket_id,
+                            subject=cust_subject,
+                            status=body.status,
+                            comment=comment
+                        )
+                except Exception as wa_err:
+                    print("Warning: Failed to send ticket status update WhatsApp:", wa_err)
             break
 
     if not found:

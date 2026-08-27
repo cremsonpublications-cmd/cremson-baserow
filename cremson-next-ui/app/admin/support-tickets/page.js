@@ -29,6 +29,11 @@ export default function AdminSupportTicketsPage() {
   const [page, setPage] = useState(1);
   const [updatingId, setUpdatingId] = useState(null);
 
+  // Status comment modal states
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [targetTicket, setTargetTicket] = useState(null); // { id, status }
+  const [resolutionComment, setResolutionComment] = useState("");
+
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-support-tickets", statusFilter, searchQuery, page],
     queryFn: async () => {
@@ -46,16 +51,30 @@ export default function AdminSupportTicketsPage() {
   const totalCount = data?.count || 0;
   const totalPages = Math.ceil(totalCount / 20);
 
-  const handleUpdateStatus = async (ticketId, newStatus) => {
+  const handleUpdateStatus = async (ticketId, newStatus, comment = "") => {
     setUpdatingId(ticketId);
     try {
-      await api.patch(`/api/crm/support-tickets/${ticketId}`, { status: newStatus });
+      await api.patch(`/api/crm/support-tickets/${ticketId}`, { 
+        status: newStatus,
+        notes: comment 
+      });
       toast.success(`Ticket ${ticketId} updated to ${newStatus}`);
       queryClient.invalidateQueries({ queryKey: ["admin-support-tickets"] });
+      setStatusModalOpen(false);
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Failed to update ticket status.");
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const onStatusClick = (ticketId, newStatus) => {
+    if (newStatus === "Pending") {
+      handleUpdateStatus(ticketId, newStatus, "");
+    } else {
+      setTargetTicket({ id: ticketId, status: newStatus });
+      setResolutionComment("");
+      setStatusModalOpen(true);
     }
   };
 
@@ -189,7 +208,7 @@ export default function AdminSupportTicketsPage() {
                       <button
                         key={st}
                         disabled={updatingId === ticket.id || ticket.status === st}
-                        onClick={() => handleUpdateStatus(ticket.id, st)}
+                        onClick={() => onStatusClick(ticket.id, st)}
                         className={`px-3 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
                           ticket.status === st
                             ? st === "Pending"
@@ -262,6 +281,49 @@ export default function AdminSupportTicketsPage() {
           </div>
         </div>
       </div>
+
+      {statusModalOpen && targetTicket && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <h3 className="text-lg font-extrabold text-slate-900">
+              Update Ticket Status to {targetTicket.status}
+            </h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Please enter a resolution comment or update details for the customer. This comment will be sent to the customer via WhatsApp as a notification.
+            </p>
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Resolution Comments / Notes
+              </label>
+              <textarea
+                rows={4}
+                value={resolutionComment}
+                onChange={(e) => setResolutionComment(e.target.value)}
+                placeholder="Enter comments here... (Avoid pressing Enter, keep it in a single paragraph to ensure clean delivery)"
+                className="w-full p-3 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 bg-slate-50/50"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setStatusModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleUpdateStatus(targetTicket.id, targetTicket.status, resolutionComment)}
+                className={`px-4 py-2 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow transition-all cursor-pointer ${
+                  targetTicket.status === "Resolved" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"
+                }`}
+              >
+                Confirm & Update
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

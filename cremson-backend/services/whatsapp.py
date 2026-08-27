@@ -668,6 +668,26 @@ async def send_specimen_rejected_whatsapp(phone: str, name: str, books_requested
     )
 
 
+async def send_ticket_status_update_whatsapp(phone: str, name: str, ticket_id: str, subject: str, status: str, comment: str):
+    """Sends a WhatsApp template notification to user when a support ticket status is updated (Resolved/Cancelled)."""
+    clean_comment = comment.replace("\n", " ").replace("\r", " ").strip()
+    if not clean_comment:
+        clean_comment = "Your ticket has been processed successfully."
+        
+    await _send_template(
+        phone=phone,
+        template_name="ticket_status_update_v1",
+        parameters=[
+            _txt(name),
+            _txt(ticket_id),
+            _txt(subject or "Support Enquiry"),
+            _txt(status),
+            _txt(clean_comment[:900])
+        ],
+        log_tag=f"ticket_status_update id={ticket_id} status={status}",
+    )
+
+
 # ── Refund Notifications ──────────────────────────────────────────────────────
 
 
