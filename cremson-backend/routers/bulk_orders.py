@@ -170,6 +170,17 @@ def _normalize_bulk_row(row: dict) -> dict:
         "shipway_awb": data.get("shipway_awb"),
         "order_date": data.get("order_date") or row.get("created_at"),
         "approved_at": data.get("approved_at"),
+        # Returns & Refunds fields
+        "return_status": data.get("return_status"),
+        "return_reason": data.get("return_reason"),
+        "return_notes": data.get("return_notes"),
+        "reverse_awb": data.get("reverse_awb"),
+        "reverse_tracking_url": data.get("reverse_tracking_url"),
+        "refund_status": data.get("refund_status"),
+        "refund_amount": data.get("refund_amount"),
+        "refund_id": data.get("refund_id"),
+        "refunded_at": data.get("refunded_at"),
+        "label_url": data.get("label_url"),
     }
 
 

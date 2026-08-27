@@ -527,7 +527,16 @@ def _map_bulk_to_standard_order(bulk: dict) -> dict:
         "status": "Shipped" if bulk_status == "shipped" else "Confirmed",
         "awb": bulk.get("shipway_awb") or "",
         "tracking_url": f"https://shipway.in/track/{bulk.get('shipway_awb')}" if bulk.get("shipway_awb") else "",
-        "label_url": bulk.get("label_url") or ""
+        "label_url": bulk.get("label_url") or "",
+        "return_status": bulk.get("return_status"),
+        "return_reason": bulk.get("return_reason"),
+        "return_notes": bulk.get("return_notes"),
+        "reverse_awb": bulk.get("reverse_awb"),
+        "reverse_tracking_url": bulk.get("reverse_tracking_url"),
+        "refund_status": bulk.get("refund_status"),
+        "refund_amount": bulk.get("refund_amount"),
+        "refund_id": bulk.get("refund_id"),
+        "refunded_at": bulk.get("refunded_at"),
     }
     
     order_date = bulk.get("order_date") or ""
@@ -1076,11 +1085,21 @@ async def return_order(order_id: str, body: ReturnOrderRequest):
 
     rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
     results = rows.get("results", [])
+    is_bulk = False
+    
     if not results:
-        raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
-
-    order = results[0]
-    row_id: int = order["id"]
+        bulk_rows = await client.get_rows(TABLE_IDS["bulk_orders"], filters={"order_id": order_id})
+        results = bulk_rows.get("results", [])
+        if not results:
+            raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
+        from routers.bulk_orders import _normalize_bulk_row
+        bulk_norm = _normalize_bulk_row(results[0])
+        order = _map_bulk_to_standard_order(bulk_norm)
+        is_bulk = True
+        row_id = bulk_norm["id"]
+    else:
+        order = results[0]
+        row_id = order["id"]
 
     delivery_raw = order.get("delivery") or "{}"
     try:
@@ -1151,15 +1170,30 @@ async def return_order(order_id: str, body: ReturnOrderRequest):
     delivery_data["reverse_awb"] = reverse_result.get("reverse_awb", "")
     delivery_data["reverse_tracking_url"] = reverse_result.get("tracking_url", "")
 
-    update_payload = {
-        "order_status": "RETURN_INITIATED",
-        "delivery": json.dumps(delivery_data),
-    }
-
-    try:
-        await client.update_row(TABLE_IDS["orders"], row_id, update_payload)
-    except Exception as exc:
-        logger.error(f"[Orders Return] Error updating Baserow row {row_id}: {exc}")
+    if is_bulk:
+        from routers.bulk_orders import _normalize_bulk_row, _save_bulk_data
+        try:
+            bulk_row = await client.get_row(TABLE_IDS["bulk_orders"], row_id)
+            norm = _normalize_bulk_row(bulk_row)
+            norm["status"] = "return_initiated"
+            norm["return_status"] = "RETURN_INITIATED"
+            norm["return_initiated_at"] = now_iso
+            norm["return_reason"] = body.return_reason
+            norm["return_notes"] = body.return_notes or ""
+            norm["reverse_awb"] = reverse_result.get("reverse_awb", "")
+            norm["reverse_tracking_url"] = reverse_result.get("tracking_url", "")
+            await _save_bulk_data(row_id, norm)
+        except Exception as exc:
+            logger.error(f"[Orders Return] Error updating bulk Baserow row {row_id}: {exc}")
+    else:
+        update_payload = {
+            "order_status": "RETURN_INITIATED",
+            "delivery": json.dumps(delivery_data),
+        }
+        try:
+            await client.update_row(TABLE_IDS["orders"], row_id, update_payload)
+        except Exception as exc:
+            logger.error(f"[Orders Return] Error updating Baserow row {row_id}: {exc}")
 
     return {
         "success": True,
@@ -1198,11 +1232,21 @@ async def refund_order(order_id: str, body: RefundOrderRequest):
 
     rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
     results = rows.get("results", [])
+    is_bulk = False
+    
     if not results:
-        raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
-
-    order = results[0]
-    row_id: int = order["id"]
+        bulk_rows = await client.get_rows(TABLE_IDS["bulk_orders"], filters={"order_id": order_id})
+        results = bulk_rows.get("results", [])
+        if not results:
+            raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
+        from routers.bulk_orders import _normalize_bulk_row
+        bulk_norm = _normalize_bulk_row(results[0])
+        order = _map_bulk_to_standard_order(bulk_norm)
+        is_bulk = True
+        row_id = bulk_norm["id"]
+    else:
+        order = results[0]
+        row_id = order["id"]
 
     delivery_raw = order.get("delivery") or "{}"
     try:
@@ -1268,18 +1312,35 @@ async def refund_order(order_id: str, body: RefundOrderRequest):
     delivery_data["refunded_at"] = now_iso
     delivery_data["refund_notes"] = body.refund_notes or ""
 
-    update_payload = {
-        "delivery": json.dumps(delivery_data),
-    }
-
-    current_status = str(order.get("order_status") or "").upper()
-    if current_status != "RETURN_INITIATED":
-        update_payload["order_status"] = "REFUNDED"
-
-    try:
-        await client.update_row(TABLE_IDS["orders"], row_id, update_payload)
-    except Exception as exc:
-        logger.error(f"[Orders Refund] Error updating Baserow row {row_id}: {exc}")
+    if is_bulk:
+        from routers.bulk_orders import _normalize_bulk_row, _save_bulk_data
+        try:
+            bulk_row = await client.get_row(TABLE_IDS["bulk_orders"], row_id)
+            norm = _normalize_bulk_row(bulk_row)
+            
+            current_status = str(order.get("order_status") or "").upper()
+            if current_status != "RETURN_INITIATED":
+                norm["status"] = "refunded"
+                
+            norm["refund_id"] = refund_result.get("refund_id", "")
+            norm["refund_amount"] = refund_amt
+            norm["refund_status"] = "PROCESSED"
+            norm["refunded_at"] = now_iso
+            norm["refund_notes"] = body.refund_notes or ""
+            await _save_bulk_data(row_id, norm)
+        except Exception as exc:
+            logger.error(f"[Orders Refund] Error updating bulk Baserow row {row_id}: {exc}")
+    else:
+        update_payload = {
+            "delivery": json.dumps(delivery_data),
+        }
+        current_status = str(order.get("order_status") or "").upper()
+        if current_status != "RETURN_INITIATED":
+            update_payload["order_status"] = "REFUNDED"
+        try:
+            await client.update_row(TABLE_IDS["orders"], row_id, update_payload)
+        except Exception as exc:
+            logger.error(f"[Orders Refund] Error updating Baserow row {row_id}: {exc}")
 
     return {
         "success": True,
