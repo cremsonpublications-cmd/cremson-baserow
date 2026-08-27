@@ -315,13 +315,13 @@ This document contains all Meta-approved WhatsApp Cloud API message templates in
 #### **Message Content**:
 > Hello `{{1}}`,
 >
-> Thank you for requesting specimen copies (`{{2}}` book(s)) from Cremson Publications. Our team is verifying your school details and will dispatch your copies soon.
+> Thank you for requesting specimen copies (`{{2}}`) from Cremson Publications. Our team is verifying your school details and will dispatch your copies soon.
 >
 > Cremson Publications
 
 - **Variables**:
   - `{{1}}` = Teacher Name
-  - `{{2}}` = Number of Books Requested
+  - `{{2}}` = List of Books Requested
 
 ---
 

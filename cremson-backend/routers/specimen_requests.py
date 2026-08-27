@@ -257,7 +257,12 @@ async def create_specimen_request(body: dict, user: dict = Depends(current_user)
                 print("Warning: Failed to send Email specimen received notification:", mail_err)
                 
         if user_phone:
-            await send_specimen_received_whatsapp(user_phone, user_name, count_str)
+            # Join up to 5 book titles to prevent the template from breaking character limits
+            b_list_display = ", ".join(b_list[:5])
+            if len(b_list) > 5:
+                b_list_display += f" and {len(b_list) - 5} more"
+                
+            await send_specimen_received_whatsapp(user_phone, user_name, b_list_display)
     except Exception as w_err:
         print("Warning: Failed to send WhatsApp specimen received notification:", w_err)
 
