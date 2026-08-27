@@ -67,6 +67,21 @@ api.interceptors.response.use(
       }
     }
 
+    if (error.response?.status === 401 && typeof window !== "undefined") {
+      // Clear expired tokens from localStorage
+      localStorage.removeItem("cremson_token");
+      localStorage.removeItem("cremson_admin_token");
+      localStorage.removeItem("cremson_role");
+      localStorage.removeItem("cremson_phone");
+
+      const isAdminRoute = window.location.pathname.startsWith("/admin");
+      const loginPath = isAdminRoute ? "/admin/login" : "/auth/signin";
+
+      if (window.location.pathname !== "/admin/login" && window.location.pathname !== "/auth/signin") {
+        window.location.href = loginPath;
+      }
+    }
+
     if (typeof window !== "undefined") {
       toast.error(msg);
     }
