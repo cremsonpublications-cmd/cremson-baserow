@@ -1842,7 +1842,7 @@ export default function AdminOrders() {
                 reverse_awb: res.reverse_shipment?.reverse_awb || "",
                 reverse_tracking_url: res.reverse_shipment?.tracking_url || "",
               };
-              setSelected((prev) => prev ? { ...prev, order_status: "RETURN_INITIATED", delivery: JSON.dumps(updatedDeliv) } : null);
+              setSelected((prev) => prev ? { ...prev, order_status: "RETURN_INITIATED", delivery: JSON.stringify(updatedDeliv) } : null);
             }
           }}
         />
@@ -1864,7 +1864,7 @@ export default function AdminOrders() {
                 refund_amount: res.refund_amount || 0,
                 refunded_at: res.refunded_at || "",
               };
-              setSelected((prev) => prev ? { ...prev, delivery: JSON.dumps(updatedDeliv) } : null);
+              setSelected((prev) => prev ? { ...prev, delivery: JSON.stringify(updatedDeliv) } : null);
             }
           }}
         />
