@@ -282,10 +282,10 @@ async def send_order_confirmation(
             qty = item.get("quantity") or item.get("qty") or 1
             price = item.get("currentPrice") or item.get("price") or 0.0
             total_price = item.get("totalPrice") or (price * qty)
-            lines.append(f"• {name} ({qty} x ₹{price:.2f}) = ₹{total_price:.2f}")
-        formatted_items = "\n".join(lines)
+            lines.append(f"{name} ({qty} x ₹{price:.2f}) = ₹{total_price:.2f}")
+        formatted_items = ", ".join(lines)
     else:
-        formatted_items = f"• {item_count} item(s)"
+        formatted_items = f"{item_count} item(s)"
 
     template = "order_confirmation_v7"
 
