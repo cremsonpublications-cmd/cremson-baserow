@@ -108,6 +108,11 @@ function safeParseJSON(val) {
 function ReturnModal({ order, onClose, onReturnSuccess }) {
   if (!order) return null;
 
+  const parsedItems = safeParseJSON(order.items) || [];
+  const [selectedItems, setSelectedItems] = useState(
+    parsedItems.map(item => ({ ...item, selected: true, returnQty: item.quantity || 1 }))
+  );
+
   const [reason, setReason] = useState("Damaged / Defective Item");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -128,10 +133,22 @@ function ReturnModal({ order, onClose, onReturnSuccess }) {
     setError("");
 
     try {
+      const itemsToReturn = selectedItems.filter(i => i.selected).map(i => ({
+        ...i,
+        quantity: i.returnQty
+      }));
+      
+      if (parsedItems.length > 0 && itemsToReturn.length === 0) {
+        setError("Please select at least one item to return.");
+        setSubmitting(false);
+        return;
+      }
+
       const orderId = order.order_id || `BOOK${order.id}`;
       const res = await adminReturnOrder(orderId, {
         return_reason: reason,
         return_notes: notes,
+        returned_items: itemsToReturn,
       });
 
       if (res.success) {
@@ -172,6 +189,51 @@ function ReturnModal({ order, onClose, onReturnSuccess }) {
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          
+          {/* Items Checklist */}
+          {parsedItems.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Select Items to Return *</label>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 max-h-40 overflow-y-auto space-y-2">
+                {selectedItems.map((item, i) => (
+                  <div key={i} className="flex items-center justify-between border-b border-slate-200 pb-2 last:border-0 last:pb-0">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-800">
+                      <input 
+                        type="checkbox" 
+                        checked={item.selected} 
+                        onChange={(e) => {
+                          const newItems = [...selectedItems];
+                          newItems[i].selected = e.target.checked;
+                          setSelectedItems(newItems);
+                        }}
+                        className="rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+                      />
+                      <span className="line-clamp-1">{item.title || item.name}</span>
+                    </label>
+                    {item.selected && (item.quantity > 1) && (
+                      <div className="flex items-center gap-1 text-[10px]">
+                        <span className="text-slate-500">Qty:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max={item.quantity}
+                          value={item.returnQty}
+                          onChange={(e) => {
+                            let val = parseInt(e.target.value) || 1;
+                            if (val > item.quantity) val = item.quantity;
+                            const newItems = [...selectedItems];
+                            newItems[i].returnQty = val;
+                            setSelectedItems(newItems);
+                          }}
+                          className="w-12 px-1.5 py-0.5 border border-slate-200 rounded text-xs text-center outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           
           {/* Reason Selection */}
           <div className="space-y-1.5">

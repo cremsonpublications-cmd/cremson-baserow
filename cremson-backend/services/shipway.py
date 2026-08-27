@@ -619,6 +619,7 @@ async def create_reverse_shipment(order: Dict[str, Any], reason: str = "") -> Di
             carrier = str(awb_resp.get("courier_name") or awb_resp.get("carrier_id") or "Shipway")
             tracking_url = f"https://cremsonpublications.shipway.com/tracking/forward/{awb}/" if awb else "https://cremsonpublications.shipway.com/"
             shipment_id = str(data.get("shipment_id") or awb_resp.get("shipment_id") or awb or ret_order_id)
+            label_url = awb_resp.get("shipping_url") or awb_resp.get("label") or data.get("shipping_url") or data.get("label") or ""
 
             return {
                 "success": True,
@@ -626,6 +627,7 @@ async def create_reverse_shipment(order: Dict[str, Any], reason: str = "") -> Di
                 "reverse_awb": awb,
                 "courier_name": carrier,
                 "tracking_url": tracking_url,
+                "label_url": label_url,
             }
     except Exception as exc:
         logger.error(f"[Shipway] create_reverse_shipment exception: {exc}")

@@ -1074,6 +1074,7 @@ async def ready_for_pickup(order_id: str, background_tasks: BackgroundTasks):
 class ReturnOrderRequest(BaseModel):
     return_reason: str
     return_notes: Optional[str] = None
+    returned_items: List[Dict[str, Any]] = []
 
 
 @router.post(
@@ -1206,8 +1207,54 @@ async def return_order(order_id: str, body: ReturnOrderRequest):
         }
         try:
             await client.update_row(TABLE_IDS["orders"], row_id, update_payload)
+            
+            # Create a child order for the return
+            if body.returned_items:
+                ret_order_id = f"RET-{order_id}"
+                
+                # Try to create the return order
+                child_delivery = {
+                    "reverse_shipment_id": reverse_result.get("reverse_shipment_id", ""),
+                    "reverse_awb": reverse_result.get("reverse_awb", ""),
+                    "tracking_url": reverse_result.get("tracking_url", ""),
+                    "label_url": reverse_result.get("label_url", ""),
+                    "status": "RETURN_INITIATED"
+                }
+                
+                child_payload = {
+                    "order_id": ret_order_id,
+                    "order_status": "RETURN_INITIATED",
+                    "order_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "user_info": order.get("user_info", "{}"),
+                    "items": json.dumps(body.returned_items),
+                    "order_summary": json.dumps({"is_partial_return": True, "parent_order": order_id}),
+                    "payment": order.get("payment", "{}"),
+                    "delivery": json.dumps(child_delivery)
+                }
+                
+                await client.create_row(TABLE_IDS["orders"], child_payload)
+                
+                # Trigger WhatsApp Return Initiated Message
+                label_url = reverse_result.get("label_url", "")
+                if cust_phone and label_url:
+                    from services.whatsapp import send_template_message
+                    bg_tasks = BackgroundTasks()
+                    bg_tasks.add_task(
+                        send_template_message,
+                        to=cust_phone,
+                        template_name="return_initiated_v1",
+                        body_params=[cust_name, order_id, reverse_result.get("courier_name", "Courier"), label_url]
+                    )
+                    # We have to await it if not using actual BackgroundTasks properly here, 
+                    # but wait, return_order doesn't inject BackgroundTasks. Let's just await it.
+                    await send_template_message(
+                        to=cust_phone,
+                        template_name="return_initiated_v1",
+                        body_params=[cust_name, order_id, reverse_result.get("courier_name", "Courier"), label_url]
+                    )
+
         except Exception as exc:
-            logger.error(f"[Orders Return] Error updating Baserow row {row_id}: {exc}")
+            logger.error(f"[Orders Return] Error updating Baserow row {row_id} or creating return order: {exc}")
 
     return {
         "success": True,
