@@ -445,13 +445,15 @@ async def get_teacher_details(email: str) -> dict:
 
             requested_books = []
             try:
-                prev_res = await b_client.get_rows(TABLE_IDS["specimen_requests"], filters={"Email__contains": email}, size=200)
-                for prow in prev_res.get("results", []):
-                    b_raw = prow.get("BooksRequested") or ""
-                    for b_item in b_raw.split(","):
-                        b_clean = b_item.strip()
-                        if b_clean:
-                            requested_books.append(b_clean)
+                teacher_row_id = t_row.get("id")
+                if teacher_row_id:
+                    prev_res = await b_client.get_rows(TABLE_IDS["specimen_requests"], filters={"TeacherID": teacher_row_id}, size=200)
+                    for prow in prev_res.get("results", []):
+                        b_raw = prow.get("BooksRequested") or ""
+                        for b_item in b_raw.split(","):
+                            b_clean = b_item.strip()
+                            if b_clean:
+                                requested_books.append(b_clean)
             except Exception as e:
                 print("Warning: Failed to fetch previous specimen requests for auth:", e)
 

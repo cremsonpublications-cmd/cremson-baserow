@@ -142,21 +142,20 @@ async def create_specimen_request(body: dict, user: dict = Depends(current_user)
     teacher_id = None
     if role == "teacher":
         try:
-            # Validate Teacher Approval Status
-            t_rows = await client.get_rows_by_email(TABLE_IDS["teacher"], user["email"])
-            if t_rows:
-                teacher_id = t_rows[0]["id"]
-                if not body.get("TeacherID"):
-                    body["TeacherID"] = [teacher_id]
+            from routers.auth import get_teacher_details
+            t_details = await get_teacher_details(user["email"])
+            teacher_id = t_details.get("teacher_row_id")
+            if teacher_id:
+                body["TeacherID"] = [teacher_id]
                 
                 # Update teacher's Pin Code, City, and Residence so lookup fields auto-populate
                 update_fields = {}
-                if raw_pincode:
+                if raw_pincode := body.get("PinCode"):
                     try:
                         update_fields["Pin Code"] = int(str(raw_pincode).strip())
                     except Exception:
                         pass
-                if raw_city:
+                if raw_city := body.get("_city"):
                     update_fields["City"] = raw_city
                 if body.get("Full_Address"):
                     update_fields["Residence"] = body.get("Full_Address")
@@ -166,20 +165,13 @@ async def create_specimen_request(body: dict, user: dict = Depends(current_user)
             print("Warning: Failed to auto-link/update teacher profile for specimen request:", e)
 
     # Deduplication logic: Check previously requested books for this teacher/user
-    user_email = (user.get("email") or "").lower().strip()
     user_phone = user.get("phone") or ""
     user_name = user.get("name") or "Educator"
 
     prev_requested_map = {}  # { clean_book_name: request_date }
     try:
-        filters_to_try = []
         if teacher_id:
-            filters_to_try.append({"TeacherID__contains": teacher_id})
-        if user_email:
-            filters_to_try.append({"Email__contains": user_email})
-
-        for flt in filters_to_try:
-            prev_res = await client.get_rows(TABLE_IDS["specimen_requests"], filters=flt, size=200)
+            prev_res = await client.get_rows(TABLE_IDS["specimen_requests"], filters={"TeacherID": teacher_id}, size=200)
             for prow in prev_res.get("results", []):
                 req_date = prow.get("RequestDate") or prow.get("created_at") or "Previous Request"
                 b_raw = prow.get("BooksRequested") or ""
@@ -250,7 +242,7 @@ async def create_specimen_request(body: dict, user: dict = Depends(current_user)
         b_list = [b.strip() for b in books_str.split(",") if b.strip()]
         count_str = str(len(b_list)) if b_list else "1"
         
-        if user_email:
+        if user_email := user.get("email"):
             try:
                 await send_specimen_received_email(user_email, user_name, int(count_str))
             except Exception as mail_err:
@@ -274,7 +266,6 @@ async def update_specimen_request(row_id: int, body: dict):
     return await client.update_row(TABLE_IDS["specimen_requests"], row_id, body)
 
 
-import json
 import logging
 from datetime import datetime
 
@@ -360,6 +351,22 @@ async def approve_specimen_request(row_id: int):
 
     import re
 
+    def _extract_class_number(name: str) -> Optional[int]:
+        name = name.lower()
+        # Map roman numerals and written numbers to digits
+        maps = {
+            "xii": 12, "xi": 11, "x": 10, "ix": 9, "viii": 8, "vii": 7, "vi": 6, "v": 5, "iv": 4, "iii": 3, "ii": 2, "i": 1,
+            "twelve": 12, "eleven": 11, "ten": 10, "nine": 9, "eight": 8, "seven": 7, "six": 6, "five": 5, "four": 4, "three": 3, "two": 2, "one": 1
+        }
+        tokens = re.findall(r'[a-z0-9]+', name)
+        for t in tokens:
+            if t in maps:
+                return maps[t]
+            m = re.match(r'^(\d+)(st|nd|rd|th)?$', t)
+            if m:
+                return int(m.group(1))
+        return None
+
     def _clean_book_name(name: str) -> str:
         s = re.sub(r'\(.*?\)', '', name).strip()
         return re.sub(r'\s+', ' ', s).lower()
@@ -382,19 +389,26 @@ async def approve_specimen_request(row_id: int):
             p_name = (p.get("name") or "").strip()
             if not p_name:
                 continue
-            cpname = _clean_book_name(p_name)
-            if cpname == cbname or cbname in cpname or cpname in cbname:
+            if _clean_book_name(p_name) == cbname:
                 matched_p = p
                 break
 
-        # 2. Token overlap match if fuzzy
+        # 2. Token overlap match if fuzzy (checking for class mismatches)
         if not matched_p:
+            b_class = _extract_class_number(bname)
             b_tokens = set(cbname.split())
             best_score = 0
+            
             for p in catalog_products:
                 p_name = (p.get("name") or "").strip()
                 if not p_name:
                     continue
+                
+                # Verify class matches (avoid XI matching XII)
+                p_class = _extract_class_number(p_name)
+                if b_class is not None and p_class is not None and b_class != p_class:
+                    continue
+                    
                 cpname = _clean_book_name(p_name)
                 p_tokens = set(cpname.split())
                 overlap = len(b_tokens.intersection(p_tokens))

@@ -145,7 +145,7 @@ class BaserowClient:
                 else:
                     value = val
                     if field_name in link_row_fields:
-                        op = "link_row_contains"
+                        op = "link_row_has"
                     elif field_name in select_fields:
                         op = "contains"
                     else:
