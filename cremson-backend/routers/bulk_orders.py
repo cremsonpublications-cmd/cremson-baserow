@@ -244,14 +244,18 @@ async def create_bulk_order(body: BulkOrderCreate, bg: BackgroundTasks):
         "order_date": datetime.utcnow().isoformat(),
     }
 
-    # Generate sequential Bulk Order ID (CPS26001, CPS26002...)
-    start_seq = 26001
+    # Generate sequential Bulk Order ID by date (CPS<DD><MM><YY><INDEX>)
     try:
-        cps_res = await client.get_rows(TABLE_IDS["bulk_orders"], search="CPS26", size=200)
-        cps_results = cps_res.get("results", [])
-        max_num = start_seq - 1
+        from datetime import timedelta, timezone
         import re
-        pattern = re.compile(r"^CPS(\d+)$", re.IGNORECASE)
+        ist = timezone(timedelta(hours=5, minutes=30))
+        now_ist = datetime.now(ist)
+        date_prefix = now_ist.strftime("%d%m%y") # e.g. "280826"
+        
+        cps_res = await client.get_rows(TABLE_IDS["bulk_orders"], search=f"CPS{date_prefix}", size=200)
+        cps_results = cps_res.get("results", [])
+        max_index = 0
+        pattern = re.compile(rf"^CPS{date_prefix}(\d+)$", re.IGNORECASE)
         for r in cps_results:
             notes_raw = r.get("Notes") or ""
             oid = ""
@@ -263,13 +267,19 @@ async def create_bulk_order(body: BulkOrderCreate, bg: BackgroundTasks):
                     pass
             m = pattern.match(oid)
             if m:
-                num = int(m.group(1))
-                if num > max_num:
-                    max_num = num
-        obj["order_id"] = f"CPS{max_num + 1}"
+                index_val = int(m.group(1))
+                if index_val > max_index:
+                    max_index = index_val
+        obj["order_id"] = f"CPS{date_prefix}{max_index + 1}"
     except Exception as e:
-        logger.warning(f"Error generating CPS bulk order_id: {e}")
-        obj["order_id"] = f"CPS{start_seq}"
+        logger.warning(f"Error generating date-based CPS order_id: {e}")
+        from datetime import timedelta, timezone
+        ist = timezone(timedelta(hours=5, minutes=30))
+        now_ist = datetime.now(ist)
+        date_prefix = now_ist.strftime("%d%m%y")
+        import random
+        fallback_rand = random.randint(10, 99)
+        obj["order_id"] = f"CPS{date_prefix}{fallback_rand}"
 
     row = await client.create_row(TABLE_IDS["bulk_orders"], {
         "Name": token,
