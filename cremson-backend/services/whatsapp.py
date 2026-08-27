@@ -406,7 +406,7 @@ async def send_shipment_created(
 
     await _send_template(
         phone=phone,
-        template_name="shipment_created_v2",
+        template_name="shipment_created_v3",
         parameters=[],
         log_tag=f"shipment_created order={order_id} awb={awb}",
         components=components,
@@ -685,7 +685,7 @@ async def send_refund_completed(
     """
     await _send_template(
         phone=phone,
-        template_name="refund_completed_v2",
+        template_name="refund_completed_v3",
         parameters=[
             _txt(customer_name),
             _txt(f"₹{amount:.2f}"),
@@ -753,7 +753,7 @@ async def send_support_request(
     """
     await _send_template(
         phone=phone,
-        template_name="support_request_v2",
+        template_name="support_request_v3",
         parameters=[
             _txt(customer_name),
             _txt(subject_or_type),
