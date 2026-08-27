@@ -20,6 +20,7 @@ import {
   Send,
   RefreshCw,
   AlertTriangle,
+  AlertCircle,
 } from "lucide-react";
 import { getWhatsAppTemplates, createTemplate, updateTemplate, deleteTemplate, syncTemplatesFromMeta } from "@/lib/api/whatsappCampaigns";
 import { toast } from "sonner";
