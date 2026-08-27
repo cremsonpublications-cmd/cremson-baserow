@@ -269,25 +269,35 @@ async def verify_payment(body: VerifyPaymentRequest, background_tasks: Backgroun
     try:
         baserow_client = BaserowClient()
 
-        # ── Step 2: Generate sequential order ID (CP26001, CP26002...) and save to Baserow ─────────
-        start_seq = 26001
+        # ── Step 2: Generate sequential order ID by date (CP<DD><MM><YY><INDEX>) ─────────
         try:
-            cp_res = await baserow_client.get_rows(TABLE_IDS["orders"], search="CP26", size=200)
-            cp_results = cp_res.get("results", [])
-            max_num = start_seq - 1
+            from datetime import timedelta, timezone
             import re
-            pattern = re.compile(r"^CP(\d+)$", re.IGNORECASE)
+            ist = timezone(timedelta(hours=5, minutes=30))
+            now_ist = datetime.now(ist)
+            date_prefix = now_ist.strftime("%d%m%y") # e.g. "270826"
+            
+            cp_res = await baserow_client.get_rows(TABLE_IDS["orders"], search=f"CP{date_prefix}", size=200)
+            cp_results = cp_res.get("results", [])
+            max_index = 0
+            pattern = re.compile(rf"^CP{date_prefix}(\d+)$", re.IGNORECASE)
             for r in cp_results:
                 oid = str(r.get("order_id") or "").strip()
                 m = pattern.match(oid)
                 if m:
-                    num = int(m.group(1))
-                    if num > max_num:
-                        max_num = num
-            order_id = f"CP{max_num + 1}"
+                    index_val = int(m.group(1))
+                    if index_val > max_index:
+                        max_index = index_val
+            order_id = f"CP{date_prefix}{max_index + 1}"
         except Exception as e:
-            logger.warning(f"Error generating CP order_id: {e}")
-            order_id = f"CP{start_seq}"
+            logger.warning(f"Error generating date-based CP order_id: {e}")
+            from datetime import timedelta, timezone
+            ist = timezone(timedelta(hours=5, minutes=30))
+            now_ist = datetime.now(ist)
+            date_prefix = now_ist.strftime("%d%m%y")
+            import random
+            fallback_rand = random.randint(10, 99)
+            order_id = f"CP{date_prefix}{fallback_rand}"
         order_date = body.order_date
         if not order_date or len(order_date) <= 10:
             order_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
