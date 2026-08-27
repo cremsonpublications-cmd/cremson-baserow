@@ -31,7 +31,15 @@ api.interceptors.request.use((config) => {
 api.interceptors.request.use((config) => {
   const adminToken = typeof window !== "undefined" ? localStorage.getItem("cremson_admin_token") : null;
   const userToken = typeof window !== "undefined" ? localStorage.getItem("cremson_token") : null;
-  const token = adminToken || userToken;
+  
+  let token = null;
+  if (typeof window !== "undefined") {
+    const isAdminRoute = window.location.pathname.startsWith("/admin");
+    token = isAdminRoute ? adminToken : userToken;
+  } else {
+    token = userToken;
+  }
+
   if (token) config.headers["Authorization"] = `Bearer ${token}`;
   return config;
 });
