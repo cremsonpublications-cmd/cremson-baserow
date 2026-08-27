@@ -44,6 +44,20 @@ def _format_phone(phone: str) -> str:
     return phone
 
 
+def _clean_url_param(url: str, base: str = "https://cremsonpublications.com/") -> str:
+    """Extracts only the suffix variable needed for the Meta dynamic URL button template."""
+    if not url:
+        return ""
+    url = str(url).strip()
+    if url.startswith(base):
+        return url[len(base):]
+    # Handle shipway base
+    shipway_base = "https://cremsonpublications.shipway.com/tracking/forward/"
+    if url.startswith(shipway_base):
+        return url[len(shipway_base):].strip("/")
+    return url
+
+
 async def _send_template(
     phone: str,
     template_name: str,
@@ -353,7 +367,7 @@ async def send_payment_failed(
             "type": "button",
             "sub_type": "url",
             "index": "0",
-            "parameters": [_txt(retry_url)],
+            "parameters": [_txt(_clean_url_param(retry_url, "https://cremsonpublications.com/"))],
         },
     ]
 
@@ -400,7 +414,7 @@ async def send_shipment_created(
             "type": "button",
             "sub_type": "url",
             "index": "0",
-            "parameters": [_txt(tracking_url)],
+            "parameters": [_txt(awb)],
         },
     ]
 
@@ -539,7 +553,7 @@ async def send_bulk_order_approved(
             "type": "button",
             "sub_type": "url",
             "index": "0",
-            "parameters": [_txt(order_link)],
+            "parameters": [_txt(_clean_url_param(order_link, "https://cremsonpublications.com/checkout/bulk/"))],
         },
     ]
     await _send_template(
@@ -581,7 +595,7 @@ async def send_bulk_order_shipped(phone: str, name: str, school: str, awb: str, 
             "type": "button",
             "sub_type": "url",
             "index": "0",
-            "parameters": [_txt(tracking_link)],
+            "parameters": [_txt(awb)],
         },
     ]
     await _send_template(
@@ -723,7 +737,7 @@ async def send_invoice_available(
             "type": "button",
             "sub_type": "url",
             "index": "0",
-            "parameters": [_txt(invoice_url)],
+            "parameters": [_txt(_clean_url_param(invoice_url, "https://cremsonpublications.com/uploads/invoices/"))],
         },
     ]
 
@@ -816,7 +830,7 @@ async def send_review_request(
             "type": "button",
             "sub_type": "url",
             "index": "0",
-            "parameters": [_txt(review_url)],
+            "parameters": [_txt(_clean_url_param(review_url, "https://cremsonpublications.com/shop/product/"))],
         },
     ]
 
@@ -857,7 +871,7 @@ async def send_reorder_reminder(
             "type": "button",
             "sub_type": "url",
             "index": "0",
-            "parameters": [_txt(reorder_url)],
+            "parameters": [_txt(_clean_url_param(reorder_url, "https://cremsonpublications.com/"))],
         },
     ]
 
