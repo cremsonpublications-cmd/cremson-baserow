@@ -287,11 +287,7 @@ async def send_order_confirmation(
     else:
         formatted_items = f"• {item_count} item(s)"
 
-    template = (
-        WHATSAPP_TEMPLATE_NAME
-        if WHATSAPP_TEMPLATE_NAME != "hello_world"
-        else "order_confirmation_v7"
-    )
+    template = "order_confirmation_v7"
 
     await _send_template(
         phone,
