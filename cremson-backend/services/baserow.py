@@ -165,6 +165,19 @@ class BaserowClient:
             response.raise_for_status()
             return response.json()
 
+    async def get_rows_by_email(self, table_id: int, email: str, email_field: str = "Email") -> list:
+        """
+        Fetch rows by email case-insensitively but exactly matching.
+        """
+        email_clean = email.lower().strip()
+        url = f"{self.base_url}/api/database/rows/table/{table_id}/?user_field_names=true&filter__{quote(email_field)}__contains={quote(email_clean)}"
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, headers=self.headers)
+            response.raise_for_status()
+            data = response.json()
+            return [r for r in data.get("results", []) if str(r.get(email_field) or "").lower().strip() == email_clean]
+
+
     async def get_row(self, table_id: int, row_id: int) -> dict:
         """
         Fetch a single row from a Baserow table.

@@ -110,8 +110,8 @@ async def get_my_requested_books(user: dict = Depends(current_user)):
     requested_books = []
     try:
         if user_email:
-            prev_res = await client.get_rows(TABLE_IDS["specimen_requests"], filters={"Email": user_email}, size=200)
-            for prow in prev_res.get("results", []):
+            results = await client.get_rows_by_email(TABLE_IDS["specimen_requests"], user_email)
+            for prow in results:
                 b_raw = prow.get("BooksRequested") or ""
                 for b_item in b_raw.split(","):
                     b_clean = b_item.strip()
@@ -142,9 +142,8 @@ async def create_specimen_request(body: dict, user: dict = Depends(current_user)
     teacher_id = None
     if role == "teacher":
         try:
-            # Query teacher CRM table (877) by user's email to get teacher record ID
-            teacher_res = await client.get_rows(TABLE_IDS["teacher"], filters={"Email": user["email"].lower().strip()})
-            t_rows = teacher_res.get("results", [])
+            # Validate Teacher Approval Status
+            t_rows = await client.get_rows_by_email(TABLE_IDS["teacher"], user["email"])
             if t_rows:
                 teacher_id = t_rows[0]["id"]
                 if not body.get("TeacherID"):

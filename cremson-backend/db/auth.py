@@ -151,8 +151,7 @@ async def update_user_profile_admin(
 
 
 async def get_user_by_email(email: str) -> Optional[dict]:
-    result = await _client.get_rows(T_USERS, filters={"email": email.lower().strip()})
-    rows = result.get("results", [])
+    rows = await _client.get_rows_by_email(T_USERS, email, email_field="email")
     return _row(rows[0]) if rows else None
 
 
@@ -225,8 +224,8 @@ async def mark_user_verified(email: str):
 
 async def save_otp(email: str, otp: str, expires_at: str):
     # Invalidate existing OTPs for this email
-    existing = await _client.get_rows(T_OTPS, filters={"email": email.lower().strip()})
-    for row in existing.get("results", []):
+    existing = await _client.get_rows_by_email(T_OTPS, email, email_field="email")
+    for row in existing:
         if not int(row.get("used") or 0):
             await _client.update_row(T_OTPS, row["id"], {"used": 1})
 
@@ -239,10 +238,10 @@ async def save_otp(email: str, otp: str, expires_at: str):
 
 
 async def get_valid_otp(email: str, otp: str) -> Optional[dict]:
-    result = await _client.get_rows(T_OTPS, filters={"email": email.lower().strip(), "otp": otp})
+    rows = await _client.get_rows_by_email(T_OTPS, email, email_field="email")
     now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-    for row in result.get("results", []):
-        if not int(row.get("used") or 0) and row.get("expires_at", "") > now:
+    for row in rows:
+        if str(row.get("otp")) == str(otp) and not int(row.get("used") or 0) and row.get("expires_at", "") > now:
             return _row(row)
     return None
 

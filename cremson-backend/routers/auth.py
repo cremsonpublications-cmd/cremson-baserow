@@ -423,8 +423,7 @@ async def resend_otp(body: ResendOTPRequest):
 async def get_teacher_details(email: str) -> dict:
     try:
         b_client = BaserowClient()
-        res = await b_client.get_rows(TABLE_IDS["teacher"], filters={"Email": email.lower().strip()})
-        results = res.get("results", [])
+        results = await b_client.get_rows_by_email(TABLE_IDS["teacher"], email)
         if results:
             t_row = results[0]
             school_name_list = t_row.get("School Name", []) or t_row.get("SchoolID", [])
@@ -615,8 +614,7 @@ async def update_id_card(body: UpdateIdCardRequest, user: dict = Depends(current
         raise HTTPException(status_code=400, detail="id_card_url is required")
         
     b_client = BaserowClient()
-    res = await b_client.get_rows(TABLE_IDS["teacher"], filters={"Email": user["email"].lower().strip()})
-    results = res.get("results", [])
+    results = await b_client.get_rows_by_email(TABLE_IDS["teacher"], user["email"])
     if not results:
         await b_client.create_row(TABLE_IDS["teacher"], {
             "Teacher Name": user["name"],
@@ -683,10 +681,9 @@ async def get_teacher_history(teacher_id: Optional[int] = None, email: Optional[
             print("Warning: Error fetching teacher row:", e)
     elif email:
         try:
-            t_res = await b_client.get_rows(TABLE_IDS["teacher"], filters={"Email": email.lower().strip()})
-            t_rows = t_res.get("results", [])
-            if t_rows:
-                t_row = t_rows[0]
+            results = await b_client.get_rows_by_email(TABLE_IDS["teacher"], email)
+            if results:
+                t_row = results[0]
                 teacher_id = t_row["id"]
                 if not phone:
                     phone = t_row.get("Whatsapp Phone") or t_row.get("Phone") or ""
