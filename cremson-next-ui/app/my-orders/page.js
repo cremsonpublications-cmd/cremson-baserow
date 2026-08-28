@@ -379,6 +379,7 @@ export default function MyOrdersPage() {
   const [bulkOrders, setBulkOrders] = useState([]);
   const [specimenRequests, setSpecimenRequests] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedBulkOrder, setSelectedBulkOrder] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [isLoading, setIsLoading] = useState(false);
@@ -680,22 +681,30 @@ export default function MyOrdersPage() {
                   statusDesc = "Your request was not approved.";
                 }
 
-                // Get details from parentOrder
                 const req = item.parentOrder;
                 const pincode = getDisplayValue(req.PinCode);
 
                 return (
                   <div
                     key={idx}
-                    className="bg-white border border-gray-200 rounded p-4 sm:p-5 grid grid-cols-1 md:grid-cols-12 gap-4 items-start"
+                    className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:shadow-md transition-all duration-200 cursor-default grid grid-cols-1 md:grid-cols-12 gap-4 items-center text-left"
                   >
                     <div className="md:col-span-6 flex items-start gap-4">
-                      <div className="w-16 h-16 bg-red-50 border border-red-100 rounded flex items-center justify-center text-red-500 shrink-0">
-                        <BookOpen className="w-6 h-6" />
-                      </div>
+                      {item.image ? (
+                        <img src={item.image} alt={item.title} className="w-16 h-16 object-contain bg-gray-50 border border-gray-100 rounded p-1 shrink-0" />
+                      ) : (
+                        <div className="w-16 h-16 bg-red-50 border border-red-100 rounded flex items-center justify-center text-red-500 shrink-0">
+                          <BookOpen className="w-6 h-6" />
+                        </div>
+                      )}
                       <div>
                         <h4 className="font-semibold text-gray-900 text-sm line-clamp-2">{item.title}</h4>
-                        <p className="text-xs text-red-500 font-bold mt-1">Specimen Copy Request #{item.orderId.replace("SR", "")}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <p className="text-xs text-red-500 font-bold">Specimen Copy Request #{item.orderId.replace("SR", "")}</p>
+                          <span className="px-2 py-0.5 text-[9px] font-bold bg-red-50 text-red-700 rounded border border-red-100 uppercase tracking-wide">
+                            Specimen Copy
+                          </span>
+                        </div>
                         <p className="text-xs text-gray-400 mt-1">Requested on: {item.orderDate || "N/A"}</p>
                         {item.shippingAddress && (
                           <p className="text-xs text-gray-500 mt-1.5 leading-relaxed bg-gray-50 p-2 rounded border border-gray-100">
@@ -708,7 +717,7 @@ export default function MyOrdersPage() {
 
                     <div className="md:col-span-2">
                       <span className="px-2 py-1 text-[10px] font-bold bg-red-50 text-red-700 rounded border border-red-100 uppercase tracking-wider block text-center">
-                        Specimen Copy
+                        Free Copy
                       </span>
                     </div>
 
@@ -718,24 +727,119 @@ export default function MyOrdersPage() {
                         <span className="font-bold text-gray-900">{statusText}</span>
                       </div>
                       <p className="text-xs text-gray-500 mt-1 ml-4 leading-relaxed">{statusDesc}</p>
-                      
-                      {req.TrackingLink ? (
-                        <a href={req.TrackingLink} target="_blank" rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 text-xs font-bold mt-2 ml-4 flex items-center gap-0.5 cursor-pointer">
-                          <Truck className="w-3.5 h-3.5" /> Track Shipment
-                        </a>
-                      ) : (
-                        <div className="text-xs text-gray-400 mt-2 ml-4 italic">No tracking info available yet</div>
-                      )}
+                      <div className="flex items-center gap-2 mt-2 ml-4">
+                        {req.TrackingLink ? (
+                          <a href={req.TrackingLink} target="_blank" rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 text-xs font-bold flex items-center gap-0.5 cursor-pointer">
+                            <Truck className="w-3.5 h-3.5" /> Track Shipment
+                          </a>
+                        ) : (
+                          <div className="text-xs text-gray-400 italic">No tracking info yet</div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
               }
 
               if (item.isBulkOrder) {
+                const bo = item.parentOrder;
+                let statusColor = "bg-amber-500";
+                let statusText = "Pending Review";
+                let statusDesc = "Your order is under review.";
+                const s = (bo.status || "").toLowerCase();
+                if (s === "approved") {
+                  statusColor = "bg-emerald-500";
+                  statusText = "Approved";
+                  statusDesc = "Approved - Pay now.";
+                } else if (s === "shipped" || s === "ready_for_pickup") {
+                  statusColor = "bg-blue-500";
+                  statusText = "Shipped";
+                  statusDesc = "Your items are in transit.";
+                } else if (s === "fully_paid" || s === "completed" || s === "delivered") {
+                  statusColor = "bg-green-500";
+                  statusText = "Fully Paid";
+                  statusDesc = "Payment complete.";
+                }
+
+                const totalQty = item.items.reduce((acc, curr) => acc + (curr.qty || 1), 0);
+
                 return (
-                  <div key={idx} className="cursor-default">
-                    <BulkOrderCard order={item.parentOrder} onRefresh={loadBulkOrders} />
+                  <div
+                    key={idx}
+                    onClick={() => setSelectedBulkOrder(bo)}
+                    className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:shadow-md transition-all duration-200 cursor-pointer grid grid-cols-1 md:grid-cols-12 gap-4 items-center text-left"
+                  >
+                    <div className="md:col-span-6 flex items-start gap-4">
+                      {item.items.length === 1 ? (
+                        item.items[0].image ? (
+                          <img src={item.items[0].image} alt={item.items[0].title} className="w-16 h-16 object-contain bg-gray-50 border border-gray-100 rounded p-1 shrink-0" />
+                        ) : (
+                          <div className="w-16 h-16 bg-gray-50 border border-gray-100 rounded flex items-center justify-center text-gray-400 shrink-0">
+                            <BookOpen className="w-6 h-6" />
+                          </div>
+                        )
+                      ) : (
+                        <div className="relative shrink-0">
+                          {item.items[0] && item.items[0].image ? (
+                            <img src={item.items[0].image} alt={item.items[0].title} className="w-16 h-16 object-contain bg-white border border-gray-200 rounded p-1 shadow-sm" />
+                          ) : (
+                            <div className="w-16 h-16 bg-gray-50 border border-gray-200 rounded flex items-center justify-center text-gray-400 shadow-sm">
+                              <BookOpen className="w-6 h-6" />
+                            </div>
+                          )}
+                          <div className="absolute -bottom-2 -right-2 w-7 h-7 bg-purple-100 border border-purple-200 rounded-full flex items-center justify-center text-purple-750 text-[10px] font-bold shadow-sm">
+                            +{item.items.length - 1}
+                          </div>
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="font-semibold text-gray-900 text-sm hover:text-purple-650 transition-colors line-clamp-2">
+                          {item.items.length === 1 
+                            ? item.items[0].title 
+                            : `${item.items.length} Books: ${item.items.map(i => i.title || i.name).join(", ")}`
+                          }
+                        </h4>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <p className="text-xs text-gray-400">
+                            Qty: {totalQty} | Order #{item.orderId}
+                          </p>
+                          <span className="px-2 py-0.5 text-[9px] font-bold bg-purple-100 text-purple-700 rounded border border-purple-200 uppercase tracking-wide">
+                            Bulk / School Order
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">Ordered on: {item.orderDate ? new Date(item.orderDate).toLocaleDateString() : "N/A"}</p>
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <p className="font-bold text-gray-900 text-sm">₹{parseFloat(item.totalOrderAmount || 0).toFixed(2)}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {item.items.length === 1 ? "1 book" : `${item.items.length} books`}
+                      </p>
+                    </div>
+
+                    <div className="md:col-span-4 flex flex-col md:items-start text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2.5 h-2.5 rounded-full ${statusColor}`} />
+                        <span className="font-bold text-gray-900">
+                          {statusText}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1 ml-4 leading-relaxed">{statusDesc}</p>
+                      <div className="flex items-center gap-2 mt-2 ml-4">
+                        {bo.shipway_awb ? (
+                          <a href={`https://shipway.in/tracking/${bo.shipway_awb}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                            className="text-blue-600 hover:text-blue-800 text-xs font-bold flex items-center gap-0.5 cursor-pointer">
+                            <Truck className="w-3.5 h-3.5" /> Track Shipment
+                          </a>
+                        ) : (
+                          <button className="text-blue-600 hover:text-blue-800 text-xs font-bold flex items-center gap-0.5 cursor-pointer">
+                            <Eye className="w-3.5 h-3.5" /> View Details
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 );
               }
@@ -759,69 +863,74 @@ export default function MyOrdersPage() {
                 return (
                   <div
                     key={idx}
-                    className="bg-white border border-blue-100 rounded-xl shadow-sm overflow-hidden"
+                    onClick={() => setSelectedOrder(item.parentOrder)}
+                    className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:shadow-md transition-all duration-200 cursor-pointer grid grid-cols-1 md:grid-cols-12 gap-4 items-center text-left"
                   >
-                    {/* Header */}
-                    <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Package className="w-4 h-4 text-blue-600" />
-                        <span className="text-sm font-bold text-gray-950">Book Order</span>
-                        <span className="text-xs text-gray-400">#{item.orderId}</span>
-                        <span className="px-2 py-0.5 text-[9px] font-bold bg-blue-100 text-blue-700 rounded border border-blue-200 uppercase tracking-wide">
-                          Regular Order
-                        </span>
-                      </div>
-                      <span className={`px-2 py-0.5 text-[10px] font-bold text-white rounded-full ${statusColor}`}>
-                        {statusText}
-                      </span>
-                    </div>
-
-                    {/* Body */}
-                    <div className="p-4 space-y-3">
-                      {/* Books */}
-                      <div className="space-y-1.5">
-                        {item.items.map((book, bIdx) => (
-                          <div key={bIdx} className="flex items-center justify-between text-xs text-gray-600">
-                            <span className="font-medium line-clamp-1 flex-1 pr-2">{book.title || book.name}</span>
-                            <span className="text-gray-400 whitespace-nowrap">x{book.quantity || 1} — ₹{((book.price || 0) * (book.quantity || 1)).toFixed(0)}</span>
+                    <div className="md:col-span-6 flex items-start gap-4">
+                      {item.items.length === 1 ? (
+                        item.items[0].image ? (
+                          <img src={item.items[0].image} alt={item.items[0].title} className="w-16 h-16 object-contain bg-gray-50 border border-gray-100 rounded p-1 shrink-0" />
+                        ) : (
+                          <div className="w-16 h-16 bg-gray-50 border border-gray-100 rounded flex items-center justify-center text-gray-400 shrink-0">
+                            <BookOpen className="w-6 h-6" />
                           </div>
-                        ))}
-                      </div>
-
-                      {/* Financials */}
-                      <div className="flex items-center justify-between text-xs border-t border-gray-100 pt-2">
-                        <span className="text-gray-500">
-                          Total Qty: <span className="font-semibold text-gray-700">{totalQty} {totalQty === 1 ? "book" : "books"}</span>
-                        </span>
-                        <span className="font-bold text-blue-700 text-sm">₹{parseFloat(item.totalOrderAmount || 0).toFixed(0)}</span>
-                      </div>
-
-                      {item.shippingAddress && (
-                        <div className="text-xs text-gray-500 leading-relaxed bg-gray-50 p-2.5 rounded border border-gray-100 mt-2">
-                          <span className="font-bold block text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">Shipping Address</span>
-                          {item.shippingAddress}
+                        )
+                      ) : (
+                        <div className="relative shrink-0">
+                          {item.items[0] && item.items[0].image ? (
+                            <img src={item.items[0].image} alt={item.items[0].title} className="w-16 h-16 object-contain bg-white border border-gray-200 rounded p-1 shadow-sm" />
+                          ) : (
+                            <div className="w-16 h-16 bg-gray-50 border border-gray-200 rounded flex items-center justify-center text-gray-400 shadow-sm">
+                              <BookOpen className="w-6 h-6" />
+                            </div>
+                          )}
+                          <div className="absolute -bottom-2 -right-2 w-7 h-7 bg-blue-100 border border-blue-200 rounded-full flex items-center justify-center text-blue-700 text-[10px] font-bold shadow-sm">
+                            +{item.items.length - 1}
+                          </div>
                         </div>
                       )}
+                      <div>
+                        <h4 className="font-semibold text-gray-900 text-sm hover:text-blue-600 transition-colors line-clamp-2">
+                          {item.items.length === 1 
+                            ? item.items[0].title 
+                            : `${item.items.length} Books: ${item.items.map(i => i.title || i.name).join(", ")}`
+                          }
+                        </h4>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <p className="text-xs text-gray-400">
+                            Qty: {totalQty} | Order #{item.orderId}
+                          </p>
+                          <span className="px-2 py-0.5 text-[9px] font-bold bg-blue-50 text-blue-700 rounded border border-blue-100 uppercase tracking-wide">
+                            Regular Order
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">Ordered on: {item.orderDate}</p>
+                      </div>
                     </div>
 
-                    {/* Footer */}
-                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
-                      <span>Ordered on: {item.orderDate}</span>
+                    <div className="md:col-span-2">
+                      <p className="font-bold text-gray-900 text-sm">₹{parseFloat(item.totalOrderAmount || 0).toFixed(2)}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {item.items.length === 1 ? "1 book" : `${item.items.length} books`}
+                      </p>
+                    </div>
+
+                    <div className="md:col-span-4 flex flex-col md:items-start text-xs">
                       <div className="flex items-center gap-2">
+                        <span className={`w-2.5 h-2.5 rounded-full ${statusColor}`} />
+                        <span className="font-bold text-gray-900">
+                          {statusText === "Delivered" ? `Delivered on ${item.expectedDelivery}` : statusText}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1 ml-4 leading-relaxed">{statusDesc}</p>
+                      <div className="flex items-center gap-2 mt-2 ml-4">
                         {item.trackingUrl ? (
-                          <a
-                            href={item.trackingUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 bg-white hover:bg-gray-50 border border-gray-200 text-blue-600 px-3 py-1.5 rounded font-bold transition-all shadow-sm cursor-pointer"
-                          >
+                          <a href={item.trackingUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                            className="text-blue-600 hover:text-blue-800 text-xs font-bold flex items-center gap-0.5 cursor-pointer">
                             <Truck className="w-3.5 h-3.5" /> Track Shipment
                           </a>
                         ) : (
-                          <button
-                            onClick={() => setSelectedOrder(item.parentOrder)}
-                            className="inline-flex items-center gap-1 bg-white hover:bg-gray-50 border border-gray-200 text-blue-600 px-3 py-1.5 rounded font-bold transition-all shadow-sm cursor-pointer"
-                          >
+                          <button className="text-blue-600 hover:text-blue-800 text-xs font-bold flex items-center gap-0.5 cursor-pointer">
                             <Eye className="w-3.5 h-3.5" /> View Details
                           </button>
                         )}
@@ -978,6 +1087,29 @@ export default function MyOrdersPage() {
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded text-xs transition-all cursor-pointer">
                 Close Details
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk Order Details Drawer ────────────────────────────────── */}
+      {selectedBulkOrder && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex justify-end">
+          <div className="absolute inset-0" onClick={() => setSelectedBulkOrder(null)} />
+          <div className="relative w-full sm:max-w-lg bg-[#f1f3f6] h-full shadow-2xl flex flex-col z-10 animate-slideLeft text-left">
+
+            <div className="p-4 bg-white border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Bulk Order Details</span>
+                <h2 className="text-base font-bold text-gray-950 mt-0.5">#{selectedBulkOrder.order_id}</h2>
+              </div>
+              <button onClick={() => setSelectedBulkOrder(null)} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-700 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <BulkOrderCard order={selectedBulkOrder} onRefresh={() => { loadBulkOrders(); setSelectedBulkOrder(null); }} />
             </div>
           </div>
         </div>
