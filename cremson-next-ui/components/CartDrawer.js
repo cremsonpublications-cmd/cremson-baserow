@@ -19,6 +19,7 @@ export default function CartDrawer() {
 
   const totalCartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
   const cartSubtotal = cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+  const hasOutOfStockItems = cart.some((item) => item.product?.stockStatus === "out_of_stock");
 
   return (
     <div className="fixed inset-0 z-[100] overflow-hidden">
@@ -80,9 +81,14 @@ export default function CartDrawer() {
                       <h4 className="font-bold text-gray-900 text-sm leading-tight line-clamp-2">
                         {product.title}
                       </h4>
-                      <span className="text-xs text-gray-500 font-medium">
+                      <span className="text-xs text-gray-500 font-medium block">
                         Class: {product.class}
                       </span>
+                      {product.stockStatus === "out_of_stock" && (
+                        <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 border border-red-200">
+                          Out of Stock
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -145,15 +151,29 @@ export default function CartDrawer() {
                 <span>₹{cartSubtotal}</span>
               </div>
 
-              <Link
-                href="/checkout"
-                onClick={() => {
-                  setIsCartOpen(false);
-                }}
-                className="inline-flex items-center justify-center whitespace-nowrap w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-sm uppercase tracking-wider rounded-full shadow-lg active:scale-98 transition-all hover:shadow-orange-200"
-              >
-                Proceed To Checkout
-              </Link>
+              {hasOutOfStockItems ? (
+                <div className="space-y-2">
+                  <button
+                    disabled
+                    className="inline-flex items-center justify-center whitespace-nowrap w-full py-3 bg-gray-300 text-gray-500 font-extrabold text-sm uppercase tracking-wider rounded-full cursor-not-allowed"
+                  >
+                    Proceed To Checkout
+                  </button>
+                  <p className="text-xs text-red-600 font-semibold text-center">
+                    ⚠️ Please remove out-of-stock items to checkout.
+                  </p>
+                </div>
+              ) : (
+                <Link
+                  href="/checkout"
+                  onClick={() => {
+                    setIsCartOpen(false);
+                  }}
+                  className="inline-flex items-center justify-center whitespace-nowrap w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-sm uppercase tracking-wider rounded-full shadow-lg active:scale-98 transition-all hover:shadow-orange-200"
+                >
+                  Proceed To Checkout
+                </Link>
+              )}
             </div>
           )}
         </div>

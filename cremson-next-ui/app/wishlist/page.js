@@ -235,15 +235,27 @@ export default function WishlistPage() {
                                 <Plus className="w-3.5 h-3.5" />
                               </button>
                             </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); addToCart(book); }}
-                              className="w-full h-10 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 rounded-full transition-all duration-150 text-sm whitespace-nowrap text-center cursor-pointer"
-                            >
-                              Add to Cart
-                            </button>
-                          )}
+                           ) : book.stockStatus === "out_of_stock" ? (
+                             <button
+                               disabled
+                               type="button"
+                               onClick={(e) => {
+                                 e.preventDefault();
+                                 e.stopPropagation();
+                               }}
+                               className="w-full h-10 bg-gray-250 text-gray-500 border border-gray-200 font-semibold px-4 rounded-full text-sm whitespace-nowrap text-center cursor-not-allowed"
+                             >
+                               Out of Stock
+                             </button>
+                           ) : (
+                             <button
+                               type="button"
+                               onClick={(e) => { e.preventDefault(); e.stopPropagation(); addToCart(book); }}
+                               className="w-full h-10 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 rounded-full transition-all duration-150 text-sm whitespace-nowrap text-center cursor-pointer"
+                             >
+                               Add to Cart
+                             </button>
+                           )}
                         </div>
                       </div>
                     );

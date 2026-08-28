@@ -60,7 +60,20 @@ export function mapProduct(p) {
     reviewsCount: parseInt(p.review_count) || 0,
     image: p.main_image || "",
     sideImages: parseArr(p.side_images),
-    stockStatus: p.stock_status || "in_stock",
+    stockStatus: (() => {
+      let raw = p.stock_status;
+      if (raw && typeof raw === "object") raw = raw.value;
+      if (raw) {
+        const s = String(raw).toLowerCase().replace(/\s+/g, "_");
+        if (s.includes("out") || s === "out_of_stock") return "out_of_stock";
+        if (s.includes("backorder") || s === "on_backorders") return "on_backorders";
+        return "in_stock";
+      }
+      const rawStatus = String(p.status || "").toLowerCase().replace(/\s+/g, "_");
+      if (rawStatus.includes("out") || rawStatus === "out_of_stock") return "out_of_stock";
+      if (rawStatus.includes("backorder") || rawStatus === "on_backorders") return "on_backorders";
+      return "in_stock";
+    })(),
     status: p.status || "",
     isbn: p.isbn || "",
     edition: p.edition || "",

@@ -281,6 +281,17 @@ export default function Home() {
                                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                                 </button>
                               </div>
+                            ) : book.stockStatus === "out_of_stock" ? (
+                              <button
+                                disabled
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                className="w-full sm:w-auto h-10 bg-gray-250 text-gray-500 border border-gray-200 font-semibold px-4 rounded-full text-sm whitespace-nowrap text-center cursor-not-allowed"
+                              >
+                                Out of Stock
+                              </button>
                             ) : (
                               <button
                                 onClick={(e) => {

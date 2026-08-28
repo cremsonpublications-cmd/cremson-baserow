@@ -278,6 +278,10 @@ export function AppProvider({ children }) {
   // ── Cart operations ──────────────────────────────────────────────────────────
 
   const addToCart = (product) => {
+    if (product.stockStatus === "out_of_stock") {
+      showToast(`"${product.title}" is out of stock and cannot be added to cart.`, "error");
+      return;
+    }
     setCart((prevCart) => {
       const existing = prevCart.find((i) => i.product.id === product.id);
       const newQty = existing ? existing.quantity + 1 : 1;

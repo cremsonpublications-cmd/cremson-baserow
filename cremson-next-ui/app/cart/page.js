@@ -55,6 +55,7 @@ export default function CartPage() {
   const [promoInput, setPromoInput] = useState("");
   const [showCoupons, setShowCoupons] = useState(false);
   const [promoError, setPromoError] = useState("");
+  const hasOutOfStockItems = useMemo(() => cart.some((item) => item.product?.stockStatus === "out_of_stock"), [cart]);
 
   // Fetch coupons & products from backend API
   const { data: couponsData } = useCoupons();
@@ -369,6 +370,13 @@ export default function CartPage() {
                           <span className="text-black text-xs md:text-sm mr-1 font-medium">Category:</span>
                           <span className="text-black/60 text-xs md:text-sm">{book.category}</span>
                         </div>
+                        {book.stockStatus === "out_of_stock" && (
+                          <div className="mt-1">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-800 border border-red-200">
+                              Out of Stock
+                            </span>
+                          </div>
+                        )}
                         <div className="flex items-center flex-wrap justify-between mt-2">
                           {(() => {
                             const effectivePrice = getEffectiveUnitPrice(book, item.quantity);
@@ -565,10 +573,17 @@ export default function CartPage() {
                 </div>
               </div>
 
+              {hasOutOfStockItems && (
+                <div className="bg-red-50 text-red-800 text-xs font-medium p-3.5 rounded-2xl border border-red-200">
+                  ⚠️ Some items in your cart are currently out of stock. Please remove them to proceed with checkout.
+                </div>
+              )}
+
               <button
                 type="button"
+                disabled={hasOutOfStockItems}
                 onClick={() => user ? router.push("/checkout") : router.push("/auth/signin?redirect=/cart")}
-                className="inline-flex items-center justify-center whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-white shadow hover:bg-orange-600 px-4 text-sm md:text-base font-medium bg-orange-500 rounded-full w-full py-4 h-[54px] md:h-[60px] group cursor-pointer"
+                className={`inline-flex items-center justify-center whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-white shadow px-4 text-sm md:text-base font-medium rounded-full w-full py-4 h-[54px] md:h-[60px] group ${hasOutOfStockItems ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-orange-500 hover:bg-orange-600 cursor-pointer"}`}
               >
                 Go to Checkout (₹{finalTotal}){" "}
                 <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 448 512" className="text-xl ml-2 group-hover:translate-x-1 transition-all" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">

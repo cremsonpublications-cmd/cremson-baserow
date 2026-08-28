@@ -12,6 +12,7 @@ import {
   adminReorderProducts,
 } from "../../../lib/api/admin";
 import ConfirmModal from "../components/ConfirmModal";
+import BlogEditor from "../components/BlogEditor";
 import {
   Search,
   Plus,
@@ -338,7 +339,15 @@ function ProductModal({ product, onClose, onSaved }) {
         edition: product.edition || "",
         weight: product.weight || "",
         dimension: product.dimension || "",
-        stock_status: product.stock_status || "In Stock",
+        stock_status: (() => {
+          let val = product.stock_status;
+          if (val && typeof val === "object") val = val.value;
+          if (!val) return "in_stock";
+          const s = String(val).toLowerCase().replace(/\s+/g, "_");
+          if (s.includes("out") || s === "out_of_stock") return "out_of_stock";
+          if (s.includes("backorder") || s === "on_backorders") return "on_backorders";
+          return "in_stock";
+        })(),
         status: product.status || "",
         is_active: product.is_active ?? true,
         main_image: product.main_image || "",
@@ -376,9 +385,9 @@ function ProductModal({ product, onClose, onSaved }) {
         isbn: "",
         sku: "",
         edition: "",
-        weight: "500g",
+        weight: "0.5kg",
         dimension: "25cm x 18cm x 2cm",
-        stock_status: "In Stock",
+        stock_status: "in_stock",
         status: "",
         is_active: true,
         main_image: "",
@@ -619,7 +628,7 @@ function ProductModal({ product, onClose, onSaved }) {
         category_id: form.category_id !== "" ? Number(form.category_id) : null,
         stock_status: form.stock_status,
         status: form.status,
-        weight: form.weight?.trim() || "500g",
+        weight: form.weight?.trim() || "0.5kg",
         dimension: formattedDim,
         short_description: form.short_description,
         description: form.description,
@@ -750,11 +759,11 @@ function ProductModal({ product, onClose, onSaved }) {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
                 <CustomSelect
                   options={[
-                    { value: "In Stock", label: "In Stock" },
-                    { value: "Out of Stock", label: "Out of Stock" },
-                    { value: "On Sale", label: "On Sale" },
-                    { value: "Featured", label: "Featured" },
-                    { value: "On Backorders", label: "On Backorders" },
+                    { value: "in_stock", label: "In Stock" },
+                    { value: "out_of_stock", label: "Out of Stock" },
+                    { value: "on_sale", label: "On Sale" },
+                    { value: "featured", label: "Featured" },
+                    { value: "on_backorders", label: "On Backorders" },
                   ]}
                   value={form.stock_status}
                   onChange={(val) => setForm((f) => ({ ...f, stock_status: val }))}
@@ -967,7 +976,7 @@ function ProductModal({ product, onClose, onSaved }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Weight {!form.is_combo && <span className="text-red-500">*</span>}
+                  Weight (kg) {!form.is_combo && <span className="text-red-500">*</span>}
                 </label>
                 <input
                   type="text"
@@ -975,13 +984,13 @@ function ProductModal({ product, onClose, onSaved }) {
                   value={form.weight}
                   onChange={handleChange}
                   required={!form.is_combo}
-                  placeholder="e.g., 500g, 1.2kg"
+                  placeholder="e.g., 0.5 or 0.5kg"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors disabled:bg-gray-100 disabled:text-gray-400"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Dimensions (L × W × H) {!form.is_combo && <span className="text-red-500">*</span>}
+                  Dimensions (L × W × H) (cm) {!form.is_combo && <span className="text-red-500">*</span>}
                 </label>
                 <div className="grid grid-cols-3 gap-2 items-center">
                   <div className="relative">
@@ -1048,13 +1057,10 @@ function ProductModal({ product, onClose, onSaved }) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Full Description</label>
-                <textarea
-                  name="description"
-                  value={form.description}
-                  onChange={handleChange}
-                  rows={4}
+                <BlogEditor
+                  markdown={form.description}
+                  onChange={(val) => setForm((f) => ({ ...f, description: val }))}
                   placeholder="Detailed product description"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors disabled:bg-gray-100 disabled:text-gray-400"
                 />
               </div>
               <div>
@@ -1410,7 +1416,15 @@ function ComboModal({ product, onClose, onSaved }) {
           description: typeof product?.description === "object" ? (product.description?.value || "") : (product?.description || ""),
           short_description: typeof product?.short_description === "object" ? (product.short_description?.value || "") : (product?.short_description || ""),
           category_id: product?.category_id != null ? (typeof product.category_id === "object" ? String(product.category_id?.id || product.category_id?.value || "") : String(product.category_id)) : "",
-          stock_status: typeof product?.stock_status === "object" ? (product.stock_status?.value || "In Stock") : (product?.stock_status || "In Stock"),
+          stock_status: (() => {
+            let val = product?.stock_status;
+            if (val && typeof val === "object") val = val.value;
+            if (!val) return "in_stock";
+            const s = String(val).toLowerCase().replace(/\s+/g, "_");
+            if (s.includes("out") || s === "out_of_stock") return "out_of_stock";
+            if (s.includes("backorder") || s === "on_backorders") return "on_backorders";
+            return "in_stock";
+          })(),
           status: product?.status || "",
           is_active: product?.is_active ?? true,
           main_image: product?.main_image || "",
@@ -1428,7 +1442,7 @@ function ComboModal({ product, onClose, onSaved }) {
           description: "",
           short_description: "",
           category_id: "",
-          stock_status: "In Stock",
+          stock_status: "in_stock",
           status: "",
           is_active: true,
           main_image: "",
@@ -1875,10 +1889,11 @@ function ComboModal({ product, onClose, onSaved }) {
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
               <CustomSelect
                 options={[
-                  { value: "In Stock", label: "In Stock" },
-                  { value: "Out of Stock", label: "Out of Stock" },
-                  { value: "On Sale", label: "On Sale" },
-                  { value: "Featured", label: "Featured" },
+                  { value: "in_stock", label: "In Stock" },
+                  { value: "out_of_stock", label: "Out of Stock" },
+                  { value: "on_sale", label: "On Sale" },
+                  { value: "featured", label: "Featured" },
+                  { value: "on_backorders", label: "On Backorders" },
                 ]}
                 value={form.stock_status}
                 onChange={(val) => setForm((f) => ({ ...f, stock_status: val }))}

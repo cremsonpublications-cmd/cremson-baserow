@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import api from "../../../../lib/api/axios";
 import { toast } from "sonner";
+import { marked } from "marked";
 
 // Star rating helper component
 function StarRating({ rating, size = 19 }) {
@@ -443,9 +444,19 @@ export default function ProductDetailClient({ initialBook, bookId }) {
 
               {/* Stock Tag */}
               <div className="mb-4">
-                <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-green-100 text-green-800">
-                  In Stock
-                </span>
+                {book.stockStatus === "out_of_stock" ? (
+                  <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-red-100 text-red-800">
+                    Out of Stock
+                  </span>
+                ) : book.stockStatus === "on_backorders" ? (
+                  <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-amber-100 text-amber-800">
+                    On Backorders
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-green-100 text-green-800">
+                    In Stock
+                  </span>
+                )}
               </div>
 
               {/* Bulk Pricing Tier Evaluation */}
@@ -556,48 +567,60 @@ export default function ProductDetailClient({ initialBook, bookId }) {
 
               {/* Dynamic Action Buttons */}
               <div className="flex items-center gap-3 sm:gap-4 mb-6">
-                <button
-                  onClick={handleBuyNow}
-                  type="button"
-                  className="flex-1 rounded-full h-12 md:h-[52px] text-sm sm:text-base font-bold transition-all bg-black text-white hover:bg-gray-800 shadow-md active:scale-95"
-                >
-                  Buy Now
-                </button>
-                {quantityInCart > 0 ? (
-                  <div className="flex items-center justify-between h-12 md:h-[52px] bg-gray-900 text-white font-bold rounded-full px-3 w-[140px] sm:w-[160px] shadow-md transition-all duration-150">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (quantityInCart === 1) {
-                          removeFromCart(book.id);
-                        } else {
-                          updateQuantity(book.id, -1);
-                        }
-                      }}
-                      className="h-8 w-8 sm:h-9 sm:w-9 flex items-center justify-center rounded-full hover:bg-white/20 text-white transition-colors"
-                    >
-                      {quantityInCart === 1 ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-minus"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                      )}
-                    </button>
-                    <span className="text-sm sm:text-base font-bold select-none">{quantityInCart}</span>
-                    <button
-                      type="button"
-                      onClick={() => updateQuantity(book.id, 1)}
-                      className="h-8 w-8 sm:h-9 sm:w-9 flex items-center justify-center rounded-full hover:bg-white/20 text-white transition-colors"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    </button>
-                  </div>
-                ) : (
+                {book.stockStatus === "out_of_stock" ? (
                   <button
-                    onClick={() => addToCart(book)}
-                    className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 sm:px-8 rounded-full h-12 md:h-[52px] text-sm sm:text-base transition-all duration-200 whitespace-nowrap active:scale-95 shadow-md"
+                    disabled
+                    type="button"
+                    className="w-full rounded-full h-12 md:h-[52px] text-sm sm:text-base font-bold bg-gray-200 text-gray-500 border border-gray-300 cursor-not-allowed text-center"
                   >
-                    Add to Cart
+                    Out of Stock
                   </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleBuyNow}
+                      type="button"
+                      className="flex-1 rounded-full h-12 md:h-[52px] text-sm sm:text-base font-bold transition-all bg-black text-white hover:bg-gray-800 shadow-md active:scale-95"
+                    >
+                      Buy Now
+                    </button>
+                    {quantityInCart > 0 ? (
+                      <div className="flex items-center justify-between h-12 md:h-[52px] bg-gray-900 text-white font-bold rounded-full px-3 w-[140px] sm:w-[160px] shadow-md transition-all duration-150">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (quantityInCart === 1) {
+                              removeFromCart(book.id);
+                            } else {
+                              updateQuantity(book.id, -1);
+                            }
+                          }}
+                          className="h-8 w-8 sm:h-9 sm:w-9 flex items-center justify-center rounded-full hover:bg-white/20 text-white transition-colors"
+                        >
+                          {quantityInCart === 1 ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-minus"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                          )}
+                        </button>
+                        <span className="text-sm sm:text-base font-bold select-none">{quantityInCart}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(book.id, 1)}
+                          className="h-8 w-8 sm:h-9 sm:w-9 flex items-center justify-center rounded-full hover:bg-white/20 text-white transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => addToCart(book)}
+                        className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 sm:px-8 rounded-full h-12 md:h-[52px] text-sm sm:text-base transition-all duration-200 whitespace-nowrap active:scale-95 shadow-md"
+                      >
+                        Add to Cart
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -690,6 +713,19 @@ export default function ProductDetailClient({ initialBook, bookId }) {
             </div>
           </div>
         </section>
+
+        {/* Product Description Section */}
+        {book.description && (
+          <section className="mb-11 text-left">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 lg:p-8">
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-6">Product Description</h2>
+              <article
+                className="rich-text max-w-none text-gray-700 leading-relaxed space-y-6 prose prose-slate"
+                dangerouslySetInnerHTML={{ __html: marked.parse(book.description) }}
+              />
+            </div>
+          </section>
+        )}
 
         {/* Bought Together Stateful Section */}
         {!book.isCombo && boughtTogetherCandidates.length > 1 && (

@@ -85,15 +85,24 @@ export default function WishlistDrawer() {
                       </div>
 
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            addToCart(product);
-                            toggleWishlist(product);
-                          }}
-                          className="px-3 py-1.5 bg-orange-500 hover:bg-red-600 text-white text-xs font-bold rounded-full transition-colors active:scale-95 shadow-sm"
-                        >
-                          Move to Cart
-                        </button>
+                        {product.stockStatus === "out_of_stock" ? (
+                          <button
+                            disabled
+                            className="px-3 py-1.5 bg-gray-200 text-gray-400 border border-gray-200 text-xs font-bold rounded-full cursor-not-allowed shadow-sm"
+                          >
+                            Out of Stock
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              addToCart(product);
+                              toggleWishlist(product);
+                            }}
+                            className="px-3 py-1.5 bg-orange-500 hover:bg-red-600 text-white text-xs font-bold rounded-full transition-colors active:scale-95 shadow-sm"
+                          >
+                            Move to Cart
+                          </button>
+                        )}
                         <button
                           onClick={() => toggleWishlist(product)}
                           className="px-3 py-1.5 border border-gray-200 hover:bg-gray-100 text-gray-600 text-xs font-bold rounded-full transition-all active:scale-95"

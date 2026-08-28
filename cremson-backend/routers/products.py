@@ -155,6 +155,22 @@ def map_product_out(row: dict) -> dict:
     except (ValueError, TypeError):
         row["display_order"] = 999999
 
+    # 5. Map status to stock_status for API responses
+    status_val = row.get("status") or ""
+    if status_val == "In Stock":
+        row["stock_status"] = "in_stock"
+    elif status_val == "Out of Stock":
+        row["stock_status"] = "out_of_stock"
+    elif status_val == "On Backorders":
+        row["stock_status"] = "on_backorders"
+    elif status_val == "On Sale":
+        row["stock_status"] = "on_sale"
+    elif status_val == "Featured":
+        row["stock_status"] = "featured"
+    else:
+        # Default fallback or parse string
+        row["stock_status"] = status_val.lower().replace(" ", "_") if status_val else "in_stock"
+
     return row
 
 
@@ -165,7 +181,22 @@ def map_product_in(data: dict, existing_mrp: float = 0.0) -> dict:
 
     # Clean up fields that are not columns in Baserow table
     data.pop("price", None)
-    data.pop("stock_status", None)
+
+    # Map incoming stock_status to status field for Baserow
+    stock_status_val = data.pop("stock_status", None)
+    if stock_status_val:
+        if stock_status_val == "in_stock":
+            data["status"] = "In Stock"
+        elif stock_status_val == "out_of_stock":
+            data["status"] = "Out of Stock"
+        elif stock_status_val == "on_backorders":
+            data["status"] = "On Backorders"
+        elif stock_status_val == "on_sale":
+            data["status"] = "On Sale"
+        elif stock_status_val == "featured":
+            data["status"] = "Featured"
+        else:
+            data["status"] = stock_status_val
     data.pop("delivery_info", None)
     data.pop("returns_info", None)
     data.pop("discount_type", None)
