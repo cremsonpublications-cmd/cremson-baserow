@@ -32,14 +32,20 @@ export default function AdminWhatsAppCampaignDetailPage({ params: paramsPromise 
   const { data: campaign, isLoading: loadingCampaign, refetch: refetchCampaign } = useQuery({
     queryKey: ["whatsapp-campaign-detail", campaignId],
     queryFn: () => getCampaignDetails(campaignId),
-    refetchInterval: 3000, // Poll live campaign progress every 3s
+    refetchInterval: (query) => {
+      const st = (query?.state?.data?.status || "").toLowerCase();
+      return (st === "sending" || st === "queued" || st === "pending") ? 3000 : false;
+    },
   });
 
   // Fetch Campaign Recipients
   const { data: recipientsData, isLoading: loadingRecipients, refetch: refetchRecipients } = useQuery({
     queryKey: ["whatsapp-campaign-recipients", campaignId, recipientPage, statusFilter],
     queryFn: () => getCampaignRecipients(campaignId, recipientPage, 50, statusFilter),
-    refetchInterval: 3000,
+    refetchInterval: () => {
+      const st = (campaign?.status || "").toLowerCase();
+      return (st === "sending" || st === "queued" || st === "pending") ? 3000 : false;
+    },
   });
 
   const recipients = Array.isArray(recipientsData?.recipients) ? recipientsData.recipients : [];

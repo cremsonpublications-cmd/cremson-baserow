@@ -225,7 +225,7 @@ export default function AdminLayout({ children }) {
       mounted = false;
       clearInterval(interval);
     };
-  }, [checked, isLoginPage, pathname]);
+  }, [checked, isLoginPage]);
 
   function handleLogout() {
     localStorage.removeItem("cremson_admin_token");
