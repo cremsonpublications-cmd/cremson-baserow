@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useApp } from "../../context/AppContext";
 import { getMyOrders } from "../../lib/api/orders";
 import api from "../../lib/api/axios";
@@ -139,10 +140,13 @@ function BulkOrderCard({ order, onRefresh }) {
     <div className="bg-white border border-purple-100 rounded-xl shadow-sm overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 bg-gradient-to-r from-purple-50 to-violet-50 border-b border-purple-100 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Building2 className="w-4 h-4 text-purple-600" />
           <span className="text-sm font-bold text-gray-900">{order.school_name || "School"}</span>
           <span className="text-xs text-gray-400">#{order.order_id}</span>
+          <span className="px-2 py-0.5 text-[9px] font-bold bg-purple-100 text-purple-700 rounded border border-purple-200 uppercase tracking-wide">
+            Bulk / School Order
+          </span>
         </div>
         <BulkStatusBadge status={order.status} />
       </div>
@@ -369,7 +373,8 @@ function SpecimenRequestCard({ request }) {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function MyOrdersPage() {
-  const { user } = useApp();
+  const { user, authLoading } = useApp();
+  const router = useRouter();
   const [orders, setOrders] = useState([]);
   const [bulkOrders, setBulkOrders] = useState([]);
   const [specimenRequests, setSpecimenRequests] = useState([]);
@@ -425,6 +430,12 @@ export default function MyOrdersPage() {
     loadBulkOrders();
     loadSpecimenRequests();
   }, [user?.email, user?.phone]);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace("/signin");
+    }
+  }, [authLoading, user, router]);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -548,20 +559,12 @@ export default function MyOrdersPage() {
     return items;
   }, [filteredOrders, specimenRequests, filteredBulkOrders, searchQuery]);
 
-  if (!user) {
+  if (authLoading || !user) {
     return (
       <main className="pb-20 min-h-screen bg-[#f1f3f6] flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-lg border border-gray-200 p-8 text-center shadow-sm">
-          <div className="inline-flex p-3 bg-orange-50 text-orange-500 rounded-full mb-4">
-            <Package className="w-8 h-8" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-gray-600 mb-6 text-sm">Please sign in to your account to view and manage your orders.</p>
-          <Link href="/signin">
-            <button className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2.5 rounded text-sm font-bold transition-all cursor-pointer shadow-sm">
-              Sign In
-            </button>
-          </Link>
+        <div className="text-center text-gray-500 font-medium animate-fade-in">
+          <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto mb-3" />
+          Loading your orders...
         </div>
       </main>
     );
@@ -705,7 +708,7 @@ export default function MyOrdersPage() {
 
                     <div className="md:col-span-2">
                       <span className="px-2 py-1 text-[10px] font-bold bg-red-50 text-red-700 rounded border border-red-100 uppercase tracking-wider block text-center">
-                        Evaluation Copy
+                        Specimen Copy
                       </span>
                     </div>
 
@@ -724,6 +727,7 @@ export default function MyOrdersPage() {
                       ) : (
                         <div className="text-xs text-gray-400 mt-2 ml-4 italic">No tracking info available yet</div>
                       )}
+                    </div>
                   </div>
                 );
               }
