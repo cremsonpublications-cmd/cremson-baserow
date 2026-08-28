@@ -444,6 +444,27 @@ export default function MyOrdersPage() {
     });
   }, [orders, activeTab, searchQuery]);
 
+  const filteredBulkOrders = useMemo(() => {
+    return bulkOrders.filter((bo) => {
+      if (activeTab !== "all") {
+        const status = (bo.status || "").toLowerCase();
+        if (activeTab === "placed") {
+          if (status !== "created" && status !== "pending_approval" && status !== "pending_review" && status !== "approved" && status !== "partially_paid") return false;
+        }
+        if (activeTab === "shipped" && status !== "shipped" && status !== "ready_for_pickup") return false;
+        if (activeTab === "delivered" && status !== "fully_paid" && status !== "completed" && status !== "delivered") return false;
+      }
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchesId = (bo.order_id || "").toLowerCase().includes(query);
+        const matchesSchool = (bo.school_name || "").toLowerCase().includes(query);
+        const matchesItems = (bo.items || []).some((item) => (item.title || "").toLowerCase().includes(query));
+        return matchesId || matchesSchool || matchesItems;
+      }
+      return true;
+    });
+  }, [bulkOrders, activeTab, searchQuery]);
+
   const orderItemsList = useMemo(() => {
     const items = [];
 
@@ -472,12 +493,37 @@ export default function MyOrdersPage() {
       });
     });
 
+    // Bulk Orders
+    filteredBulkOrders.forEach((bo) => {
+      items.push({
+        isBulkOrder: true,
+        orderId: bo.order_id,
+        orderDate: bo.order_date,
+        orderStatus: bo.status,
+        shippingAddress: bo.address,
+        payment_id: bo.token,
+        totalOrderAmount: bo.final_amount,
+        parentOrder: bo,
+        isSpecimen: false,
+        rawDate: bo.order_date,
+        items: bo.items || [],
+      });
+    });
+
     // Pending specimen requests only (approved/dispatched ones become real SPEC- orders)
     specimenRequests.forEach((req) => {
       const books = getDisplayValue(req.BooksRequested) || "Specimen Copies";
       const specId = getDisplayValue(req.SpecimenID) || req.id;
       const rDate = getDisplayValue(req.RequestDate);
       const addr = getDisplayValue(req.Full_Address);
+
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchesId = `SR${specId}`.toLowerCase().includes(query);
+        const matchesBooks = books.toLowerCase().includes(query);
+        if (!matchesId && !matchesBooks) return;
+      }
+
       items.push({
         id: req.id,
         title: books,
@@ -500,7 +546,7 @@ export default function MyOrdersPage() {
     });
 
     return items;
-  }, [filteredOrders, specimenRequests]);
+  }, [filteredOrders, specimenRequests, filteredBulkOrders, searchQuery]);
 
   if (!user) {
     return (
@@ -544,31 +590,7 @@ export default function MyOrdersPage() {
           </Link>
         </div>
 
-        {/* ── Bulk Orders Section ─────────────────────────────── */}
-        {(bulkLoading || bulkOrders.length > 0) && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Building2 className="w-4 h-4 text-purple-600" />
-              <h2 className="text-base font-bold text-gray-900">Bulk / School Orders</h2>
-              {bulkOrders.length > 0 && (
-                <span className="text-[10px] font-bold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">{bulkOrders.length}</span>
-              )}
-            </div>
 
-            {bulkLoading ? (
-              <div className="bg-white border border-purple-100 rounded-xl p-6 flex items-center justify-center gap-2 text-purple-600">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm font-medium">Loading bulk orders…</span>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {bulkOrders.map((bo) => (
-                  <BulkOrderCard key={bo.id} order={bo} onRefresh={loadBulkOrders} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* ── Regular Orders Search ─────────────────── */}
         <div className="bg-white border border-gray-200 rounded p-4 mb-4 shadow-sm flex items-center justify-between gap-4">
@@ -592,7 +614,7 @@ export default function MyOrdersPage() {
         </div>
 
         {/* ── Regular Order Items List ────────────────────────── */}
-        {isLoading ? (
+        {isLoading || bulkLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((n) => (
               <div key={n} className="bg-white border border-gray-200 rounded p-4 sm:p-5 shadow-sm animate-pulse grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
@@ -702,7 +724,14 @@ export default function MyOrdersPage() {
                       ) : (
                         <div className="text-xs text-gray-400 mt-2 ml-4 italic">No tracking info available yet</div>
                       )}
-                    </div>
+                  </div>
+                );
+              }
+
+              if (item.isBulkOrder) {
+                return (
+                  <div key={idx} className="cursor-default">
+                    <BulkOrderCard order={item.parentOrder} onRefresh={loadBulkOrders} />
                   </div>
                 );
               }
