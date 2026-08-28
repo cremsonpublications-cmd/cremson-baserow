@@ -508,7 +508,7 @@ def _map_bulk_to_standard_order(bulk: dict) -> dict:
         
     user_info = {
         "name": bulk.get("contact_name", "Teacher"),
-        "email": "info@cremsonpublications.com",
+        "email": bulk.get("email") or "info@cremsonpublications.com",
         "phone": bulk.get("phone", ""),
         "address": {
             "street": bulk.get("address", ""),

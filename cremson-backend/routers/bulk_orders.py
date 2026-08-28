@@ -143,6 +143,7 @@ def _normalize_bulk_row(row: dict) -> dict:
         try: student_payments = json.loads(student_payments)
         except: student_payments = []
 
+    email = row.get("email") or data.get("email") or ""
     bulk_id = data.get("order_id") or f"CPS{26000 + int(row.get('id', 1))}"
 
     return {
@@ -152,6 +153,7 @@ def _normalize_bulk_row(row: dict) -> dict:
         "contact_name": contact_name,
         "school_name": school_name,
         "phone": phone,
+        "email": email,
         "address": address,
         "city": city,
         "state": state,
@@ -223,11 +225,27 @@ async def create_bulk_order(body: BulkOrderCreate, bg: BackgroundTasks):
     subtotal = round(sum(item.price * item.qty for item in body.items), 2)
     items_list = [i.model_dump() for i in body.items]
 
+    user_email = body.email
+    if not user_email and body.phone:
+        try:
+            p_clean = "".join(filter(str.isdigit, str(body.phone)))
+            if len(p_clean) == 12 and p_clean.startswith("91"):
+                p_clean = p_clean[2:]
+            users_res = await client.get_rows(TABLE_IDS["auth_users"], search=p_clean, size=10)
+            for u in users_res.get("results", []):
+                u_phone = "".join(filter(str.isdigit, str(u.get("phone") or "")))
+                if p_clean in u_phone:
+                    user_email = u.get("email")
+                    break
+        except Exception as exc:
+            logger.error(f"Error looking up user email by phone: {exc}")
+
     obj = {
         "token": token,
         "contact_name": body.contact_name,
         "school_name": body.school_name,
         "phone": body.phone,
+        "email": user_email or "",
         "address": body.address,
         "city": body.city,
         "state": body.state,
@@ -270,7 +288,7 @@ async def create_bulk_order(body: BulkOrderCreate, bg: BackgroundTasks):
                 index_val = int(m.group(1))
                 if index_val > max_index:
                     max_index = index_val
-        obj["order_id"] = f"CPS{date_prefix}{max_index + 1}"
+            obj["order_id"] = f"CPS{date_prefix}{max_index + 1}"
     except Exception as e:
         logger.warning(f"Error generating date-based CPS order_id: {e}")
         from datetime import timedelta, timezone
@@ -286,6 +304,7 @@ async def create_bulk_order(body: BulkOrderCreate, bg: BackgroundTasks):
         "full_name": body.contact_name,
         "school_name": body.school_name,
         "whatsapp_number": body.phone,
+        "email": user_email or "",
         "address_line_1": body.address,
         "town_city": body.city,
         "state_region": body.state,
@@ -557,7 +576,7 @@ async def _auto_ship_bulk_order(row_id: int):
         shipment_data = {
             "customer_name": norm.get("contact_name", "Teacher"),
             "customer_phone": norm.get("phone", ""),
-            "customer_email": "info@cremsonpublications.com",
+            "customer_email": norm.get("email") or "info@cremsonpublications.com",
             "address": norm.get("address", "School Address"),
             "city": norm.get("city", "Chennai"),
             "state": norm.get("state", "Tamil Nadu"),
@@ -708,7 +727,7 @@ async def ship_bulk_order(row_id: int, bg: BackgroundTasks):
     shipment_data = {
         "customer_name": norm.get("contact_name", "Teacher"),
         "customer_phone": norm.get("phone", ""),
-        "customer_email": "info@cremsonpublications.com",
+        "customer_email": norm.get("email") or "info@cremsonpublications.com",
         "address": norm.get("address", "School Address"),
         "city": norm.get("city", "Chennai"),
         "state": norm.get("state", "Tamil Nadu"),
