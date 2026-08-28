@@ -644,6 +644,20 @@ async def process_campaign_queue(campaign_id: int):
             template_name = c_row["template_name"]
             template_language = c_row["template_language"]
 
+            # Check if template has buttons
+            cursor.execute("SELECT buttons_json FROM custom_whatsapp_templates WHERE name = ?", (template_name,))
+            t_row = cursor.fetchone()
+            has_buttons = False
+            if t_row:
+                try:
+                    btns = json.loads(t_row["buttons_json"] or "[]")
+                    if btns and isinstance(btns, list) and len(btns) > 0:
+                        has_buttons = True
+                except Exception:
+                    pass
+            else:
+                has_buttons = True  # Default fallback for predefined templates
+
             # Fetch batch of queued recipients
             cursor.execute(
                 "SELECT * FROM whatsapp_campaign_recipients WHERE campaign_id = ? AND status IN ('queued', 'pending') LIMIT ?",
@@ -669,7 +683,7 @@ async def process_campaign_queue(campaign_id: int):
                 components = [{"type": "body", "parameters": vars_list}]
 
                 # Check if template has dynamic URL button parameter (e.g. review/reorder URL)
-                if len(vars_list) > 1 and "http" in str(vars_list[-1].get("text", "")):
+                if has_buttons and len(vars_list) > 1 and "http" in str(vars_list[-1].get("text", "")):
                     url_val = str(vars_list[-1].get("text", ""))
                     components.append({
                         "type": "button",
