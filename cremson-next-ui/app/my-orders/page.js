@@ -744,137 +744,94 @@ export default function MyOrdersPage() {
                 let statusColor = "bg-amber-500";
                 let statusText = "Ordered";
                 let statusDesc = "Your order has been placed.";
-                if (item.orderStatus === "Shipped") { statusColor = "bg-blue-500"; statusText = "Shipped"; statusDesc = "Your item is in transit."; }
-                else if (item.orderStatus === "Delivered") { statusColor = "bg-green-500"; statusText = "Delivered"; statusDesc = "Your item has been delivered."; }
+                if (item.orderStatus === "Shipped") {
+                  statusColor = "bg-blue-500";
+                  statusText = "Shipped";
+                  statusDesc = "Your item is in transit.";
+                } else if (item.orderStatus === "Delivered") {
+                  statusColor = "bg-green-500";
+                  statusText = "Delivered";
+                  statusDesc = "Your item has been delivered.";
+                }
 
                 const totalQty = item.items.reduce((acc, curr) => acc + (curr.quantity || 1), 0);
 
                 return (
                   <div
                     key={idx}
-                    onClick={() => setSelectedOrder(item.parentOrder)}
-                    className="bg-white border border-gray-200 rounded p-4 sm:p-5 hover:shadow-md transition-all duration-200 cursor-pointer grid grid-cols-1 md:grid-cols-12 gap-4 items-center"
+                    className="bg-white border border-blue-100 rounded-xl shadow-sm overflow-hidden"
                   >
-                    <div className="md:col-span-6 flex items-start gap-4">
-                      {item.items.length === 1 ? (
-                        item.items[0].image ? (
-                          <img src={item.items[0].image} alt={item.items[0].title} className="w-16 h-16 object-contain bg-gray-50 border border-gray-100 rounded p-1 shrink-0" />
-                        ) : (
-                          <div className="w-16 h-16 bg-gray-50 border border-gray-100 rounded flex items-center justify-center text-gray-400 shrink-0">
-                            <BookOpen className="w-6 h-6" />
-                          </div>
-                        )
-                      ) : (
-                        <div className="relative shrink-0">
-                          {item.items[0].image ? (
-                            <img src={item.items[0].image} alt={item.items[0].title} className="w-16 h-16 object-contain bg-white border border-gray-200 rounded p-1 shadow-sm" />
-                          ) : (
-                            <div className="w-16 h-16 bg-gray-50 border border-gray-200 rounded flex items-center justify-center text-gray-400 shadow-sm">
-                              <BookOpen className="w-6 h-6" />
-                            </div>
-                          )}
-                          <div className="absolute -bottom-2 -right-2 w-7 h-7 bg-blue-100 border border-blue-200 rounded-full flex items-center justify-center text-blue-700 text-[10px] font-bold shadow-sm">
-                            +{item.items.length - 1}
-                          </div>
-                        </div>
-                      )}
-                      <div>
-                        <h4 className="font-semibold text-gray-900 text-sm hover:text-blue-600 transition-colors line-clamp-2">
-                          {item.items.length === 1 
-                            ? item.items[0].title 
-                            : `${item.items.length} Books: ${item.items.map(i => i.title || i.name).join(", ")}`
-                          }
-                        </h4>
-                        <p className="text-xs text-gray-400 mt-1">
-                          Qty: {totalQty} | Order #{item.orderId}
-                        </p>
-                        <p className="text-xs text-gray-400">Ordered on: {item.orderDate}</p>
-                      </div>
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <p className="font-bold text-gray-900 text-sm">₹{parseFloat(item.totalOrderAmount || 0).toFixed(2)}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {item.items.length === 1 ? "1 book" : `${item.items.length} books`}
-                      </p>
-                    </div>
-
-                    <div className="md:col-span-4 flex flex-col md:items-start text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2.5 h-2.5 rounded-full ${statusColor}`} />
-                        <span className="font-bold text-gray-900">
-                          {statusText === "Delivered" ? `Delivered on ${item.expectedDelivery}` : statusText}
+                    {/* Header */}
+                    <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Package className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm font-bold text-gray-950">Book Order</span>
+                        <span className="text-xs text-gray-400">#{item.orderId}</span>
+                        <span className="px-2 py-0.5 text-[9px] font-bold bg-blue-100 text-blue-700 rounded border border-blue-200 uppercase tracking-wide">
+                          Regular Order
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1 ml-4 leading-relaxed">{statusDesc}</p>
-                      {item.trackingUrl ? (
-                        <a href={item.trackingUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
-                          className="text-blue-600 hover:text-blue-800 text-xs font-bold mt-2 ml-4 flex items-center gap-0.5 cursor-pointer">
-                          <Truck className="w-3.5 h-3.5" /> Track Shipment
-                        </a>
-                      ) : (
-                        <button className="text-blue-600 hover:text-blue-800 text-xs font-bold mt-2 ml-4 flex items-center gap-0.5 cursor-pointer">
-                          <Eye className="w-3.5 h-3.5" /> View Details
-                        </button>
+                      <span className={`px-2 py-0.5 text-[10px] font-bold text-white rounded-full ${statusColor}`}>
+                        {statusText}
+                      </span>
+                    </div>
+
+                    {/* Body */}
+                    <div className="p-4 space-y-3">
+                      {/* Books */}
+                      <div className="space-y-1.5">
+                        {item.items.map((book, bIdx) => (
+                          <div key={bIdx} className="flex items-center justify-between text-xs text-gray-600">
+                            <span className="font-medium line-clamp-1 flex-1 pr-2">{book.title || book.name}</span>
+                            <span className="text-gray-400 whitespace-nowrap">x{book.quantity || 1} — ₹{((book.price || 0) * (book.quantity || 1)).toFixed(0)}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Financials */}
+                      <div className="flex items-center justify-between text-xs border-t border-gray-100 pt-2">
+                        <span className="text-gray-500">
+                          Total Qty: <span className="font-semibold text-gray-700">{totalQty} {totalQty === 1 ? "book" : "books"}</span>
+                        </span>
+                        <span className="font-bold text-blue-700 text-sm">₹{parseFloat(item.totalOrderAmount || 0).toFixed(0)}</span>
+                      </div>
+
+                      {item.shippingAddress && (
+                        <div className="text-xs text-gray-500 leading-relaxed bg-gray-50 p-2.5 rounded border border-gray-100 mt-2">
+                          <span className="font-bold block text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">Shipping Address</span>
+                          {item.shippingAddress}
+                        </div>
                       )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+                      <span>Ordered on: {item.orderDate}</span>
+                      <div className="flex items-center gap-2">
+                        {item.trackingUrl ? (
+                          <a
+                            href={item.trackingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 bg-white hover:bg-gray-50 border border-gray-200 text-blue-600 px-3 py-1.5 rounded font-bold transition-all shadow-sm cursor-pointer"
+                          >
+                            <Truck className="w-3.5 h-3.5" /> Track Shipment
+                          </a>
+                        ) : (
+                          <button
+                            onClick={() => setSelectedOrder(item.parentOrder)}
+                            className="inline-flex items-center gap-1 bg-white hover:bg-gray-50 border border-gray-200 text-blue-600 px-3 py-1.5 rounded font-bold transition-all shadow-sm cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> View Details
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
               }
 
-              let statusColor = "bg-amber-500";
-              let statusText = "Ordered";
-              let statusDesc = "Your order has been placed.";
-              if (item.orderStatus === "Shipped") { statusColor = "bg-blue-500"; statusText = "Shipped"; statusDesc = "Your item is in transit."; }
-              else if (item.orderStatus === "Delivered") { statusColor = "bg-green-500"; statusText = "Delivered"; statusDesc = "Your item has been delivered."; }
-
-              return (
-                <div
-                  key={idx}
-                  onClick={() => setSelectedOrder(item.parentOrder)}
-                  className="bg-white border border-gray-200 rounded p-4 sm:p-5 hover:shadow-md transition-all duration-200 cursor-pointer grid grid-cols-1 md:grid-cols-12 gap-4 items-center"
-                >
-                  <div className="md:col-span-6 flex items-start gap-4">
-                    {item.image ? (
-                      <img src={item.image} alt={item.title} className="w-16 h-16 object-contain bg-gray-50 border border-gray-100 rounded p-1" />
-                    ) : (
-                      <div className="w-16 h-16 bg-gray-50 border border-gray-100 rounded flex items-center justify-center text-gray-400">
-                        <BookOpen className="w-6 h-6" />
-                      </div>
-                    )}
-                    <div>
-                      <h4 className="font-semibold text-gray-900 text-sm hover:text-blue-650 transition-colors line-clamp-2">{item.title}</h4>
-                      <p className="text-xs text-gray-400 mt-1">Qty: {item.quantity} | Order #{item.orderId}</p>
-                      <p className="text-xs text-gray-400">Ordered on: {item.orderDate}</p>
-                    </div>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <p className="font-bold text-gray-900 text-sm">₹{parseFloat(item.price * item.quantity).toFixed(2)}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">(₹{parseFloat(item.price).toFixed(2)} each)</p>
-                  </div>
-
-                  <div className="md:col-span-4 flex flex-col md:items-start text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2.5 h-2.5 rounded-full ${statusColor}`} />
-                      <span className="font-bold text-gray-900">
-                        {statusText === "Delivered" ? `Delivered on ${item.expectedDelivery}` : statusText}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1 ml-4 leading-relaxed">{statusDesc}</p>
-                    {item.trackingUrl ? (
-                      <a href={item.trackingUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
-                        className="text-blue-600 hover:text-blue-800 text-xs font-bold mt-2 ml-4 flex items-center gap-0.5 cursor-pointer">
-                        <Truck className="w-3.5 h-3.5" /> Track Shipment
-                      </a>
-                    ) : (
-                      <button className="text-blue-600 hover:text-blue-800 text-xs font-bold mt-2 ml-4 flex items-center gap-0.5 cursor-pointer">
-                        <Eye className="w-3.5 h-3.5" /> View Details
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
+              return null;
             })}
           </div>
         )}
