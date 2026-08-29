@@ -139,11 +139,30 @@ export default function ForgotPasswordPage() {
   }
 
   function handleOtpChange(i, val) {
-    if (!/^\d?$/.test(val)) return;
+    const digits = val.replace(/\D/g, "");
+    if (!digits) {
+      const next = [...otp];
+      next[i] = "";
+      setOtp(next);
+      return;
+    }
+
+    if (digits.length === 1) {
+      const next = [...otp];
+      next[i] = digits;
+      setOtp(next);
+      if (i < 5) inputs.current[i + 1]?.focus();
+      return;
+    }
+
     const next = [...otp];
-    next[i] = val;
+    for (let idx = 0; idx < 6 - i; idx++) {
+      if (digits[idx]) {
+        next[i + idx] = digits[idx];
+      }
+    }
     setOtp(next);
-    if (val && i < 5) inputs.current[i + 1]?.focus();
+    inputs.current[Math.min(i + digits.length - 1, 5)]?.focus();
   }
 
   function handleKeyDown(i, e) {
@@ -225,7 +244,7 @@ export default function ForgotPasswordPage() {
                         ref={(el) => (inputs.current[i] = el)}
                         type="text"
                         inputMode="numeric"
-                        maxLength={1}
+                        maxLength={6}
                         value={digit}
                         onChange={(e) => handleOtpChange(i, e.target.value)}
                         onKeyDown={(e) => handleKeyDown(i, e)}
@@ -289,15 +308,34 @@ export default function ForgotPasswordPage() {
                                 ref={(el) => (phoneInputs.current[idx] = el)}
                                 type="text"
                                 inputMode="numeric"
-                                maxLength={1}
+                                maxLength={6}
                                 value={digit}
                                 onChange={(e) => {
                                   const val = e.target.value;
-                                  if (!/^\d?$/.test(val)) return;
+                                  const digits = val.replace(/\D/g, "");
+                                  if (!digits) {
+                                    const next = [...phoneOtp];
+                                    next[idx] = "";
+                                    setPhoneOtp(next);
+                                    return;
+                                  }
+
+                                  if (digits.length === 1) {
+                                    const next = [...phoneOtp];
+                                    next[idx] = digits;
+                                    setPhoneOtp(next);
+                                    if (idx < 5) phoneInputs.current[idx + 1]?.focus();
+                                    return;
+                                  }
+
                                   const next = [...phoneOtp];
-                                  next[idx] = val;
+                                  for (let i = 0; i < 6 - idx; i++) {
+                                    if (digits[i]) {
+                                      next[idx + i] = digits[i];
+                                    }
+                                  }
                                   setPhoneOtp(next);
-                                  if (val && idx < 5) phoneInputs.current[idx + 1]?.focus();
+                                  phoneInputs.current[Math.min(idx + digits.length - 1, 5)]?.focus();
                                 }}
                                 onKeyDown={(e) => {
                                   if (e.key === "Backspace" && !phoneOtp[idx] && idx > 0) phoneInputs.current[idx - 1]?.focus();
