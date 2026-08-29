@@ -49,6 +49,13 @@ def _clean_url_param(url: str, base: str = "https://cremsonpublications.com/") -
     if not url:
         return ""
     url = str(url).strip()
+    # Safety: replace localhost URL with production domain to prevent sending broken local links
+    if "localhost:3000" in url or "127.0.0.1:3000" in url:
+        url = url.replace("http://localhost:3000", "https://cremsonpublications.com")
+        url = url.replace("http://127.0.0.1:3000", "https://cremsonpublications.com")
+        url = url.replace("https://localhost:3000", "https://cremsonpublications.com")
+        url = url.replace("https://127.0.0.1:3000", "https://cremsonpublications.com")
+
     if url.startswith(base):
         return url[len(base):]
     # Handle shipway base
@@ -206,6 +213,12 @@ def _txt(value: str) -> dict:
     val = str(value).strip() if value is not None else ""
     if not val:
         val = "-"
+    # Safety: replace localhost URL with production domain to prevent sending broken local links
+    if "localhost:3000" in val or "127.0.0.1:3000" in val:
+        val = val.replace("http://localhost:3000", "https://cremsonpublications.com")
+        val = val.replace("http://127.0.0.1:3000", "https://cremsonpublications.com")
+        val = val.replace("https://localhost:3000", "https://cremsonpublications.com")
+        val = val.replace("https://127.0.0.1:3000", "https://cremsonpublications.com")
     return {"type": "text", "text": val}
 
 
