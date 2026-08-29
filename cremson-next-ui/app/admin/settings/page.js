@@ -32,9 +32,6 @@ export default function AdminSettings() {
   const [shippingCharge, setShippingCharge] = useState("50");
   const [freeThreshold, setFreeThreshold] = useState("500");
 
-  // State for Teacher Limit
-  const [teacherLimit, setTeacherLimit] = useState("10");
-  const [teacherLimitRowId, setTeacherLimitRowId] = useState(null);
 
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
@@ -50,7 +47,7 @@ export default function AdminSettings() {
   });
 
   const settingsList = shippingData?.results ?? shippingData?.items ?? [];
-  const primarySetting = settingsList.find(s => s.Name !== "teacher_signup_limit") || settingsList[0];
+  const primarySetting = settingsList[0];
 
   useEffect(() => {
     if (primarySetting) {
@@ -59,12 +56,7 @@ export default function AdminSettings() {
       const activeState = primarySetting.shipping_enabled ?? primarySetting.Active ?? true;
       setShippingEnabled(activeState);
     }
-    const limitSetting = settingsList.find(s => s.Name === "teacher_signup_limit");
-    if (limitSetting) {
-      setTeacherLimit(String(limitSetting.Notes || "10"));
-      setTeacherLimitRowId(limitSetting.id);
-    }
-  }, [primarySetting, settingsList]);
+  }, [primarySetting]);
 
   async function handleSave(e) {
     e.preventDefault();
@@ -81,20 +73,6 @@ export default function AdminSettings() {
           shipping_enabled: shippingEnabled,
           Active: shippingEnabled,
           Notes: primarySetting.Notes || "Global default shipping rule",
-        });
-      }
-
-      if (teacherLimitRowId) {
-        await adminUpdateShippingSetting(teacherLimitRowId, {
-          Name: "teacher_signup_limit",
-          Notes: String(teacherLimit),
-          Active: true
-        });
-      } else {
-        await api.post("/api/shipping-settings/", {
-          Name: "teacher_signup_limit",
-          Notes: String(teacherLimit),
-          Active: true
         });
       }
 
@@ -117,12 +95,6 @@ export default function AdminSettings() {
       setShippingCharge("50");
       setFreeThreshold("500");
       setShippingEnabled(true);
-    }
-    const limitSetting = settingsList.find(s => s.Name === "teacher_signup_limit");
-    if (limitSetting) {
-      setTeacherLimit(String(limitSetting.Notes || "10"));
-    } else {
-      setTeacherLimit("10");
     }
     setSuccessMsg("");
     setErrorMsg("");
@@ -286,24 +258,7 @@ export default function AdminSettings() {
                       </div>
                     </div>
 
-                    {/* Teacher Signup Settings */}
-                    <div className="border-t border-gray-200 pt-6 mt-6">
-                      <h3 className="text-lg font-medium text-gray-900 mb-4">Teacher Registration Settings</h3>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Teacher Signup Limit</label>
-                        <input
-                          type="number"
-                          placeholder="Enter teacher signup limit"
-                          min="0"
-                          value={teacherLimit}
-                          onChange={(e) => setTeacherLimit(e.target.value)}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors text-sm text-gray-900 animate-none"
-                        />
-                        <p className="text-xs text-gray-500 mt-1.5">
-                          Configure the maximum number of verified teacher accounts allowed. When this limit is met, further signups will be blocked and redirected to contact administration.
-                        </p>
-                      </div>
-                    </div>
+
                   </div>
 
                   {/* Actions */}
