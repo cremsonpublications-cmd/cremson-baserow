@@ -57,6 +57,10 @@ export default function WhatsAppChatWidget() {
   const router = useRouter();
   const { user } = useApp();
 
+  if (!pathname || pathname.startsWith("/auth") || pathname.startsWith("/admin")) {
+    return null;
+  }
+
   const [isOpen, setIsOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
