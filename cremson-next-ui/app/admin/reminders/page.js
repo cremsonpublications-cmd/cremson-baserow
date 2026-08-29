@@ -234,7 +234,6 @@ export default function AdminRemindersPage() {
         <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
           {[
             { id: "all", label: `All (${reminders.length})` },
-            { id: "reorder", label: `60-Day Reorder Reminders (${reorderOrders.length})` },
             { id: "overdue", label: `Overdue (${overdueReminders.length})` },
             { id: "today", label: `Due Today (${todayReminders.length + overdueReminders.length})` },
             { id: "pending", label: `Pending (${pendingReminders.length})` },
