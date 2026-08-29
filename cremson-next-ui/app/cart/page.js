@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp } from "../../context/AppContext";
 import { getEffectiveUnitPrice, getItemTotalPrice } from "../../lib/utils/pricing";
 import { useCoupons, useProducts } from "../../lib/api/hooks";
 import { ChevronDown, ChevronUp, Minus, Plus, Tag, Check, AlertCircle } from "lucide-react";
+import api from "../../lib/api/axios";
 
 function CartSkeleton() {
   return (
@@ -56,6 +57,14 @@ export default function CartPage() {
   const [showCoupons, setShowCoupons] = useState(false);
   const [promoError, setPromoError] = useState("");
   const hasOutOfStockItems = useMemo(() => cart.some((item) => item.product?.stockStatus === "out_of_stock"), [cart]);
+
+  // Fetch shipping config from API — no hardcoded values
+  const [shippingConfig, setShippingConfig] = useState(null);
+  useEffect(() => {
+    api.get("/api/shipping-settings/active")
+      .then(({ data }) => setShippingConfig(data))
+      .catch(() => setShippingConfig({ shipping_charge: 0, free_delivery_threshold: 0 }));
+  }, []);
 
   // Fetch coupons & products from backend API
   const { data: couponsData } = useCoupons();
@@ -132,8 +141,12 @@ export default function CartPage() {
 
   const rawDeliveryCharges = useMemo(() => {
     if (subtotal === 0) return 0;
-    return subtotal >= 500 ? 0 : 50;
-  }, [subtotal]);
+    if (!shippingConfig) return 0; // not loaded yet
+    const charge = shippingConfig.shipping_charge ?? 0;
+    const threshold = shippingConfig.free_delivery_threshold ?? 0;
+    if (threshold > 0 && subtotal >= threshold) return 0;
+    return charge;
+  }, [subtotal, shippingConfig]);
 
   const deliveryCharges = useMemo(() => {
     if (!appliedCoupon) return rawDeliveryCharges;
@@ -444,14 +457,14 @@ export default function CartPage() {
                     {deliveryCharges === 0 ? <span className="text-green-600">FREE</span> : `₹${deliveryCharges}`}
                   </span>
                 </div>
-                {subtotal < 500 && (
+                {shippingConfig && subtotal > 0 && subtotal < (shippingConfig.free_delivery_threshold ?? 0) && (
                   <div className="text-xs text-gray-600 bg-orange-50 p-2.5 rounded border border-orange-100">
-                    💡 Add <b>₹{500 - subtotal}</b> more to get <b>FREE delivery</b>!
+                    💡 Add <b>₹{(shippingConfig.free_delivery_threshold ?? 0) - subtotal}</b> more to get <b>FREE delivery</b>!
                   </div>
                 )}
-                {subtotal >= 500 && (
+                {shippingConfig && subtotal > 0 && subtotal >= (shippingConfig.free_delivery_threshold ?? 0) && (
                   <div className="text-xs text-green-700 bg-green-50 p-2.5 rounded border border-green-100">
-                    🚚 Free delivery applied (order above ₹500)
+                    🚚 Free delivery applied (order above ₹{shippingConfig.free_delivery_threshold ?? 0})
                   </div>
                 )}
                 {promoDiscount > 0 && (
