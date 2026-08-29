@@ -1336,6 +1336,12 @@ async def refund_order(order_id: str, body: RefundOrderRequest):
     except Exception:
         delivery_data = {}
 
+    payment_raw = order.get("payment") or "{}"
+    try:
+        payment_data = json.loads(payment_raw) if isinstance(payment_raw, str) else (payment_raw or {})
+    except Exception:
+        payment_data = {}
+
     user_info_raw = order.get("user_info") or "{}"
     try:
         user_info = json.loads(user_info_raw) if isinstance(user_info_raw, str) else (user_info_raw or {})
@@ -1350,6 +1356,9 @@ async def refund_order(order_id: str, body: RefundOrderRequest):
 
     payment_id = (
         order.get("razorpay_payment_id")
+        or payment_data.get("transactionId")
+        or payment_data.get("payment_id")
+        or payment_data.get("razorpay_payment_id")
         or delivery_data.get("transactionId")
         or delivery_data.get("payment_id")
         or user_info.get("payment_id")
@@ -1359,6 +1368,7 @@ async def refund_order(order_id: str, body: RefundOrderRequest):
     total_amount = float(
         order_summary.get("grandTotal")
         or order.get("total_amount")
+        or payment_data.get("amount")
         or delivery_data.get("amount")
         or 0.0
     )
