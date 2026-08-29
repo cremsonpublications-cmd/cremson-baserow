@@ -57,7 +57,15 @@ export default function WhatsAppChatWidget() {
   const router = useRouter();
   const { user } = useApp();
 
-  if (!pathname || pathname.startsWith("/auth") || pathname.startsWith("/admin")) {
+  if (
+    !pathname ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/cart") ||
+    pathname.startsWith("/checkout") ||
+    pathname.startsWith("/my-orders") ||
+    pathname.startsWith("/bulk-order")
+  ) {
     return null;
   }
 
