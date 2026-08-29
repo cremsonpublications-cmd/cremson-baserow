@@ -12,8 +12,8 @@ class ShippingSettingUpdate(BaseModel):
     name: Optional[str] = None
     value: Optional[Any] = None
     description: Optional[str] = None
-    shipping_charge: Optional[str] = None
-    free_delivery_threshold: Optional[str] = None
+    shipping_charge: Optional[Any] = None
+    free_delivery_threshold: Optional[Any] = None
     shipping_enabled: Optional[bool] = None
     Name: Optional[str] = None
     Notes: Optional[str] = None
