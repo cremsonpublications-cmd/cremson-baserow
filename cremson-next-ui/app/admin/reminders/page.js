@@ -21,7 +21,7 @@ import { toast } from "sonner";
 
 export default function AdminRemindersPage() {
   const queryClient = useQueryClient();
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState("today");
   const [search, setSearch] = useState("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -79,7 +79,7 @@ export default function AdminRemindersPage() {
   const filteredList = reminders.filter((r) => {
     // Tab filter
     if (activeFilter === "overdue" && (!r.is_overdue || r.status === "completed")) return false;
-    if (activeFilter === "today" && (!r.is_today || r.status === "completed")) return false;
+    if (activeFilter === "today" && (!r.is_today && !r.is_overdue || r.status === "completed")) return false;
     if (activeFilter === "pending" && r.status !== "pending") return false;
     if (activeFilter === "completed" && r.status !== "completed") return false;
 
@@ -192,7 +192,7 @@ export default function AdminRemindersPage() {
         >
           <div>
             <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Due Today</span>
-            <div className="text-3xl font-extrabold text-amber-700 mt-1">{todayReminders.length}</div>
+            <div className="text-3xl font-extrabold text-amber-700 mt-1">{todayReminders.length + overdueReminders.length}</div>
             <p className="text-xs text-amber-500 mt-1">Action needed today</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600">
@@ -236,7 +236,7 @@ export default function AdminRemindersPage() {
             { id: "all", label: `All (${reminders.length})` },
             { id: "reorder", label: `60-Day Reorder Reminders (${reorderOrders.length})` },
             { id: "overdue", label: `Overdue (${overdueReminders.length})` },
-            { id: "today", label: `Due Today (${todayReminders.length})` },
+            { id: "today", label: `Due Today (${todayReminders.length + overdueReminders.length})` },
             { id: "pending", label: `Pending (${pendingReminders.length})` },
             { id: "completed", label: `Completed (${completedReminders.length})` },
           ].map((tab) => (
