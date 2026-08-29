@@ -3,7 +3,7 @@ import os
 
 load_dotenv()
 
-BASEROW_URL = os.getenv("BASEROW_URL", "http://187.53.129.159")
+BASEROW_URL = os.getenv("BASEROW_URL", "https://baserow.cremsonpublications.com")
 BASEROW_TOKEN = os.getenv("BASEROW_TOKEN", "HkWj6pCpBqAxEeFqyGDDQOqr92m3iauI")
 SITE_URL = os.getenv("SITE_URL", "https://cremsonpublications.com")
 WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "")

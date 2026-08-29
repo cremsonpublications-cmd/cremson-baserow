@@ -45,10 +45,10 @@ import {
 } from "../../../lib/api/admin";
 
 const TABS = [
-  { id: "schools", label: "Schools", singularLabel: "School", icon: Building2, endpoint: "/api/crm/schools", baserowUrl: "http://187.53.129.159/database/279/table/876/3619" },
-  { id: "teachers", label: "Teachers", singularLabel: "Teacher", icon: GraduationCap, endpoint: "/api/crm/teachers", baserowUrl: "http://187.53.129.159/database/279/table/877/3620" },
-  { id: "books", label: "CRM Books Catalog", singularLabel: "CRM Book", icon: BookOpen, endpoint: "/api/crm/books", baserowUrl: "http://187.53.129.159/database/279/table/879/3628" },
-  { id: "subjects", label: "Subjects", singularLabel: "Subject", icon: BookMarked, endpoint: "/api/crm/subjects", baserowUrl: "http://187.53.129.159/database/279/table/880/3629" },
+  { id: "schools", label: "Schools", singularLabel: "School", icon: Building2, endpoint: "/api/crm/schools", baserowUrl: "https://baserow.cremsonpublications.com/database/279/table/876/3619" },
+  { id: "teachers", label: "Teachers", singularLabel: "Teacher", icon: GraduationCap, endpoint: "/api/crm/teachers", baserowUrl: "https://baserow.cremsonpublications.com/database/279/table/877/3620" },
+  { id: "books", label: "CRM Books Catalog", singularLabel: "CRM Book", icon: BookOpen, endpoint: "/api/crm/books", baserowUrl: "https://baserow.cremsonpublications.com/database/279/table/879/3628" },
+  { id: "subjects", label: "Subjects", singularLabel: "Subject", icon: BookMarked, endpoint: "/api/crm/subjects", baserowUrl: "https://baserow.cremsonpublications.com/database/279/table/880/3629" },
 ];
 
 const FIELDS_CONFIG = {
