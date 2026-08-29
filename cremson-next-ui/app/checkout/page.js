@@ -50,12 +50,12 @@ export default function CheckoutPage() {
   const [verifyingPayment, setVerifyingPayment] = useState(false);
   const [verifyingStep, setVerifyingStep] = useState("Verifying payment security...");
 
-  // Shipping config from API
-  const [shippingConfig, setShippingConfig] = useState({ shipping_charge: 50, free_delivery_threshold: 500 });
+  // Shipping config from API — no hardcoded fallbacks, values come from admin settings
+  const [shippingConfig, setShippingConfig] = useState(null);
   useEffect(() => {
     api.get("/api/shipping-settings/active")
       .then(({ data }) => setShippingConfig(data))
-      .catch(() => {}); // fallback to defaults on error
+      .catch(() => setShippingConfig({ shipping_charge: 0, free_delivery_threshold: 0 }));
   }, []);
 
   // Saved Addresses State
@@ -223,8 +223,11 @@ export default function CheckoutPage() {
 
   const rawDeliveryCharges = useMemo(() => {
     if (subtotal === 0) return 0;
-    const { shipping_charge, free_delivery_threshold } = shippingConfig;
-    return subtotal >= free_delivery_threshold ? 0 : shipping_charge;
+    if (!shippingConfig) return 0; // not loaded yet
+    const charge = shippingConfig.shipping_charge ?? 0;
+    const threshold = shippingConfig.free_delivery_threshold ?? 0;
+    if (threshold > 0 && subtotal >= threshold) return 0;
+    return charge;
   }, [subtotal, shippingConfig]);
 
   const deliveryCharges = useMemo(() => {
