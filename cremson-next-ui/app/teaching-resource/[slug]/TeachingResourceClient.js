@@ -202,7 +202,7 @@ export default function TeachingResourceDetailPage() {
                 <h3 className="font-semibold text-sm text-gray-900 md:mb-5 mb-2 uppercase tracking-wider">Quick Links</h3>
                 <ul className="text-sm space-y-2">
                   <li><a href="/" className="hover:text-primary transition">Home</a></li>
-                  <li><a href="/shop" className="hover:text-primary transition">Shop</a></li>
+                  <li><a href="/shop" className="hover:text-primary transition">Buy Books</a></li>
                   <li><a href="/about-us" className="hover:text-primary transition">About Us</a></li>
                   <li><a href="/contact-us" className="hover:text-primary transition">Contact Us</a></li>
                 </ul>

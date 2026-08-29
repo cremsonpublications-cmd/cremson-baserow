@@ -111,7 +111,7 @@ export default function Header() {
 
   const navLinks = [
     { name: "Home", href: "/" },
-    { name: "Shop", href: "/shop" },
+    { name: "Buy Books", href: "/shop" },
     { name: "Specimen", href: "/specimen" },
     { name: "Contact Us", href: "/contact-us" }
   ];

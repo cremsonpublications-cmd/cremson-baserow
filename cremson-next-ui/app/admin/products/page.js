@@ -313,6 +313,8 @@ function MultiSelectCustomSelect({ options, value = [], onChange, placeholder = 
 
 function ProductModal({ product, onClose, onSaved }) {
   const isEdit = !!product;
+  const [isDraggingMain, setIsDraggingMain] = useState(false);
+  const [isDraggingSide, setIsDraggingSide] = useState(false);
 
   let initialComboProducts = [];
   const rawCombo = product?.combo_product_ids || product?.combo_products;
@@ -785,7 +787,41 @@ function ProductModal({ product, onClose, onSaved }) {
                         toast.error("Main image already uploaded. Remove the existing main image first.");
                       }
                     }}
-                    className="w-full px-4 py-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors bg-white flex flex-col items-center justify-center cursor-pointer"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (!form.main_image) setIsDraggingMain(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      setIsDraggingMain(false);
+                    }}
+                    onDrop={async (e) => {
+                      e.preventDefault();
+                      setIsDraggingMain(false);
+                      if (form.main_image) {
+                        toast.error("Main image already uploaded. Remove the existing main image first.");
+                        return;
+                      }
+                      const file = e.dataTransfer.files?.[0];
+                      if (!file) return;
+                      if (!file.type.startsWith("image/")) {
+                        toast.error("Please upload an image file.");
+                        return;
+                      }
+                      setUploadingMain(true);
+                      try {
+                        const url = await uploadToCloudinary(file);
+                        setForm((f) => ({ ...f, main_image: url }));
+                        toast.success("Main image uploaded successfully.");
+                      } catch (err) {
+                        toast.error("Failed to upload main image");
+                      } finally {
+                        setUploadingMain(false);
+                      }
+                    }}
+                    className={`w-full px-4 py-8 border-2 border-dashed rounded-lg transition-colors bg-white flex flex-col items-center justify-center cursor-pointer ${
+                      isDraggingMain ? "border-purple-500 bg-purple-50/20" : "border-gray-300 hover:border-gray-400"
+                    }`}
                   >
                     <Upload className="w-8 h-8 mb-2 text-gray-400" aria-hidden="true" />
                     <span className="text-sm font-medium text-gray-600">
@@ -842,7 +878,44 @@ function ProductModal({ product, onClose, onSaved }) {
                         toast.error("Maximum 3 side images allowed. Remove an existing image before uploading more.");
                       }
                     }}
-                    className="w-full px-4 py-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors bg-white flex flex-col items-center justify-center cursor-pointer"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if ((form.side_images?.length || 0) < 3) setIsDraggingSide(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      setIsDraggingSide(false);
+                    }}
+                    onDrop={async (e) => {
+                      e.preventDefault();
+                      setIsDraggingSide(false);
+                      const currentCount = form.side_images?.length || 0;
+                      const remainingSlots = 3 - currentCount;
+                      if (remainingSlots <= 0) {
+                        toast.error("Maximum 3 side images allowed. Remove an existing image before uploading more.");
+                        return;
+                      }
+                      const files = Array.from(e.dataTransfer.files || []);
+                      const imageFiles = files.filter(f => f.type.startsWith("image/"));
+                      if (imageFiles.length === 0) return;
+                      if (imageFiles.length > remainingSlots) {
+                        toast.error(`You can only select up to ${remainingSlots} side image(s). Please select no more than ${remainingSlots}.`);
+                        return;
+                      }
+                      setUploadingSide(true);
+                      try {
+                        const urls = await Promise.all(imageFiles.map((file) => uploadToCloudinary(file)));
+                        setForm((f) => ({ ...f, side_images: [...(f.side_images || []), ...urls] }));
+                        toast.success("Side images uploaded successfully.");
+                      } catch (err) {
+                        toast.error("Failed to upload side images");
+                      } finally {
+                        setUploadingSide(false);
+                      }
+                    }}
+                    className={`w-full px-4 py-8 border-2 border-dashed rounded-lg transition-colors bg-white flex flex-col items-center justify-center cursor-pointer ${
+                      isDraggingSide ? "border-purple-500 bg-purple-50/20" : "border-gray-300 hover:border-gray-400"
+                    }`}
                   >
                     <Upload className="w-8 h-8 mb-2 text-gray-400" aria-hidden="true" />
                     <span className="text-sm font-medium text-gray-600">
@@ -1397,6 +1470,7 @@ function extractPriceDisplay(val) {
 
 function ComboModal({ product, onClose, onSaved }) {
   const isEdit = Boolean(product);
+  const [isDraggingMain, setIsDraggingMain] = useState(false);
 
   let initialComboProducts = parseComboIds(product);
 
@@ -1922,7 +1996,40 @@ function ComboModal({ product, onClose, onSaved }) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Combo Cover Image (Optional)</label>
             <div className="flex items-center space-x-4">
-              <label className="px-4 py-2.5 border border-dashed border-purple-300 rounded-lg hover:border-purple-500 transition-colors bg-purple-50/30 flex items-center cursor-pointer text-xs text-purple-700 font-medium">
+              <label
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (!uploadingMain) setIsDraggingMain(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setIsDraggingMain(false);
+                }}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  setIsDraggingMain(false);
+                  if (uploadingMain) return;
+                  const file = e.dataTransfer.files?.[0];
+                  if (!file) return;
+                  if (!file.type.startsWith("image/")) {
+                    toast.error("Please upload an image file.");
+                    return;
+                  }
+                  setUploadingMain(true);
+                  try {
+                    const url = await uploadToCloudinary(file);
+                    setForm((f) => ({ ...f, main_image: url }));
+                    toast.success("Main image uploaded successfully.");
+                  } catch (err) {
+                    toast.error("Failed to upload main image");
+                  } finally {
+                    setUploadingMain(false);
+                  }
+                }}
+                className={`px-4 py-2.5 border border-dashed rounded-lg transition-colors flex items-center cursor-pointer text-xs font-medium ${
+                  isDraggingMain ? "border-purple-600 bg-purple-100 text-purple-800" : "border-purple-300 bg-purple-50/30 text-purple-700 hover:border-purple-500"
+                }`}
+              >
                 <Upload className="w-4 h-4 mr-2 text-purple-600" />
                 {uploadingMain ? "Uploading..." : "Upload Cover Image"}
                 <input

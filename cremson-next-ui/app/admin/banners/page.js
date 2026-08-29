@@ -17,6 +17,7 @@ export default function AdminBannersPage() {
   const [deleting, setDeleting] = useState(null);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [isDraggable, setIsDraggable] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
 
   const bannersRef = useRef(banners);
@@ -203,12 +204,49 @@ export default function AdminBannersPage() {
         </div>
       ) : banners.length === 0 ? (
         <div
-          onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-gray-300 rounded-xl p-16 flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50/30 transition-all text-center"
+          onClick={() => !uploading && fileInputRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (!uploading) setIsDragging(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+          }}
+          onDrop={async (e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            if (uploading) return;
+            const file = e.dataTransfer.files?.[0];
+            if (!file) return;
+            if (!file.type.startsWith("image/")) {
+              toast.error("Please upload an image file.");
+              return;
+            }
+            setUploading(true);
+            try {
+              const imageUrl = await uploadToCloudinary(file);
+              const res = await api.post("/api/banners/", {
+                image_url: imageUrl,
+                title: "",
+                sort_order: banners.length + 1,
+                is_active: true,
+              });
+              setBanners((prev) => [...prev, res.data]);
+              toast.success("Banner added");
+            } catch {
+              toast.error("Failed to add banner");
+            } finally {
+              setUploading(false);
+            }
+          }}
+          className={`border-2 border-dashed rounded-xl p-16 flex flex-col items-center justify-center cursor-pointer transition-all text-center ${
+            isDragging ? "border-purple-500 bg-purple-50/30" : "border-gray-300 hover:border-purple-400 hover:bg-purple-50/10"
+          }`}
         >
-          <ImagePlus size={48} className="text-gray-300 mb-3" />
+          <ImagePlus size={48} className={`mb-3 transition-colors ${isDragging ? "text-purple-500" : "text-gray-300"}`} />
           <p className="text-gray-500 font-medium">No banners yet</p>
-          <p className="text-sm text-gray-400 mt-1">Click to upload your first banner image (Recommended: 2158 × 729 px)</p>
+          <p className="text-sm text-gray-400 mt-1">Drag & drop or click to upload your first banner image (Recommended: 2158 × 729 px)</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -227,7 +265,6 @@ export default function AdminBannersPage() {
               }`}
             >
               <div className="flex items-stretch gap-0">
-                {/* Drag handle & Order number */}
                 <div className="flex flex-col items-center justify-center bg-gray-50 border-r border-gray-200 px-3 py-3 gap-2 select-none">
                   <div
                     className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-purple-600 transition-colors p-1.5 rounded-lg hover:bg-gray-200/50"
@@ -242,7 +279,6 @@ export default function AdminBannersPage() {
                   <span className="text-xs font-bold text-gray-400">#{index + 1}</span>
                 </div>
 
-                {/* Image preview */}
                 <div className="w-40 sm:w-52 h-28 flex-shrink-0 bg-gray-100 overflow-hidden">
                   {banner.image_url ? (
                     <img
@@ -252,42 +288,38 @@ export default function AdminBannersPage() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-300">
-                      <ImagePlus size={32} />
+                      <ImagePlus size={24} />
                     </div>
                   )}
                 </div>
 
-                {/* Details */}
                 <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1 min-w-0">
-                      <label className="block text-xs font-medium text-gray-500 mb-1">
-                        Title / Alt Text
-                      </label>
-                      <input
-                        type="text"
-                        value={banner.title}
-                        onChange={(e) => handleTitleChange(banner.id, e.target.value)}
-                        onBlur={(e) => handleSaveTitle(banner.id, e.target.value)}
-                        placeholder="Enter banner title..."
-                        className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                      />
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Banner Title (Optional)</label>
+                      <div className="flex items-center gap-2 max-w-lg">
+                        <input
+                          type="text"
+                          value={banner.title || ""}
+                          onChange={(e) => handleTitleChange(banner.id, e.target.value)}
+                          placeholder="Enter banner title..."
+                          className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 min-w-0"
+                        />
+                        {bannersRef.current[index]?.title !== banner.title && (
+                          <button
+                            onClick={() => handleSaveTitle(banner.id, banner.title)}
+                            disabled={saving === banner.id}
+                            className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors shrink-0 disabled:opacity-50"
+                          >
+                            {saving === banner.id ? "Saving..." : "Save"}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    {saving === banner.id && (
-                      <Loader2 size={14} className="animate-spin text-purple-500 mt-6 flex-shrink-0" />
-                    )}
-                  </div>
-
-                  <div className="mt-3 flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-gray-400 truncate max-w-[200px] sm:max-w-xs">
-                      {banner.image_url}
-                    </span>
                   </div>
                 </div>
 
-                {/* Actions */}
                 <div className="flex flex-col items-center justify-center gap-4 px-5 border-l border-gray-100 bg-gray-50/30 min-w-[120px]">
-                  {/* Enable / Disable Switch */}
                   <div className="flex flex-col items-center gap-1.5">
                     <button
                       onClick={() => handleToggleActive(banner.id, !banner.is_active)}
@@ -307,7 +339,6 @@ export default function AdminBannersPage() {
                     </span>
                   </div>
 
-                  {/* Delete Button */}
                   <button
                     onClick={() => handleDelete(banner.id, banner.image_url)}
                     disabled={deleting === banner.id}
@@ -324,6 +355,54 @@ export default function AdminBannersPage() {
               </div>
             </div>
           ))}
+
+          <div
+            onClick={() => !uploading && fileInputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!uploading) setIsDragging(true);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+            }}
+            onDrop={async (e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              if (uploading) return;
+              const file = e.dataTransfer.files?.[0];
+              if (!file) return;
+              if (!file.type.startsWith("image/")) {
+                toast.error("Please upload an image file.");
+                return;
+              }
+              setUploading(true);
+              try {
+                const imageUrl = await uploadToCloudinary(file);
+                const res = await api.post("/api/banners/", {
+                  image_url: imageUrl,
+                  title: "",
+                  sort_order: banners.length + 1,
+                  is_active: true,
+                });
+                setBanners((prev) => [...prev, res.data]);
+                toast.success("Banner added");
+              } catch {
+                toast.error("Failed to add banner");
+              } finally {
+                setUploading(false);
+              }
+            }}
+            className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all text-center ${
+              isDragging ? "border-purple-500 bg-purple-50/20" : "border-gray-200 hover:border-purple-400 hover:bg-purple-50/5"
+            }`}
+          >
+            <ImagePlus size={32} className={`mb-2 transition-colors ${isDragging ? "text-purple-500" : "text-gray-400"}`} />
+            <p className="text-sm font-semibold text-gray-500">
+              {uploading ? "Uploading banner..." : "Drag & drop or click to add another banner"}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">Recommended: 2158 × 729 px</p>
+          </div>
         </div>
       )}
     </div>

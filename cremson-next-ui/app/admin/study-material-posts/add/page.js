@@ -27,6 +27,7 @@ const htmlToMarkdown = (html) => {
 export default function AddStudyMaterialPostPage() {
   const [imagePreview, setImagePreview] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [category, setCategory] = useState("");
@@ -227,7 +228,44 @@ export default function AddStudyMaterialPostPage() {
             <input id="image" type="file" accept="image/*" ref={fileInputRef} onChange={handleImageChange} className="hidden" />
             <div
               onClick={() => !uploadingImage && fileInputRef.current?.click()}
-              className="mt-2 h-44 w-full max-w-4xl rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-all bg-gray-50 overflow-hidden relative"
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (!uploadingImage) setIsDraggingImage(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                setIsDraggingImage(false);
+              }}
+              onDrop={async (e) => {
+                e.preventDefault();
+                setIsDraggingImage(false);
+                if (uploadingImage) return;
+                const file = e.dataTransfer.files?.[0];
+                if (!file) return;
+                if (!file.type.startsWith("image/")) {
+                  toast.error("Please upload an image file.");
+                  return;
+                }
+                setUploadingImage(true);
+                try {
+                  const formData = new FormData();
+                  formData.append("file", file);
+                  formData.append("upload_preset", "unsigned_preset");
+                  formData.append("folder", "study-material-pages");
+                  const res = await fetch("https://api.cloudinary.com/v1_1/dkxxa3xt0/image/upload", { method: "POST", body: formData });
+                  if (!res.ok) throw new Error("Image upload failed");
+                  const data = await res.json();
+                  setImagePreview(data.secure_url);
+                  toast.success("Image uploaded successfully!");
+                } catch (err) {
+                  toast.error(err.message || "Failed to upload image.");
+                } finally {
+                  setUploadingImage(false);
+                }
+              }}
+              className={`mt-2 h-44 w-full max-w-4xl rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all bg-gray-50 overflow-hidden relative ${
+                isDraggingImage ? "border-primary bg-primary/[0.05]" : "border-gray-300 hover:border-primary"
+              }`}
             >
               {uploadingImage ? (
                 <div className="text-center p-4 flex flex-col items-center gap-2">
@@ -241,7 +279,7 @@ export default function AddStudyMaterialPostPage() {
                   <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                     <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                  <p className="mt-1 text-xs text-gray-500">Click to upload banner image (Recommended: 892 × 172 px)</p>
+                  <p className="mt-1 text-xs text-gray-500">Drag & drop or click to upload banner image (Recommended: 892 × 172 px)</p>
                 </div>
               )}
             </div>

@@ -651,7 +651,7 @@ function Shop() {
             </li>
             <li className="inline-flex items-center gap-1.5">
               <span role="link" aria-disabled="true" aria-current="page" className="font-normal text-foreground">
-                Shop
+                Buy Books
               </span>
             </li>
           </ol>

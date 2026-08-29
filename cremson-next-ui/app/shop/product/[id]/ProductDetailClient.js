@@ -307,7 +307,7 @@ export default function ProductDetailClient({ initialBook, bookId }) {
               </svg>
             </li>
             <li className="inline-flex items-center gap-1.5">
-              <Link className="transition-colors hover:text-black" href="/shop">Shop</Link>
+              <Link className="transition-colors hover:text-black" href="/shop">Buy Books</Link>
             </li>
             <li role="presentation" aria-hidden="true" className="text-gray-400">
               <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">

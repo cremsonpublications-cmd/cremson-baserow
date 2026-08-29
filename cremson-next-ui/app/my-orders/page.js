@@ -581,7 +581,7 @@ export default function MyOrdersPage() {
             <div className="flex items-center gap-1.5 text-xs text-gray-500">
               <Link href="/" className="hover:text-blue-600">Home</Link>
               <ChevronRight className="w-3 h-3" />
-              <Link href="/shop" className="hover:text-blue-600">Shop</Link>
+              <Link href="/shop" className="hover:text-blue-600">Buy Books</Link>
               <ChevronRight className="w-3 h-3" />
               <span className="text-gray-700 font-medium">My Orders</span>
             </div>
