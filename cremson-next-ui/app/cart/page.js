@@ -457,7 +457,7 @@ export default function CartPage() {
                     {deliveryCharges === 0 ? <span className="text-green-600">FREE</span> : `₹${deliveryCharges}`}
                   </span>
                 </div>
-                {shippingConfig && subtotal > 0 && subtotal < (shippingConfig.free_delivery_threshold ?? 0) && (
+                {shippingConfig && subtotal > 0 && deliveryCharges > 0 && subtotal < (shippingConfig.free_delivery_threshold ?? 0) && (
                   <div className="text-xs text-gray-600 bg-orange-50 p-2.5 rounded border border-orange-100">
                     💡 Add <b>₹{(shippingConfig.free_delivery_threshold ?? 0) - subtotal}</b> more to get <b>FREE delivery</b>!
                   </div>
