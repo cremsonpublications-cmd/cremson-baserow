@@ -250,7 +250,7 @@ async def get_reorder_eligible_orders(
     eligible_list = []
 
     try:
-        data = await baserow_client.get_rows(TABLE_IDS["orders"], page=1, size=200, order_by="-id")
+        data = await baserow_client.get_rows(TABLE_IDS["orders"], page=1, size=200, order_by="-created_at")
         results = data.get("results", [])
 
         for order in results:
