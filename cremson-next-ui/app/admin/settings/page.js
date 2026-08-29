@@ -28,7 +28,6 @@ export default function AdminSettings() {
   );
 
   // State for Shipping Config
-  const [shippingEnabled, setShippingEnabled] = useState(true);
   const [shippingCharge, setShippingCharge] = useState("50");
   const [freeThreshold, setFreeThreshold] = useState("500");
 
@@ -53,8 +52,6 @@ export default function AdminSettings() {
     if (primarySetting) {
       if (primarySetting.shipping_charge != null) setShippingCharge(String(primarySetting.shipping_charge));
       if (primarySetting.free_delivery_threshold != null) setFreeThreshold(String(primarySetting.free_delivery_threshold));
-      const activeState = primarySetting.shipping_enabled ?? primarySetting.Active ?? true;
-      setShippingEnabled(activeState);
     }
   }, [primarySetting]);
 
@@ -70,8 +67,6 @@ export default function AdminSettings() {
           Name: primarySetting.Name || "Standard Shipping",
           shipping_charge: parseFloat(shippingCharge) || 0,
           free_delivery_threshold: parseFloat(freeThreshold) || 0,
-          shipping_enabled: shippingEnabled,
-          Active: shippingEnabled,
           Notes: primarySetting.Notes || "Global default shipping rule",
         });
       }
@@ -90,11 +85,9 @@ export default function AdminSettings() {
     if (primarySetting) {
       setShippingCharge(String(primarySetting.shipping_charge ?? 50));
       setFreeThreshold(String(primarySetting.free_delivery_threshold ?? 500));
-      setShippingEnabled(primarySetting.shipping_enabled ?? primarySetting.Active ?? true);
     } else {
       setShippingCharge("50");
       setFreeThreshold("500");
-      setShippingEnabled(true);
     }
     setSuccessMsg("");
     setErrorMsg("");
@@ -199,21 +192,6 @@ export default function AdminSettings() {
                   <div className="border-t border-gray-200 pt-6">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Shipping &amp; Delivery Configuration</h3>
 
-                    <div className="flex items-center justify-between mb-6 p-4 bg-gray-50 rounded-lg">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-700">Enable Shipping Charges</h4>
-                        <p className="text-sm text-gray-500">Toggle to enable/disable shipping charges sitewide</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={shippingEnabled}
-                          onChange={(e) => setShippingEnabled(e.target.checked)}
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                      </label>
-                    </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                       <div>
