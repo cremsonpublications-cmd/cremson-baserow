@@ -2331,6 +2331,21 @@ function AdminProductsContent() {
     },
   });
 
+  const { data: categoriesData } = useQuery({
+    queryKey: ["admin-categories-select"],
+    queryFn: async () => {
+      const { data } = await api.get("/api/categories/?size=100");
+      return data.results || [];
+    },
+  });
+
+  const getCategoryName = (product) => {
+    const catId = product.category_id != null ? Number(product.category_id) : (product.category != null ? Number(product.category) : null);
+    if (!catId) return "";
+    const matchedCat = (categoriesData || []).find((c) => c.id === catId);
+    return matchedCat ? matchedCat.name : "";
+  };
+
   const products = data?.results ?? data?.items ?? [];
   const count = data?.count ?? data?.total ?? 0;
   const totalPages = Math.ceil(count / PAGE_SIZE);
@@ -2880,7 +2895,7 @@ function AdminProductsContent() {
                             {/* Category */}
                             <td className="px-6 py-4">
                               <span className="text-sm text-gray-900">
-                                {product.category_name || product.category || "—"}
+                                {getCategoryName(product) || "—"}
                               </span>
                             </td>
 
@@ -3037,8 +3052,8 @@ function AdminProductsContent() {
                         <p className="text-[10px] text-gray-400 mt-0.5">#{sno}</p>
                       </div>
                     </div>
-                    {(product.category_name || product.category) && (
-                      <p className="text-xs text-gray-500 mb-2">{product.category_name || product.category}</p>
+                    {getCategoryName(product) && (
+                      <p className="text-xs text-gray-500 mb-2">{getCategoryName(product)}</p>
                     )}
                     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <button onClick={(e) => openEdit(e, product)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Edit product">
