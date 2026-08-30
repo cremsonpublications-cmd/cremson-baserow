@@ -329,11 +329,21 @@ async def list_products(
         sub_names = [s.strip().lower() for s in sub_category.split(",")]
         def has_sub(item):
             sub_raw = item.get("sub_categories") or ""
-            try:
-                sub_arr = json.loads(sub_raw) if isinstance(sub_raw, str) and sub_raw else (sub_raw or [])
-                return any(str(s).lower() in sub_names for s in sub_arr)
-            except Exception:
+            if not sub_raw:
                 return False
+            if isinstance(sub_raw, str):
+                trimmed = sub_raw.strip()
+                if trimmed.startswith("[") and trimmed.endsWith("]"):
+                    try:
+                        sub_arr = json.loads(trimmed)
+                        return any(str(s).lower() in sub_names for s in sub_arr)
+                    except Exception:
+                        pass
+                sub_arr = [s.strip().lower() for s in trimmed.split(",")]
+                return any(s in sub_names for s in sub_arr)
+            elif isinstance(sub_raw, list):
+                return any(str(s).lower() in sub_names for s in sub_raw)
+            return False
         all_results = [r for r in all_results if has_sub(r)]
 
     if sort_by == "price-asc":

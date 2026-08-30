@@ -6,7 +6,23 @@ function parseArr(val) {
 }
 
 export function mapProduct(p) {
-  const subCats = parseArr(p.sub_categories);
+  let subCats = [];
+  if (p.sub_categories) {
+    if (typeof p.sub_categories === "string") {
+      const trimmed = p.sub_categories.trim();
+      if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+        try {
+          subCats = JSON.parse(trimmed);
+        } catch {
+          subCats = trimmed.slice(1, -1).split(",").map(s => s.trim().replace(/['"]/g, "")).filter(Boolean);
+        }
+      } else if (trimmed) {
+        subCats = trimmed.split(",").map(s => s.trim()).filter(Boolean);
+      }
+    } else if (Array.isArray(p.sub_categories)) {
+      subCats = p.sub_categories;
+    }
+  }
   const classes = parseArr(p.classes);
   const mrp = parseFloat(p.mrp) || 0;
   const discountPct = parseFloat(p.own_discount_percentage) || 0;

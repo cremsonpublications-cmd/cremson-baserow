@@ -219,13 +219,14 @@ function Shop() {
     if (nonComboCategories.length) params.category = nonComboCategories.join(",");
 
     if (selectedAuthors.length) params.author = selectedAuthors.join(",");
+    if (selectedSubCategories.length) params.sub_category = selectedSubCategories.join(",");
     if (selectedClasses.length) params.classes = selectedClasses.join(",");
     if (selectedEditions.length) params.edition = selectedEditions.join(",");
     if (selectedStatuses.length) params.stock_status = selectedStatuses.join(",");
     if (maxPrice !== null) params.max_price = maxPrice;
     if (sortBy !== "default") params.sort_by = sortBy;
     return params;
-  }, [searchVal, selectedCategories, selectedAuthors, selectedClasses, selectedEditions, selectedStatuses, maxPrice, sortBy, currentPage]);
+  }, [searchVal, selectedCategories, selectedSubCategories, selectedAuthors, selectedClasses, selectedEditions, selectedStatuses, maxPrice, sortBy, currentPage]);
 
   // Fetch current page of products from backend with all filters applied
   const { data: pageData, isLoading: dataLoading } = useProductsPage(apiParams);
