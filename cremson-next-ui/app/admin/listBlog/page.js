@@ -1,15 +1,29 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import api from "../../../lib/api/axios";
 import ConfirmModal from "../components/ConfirmModal";
+import { GripVertical } from "lucide-react";
 
 export default function BlogListPage() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [isDraggable, setIsDraggable] = useState(false);
+
+  const postsRef = useRef(posts);
+  const draggedIndexRef = useRef(draggedIndex);
+
+  useEffect(() => {
+    postsRef.current = posts;
+  }, [posts]);
+
+  useEffect(() => {
+    draggedIndexRef.current = draggedIndex;
+  }, [draggedIndex]);
 
   const fetchBlogs = async () => {
     try {
@@ -26,6 +40,45 @@ export default function BlogListPage() {
   useEffect(() => {
     fetchBlogs();
   }, []);
+
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", index.toString());
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    const currentDraggedIndex = draggedIndexRef.current;
+    if (currentDraggedIndex === null || currentDraggedIndex === index) return;
+
+    const currentPosts = postsRef.current;
+    const updated = [...currentPosts];
+    const [draggedItem] = updated.splice(currentDraggedIndex, 1);
+    updated.splice(index, 0, draggedItem);
+
+    setPosts(updated);
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnd = async () => {
+    setDraggedIndex(null);
+    setIsDraggable(false);
+
+    const currentPosts = postsRef.current;
+    const reordered = currentPosts.map((post, i) => ({ ...post, sort_order: i + 1 }));
+    setPosts(reordered);
+
+    try {
+      await Promise.all(
+        reordered.map((post) => api.patch(`/api/blogs/${post.id}/order`, { sort_order: post.sort_order }))
+      );
+      toast.success("Blogs reordered successfully");
+    } catch {
+      toast.error("Failed to update blog order");
+      fetchBlogs();
+    }
+  };
 
   const togglePublish = async (id) => {
     try {
@@ -73,6 +126,7 @@ export default function BlogListPage() {
           <table className="w-full text-sm text-gray-500 text-left border-collapse">
             <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
               <tr>
+                <th scope="col" className="px-4 py-4 w-10"></th>
                 <th scope="col" className="px-6 py-4"> # </th>
                 <th scope="col" className="px-6 py-4"> Blog Title </th>
                 <th scope="col" className="px-6 py-4 max-sm:hidden"> Date </th>
@@ -82,7 +136,31 @@ export default function BlogListPage() {
             </thead>
             <tbody>
               {posts.map((post, idx) => (
-                <tr key={post.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
+                <tr 
+                  key={post.id} 
+                  draggable={isDraggable}
+                  onDragStart={(e) => handleDragStart(e, idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDragEnd={handleDragEnd}
+                  onDrop={(e) => e.preventDefault()}
+                  className={`border-b border-gray-100 hover:bg-gray-50/50 transition-colors ${
+                    draggedIndex === idx
+                      ? "opacity-40 border-dashed border-indigo-400 bg-indigo-50/20 scale-[0.99] shadow-inner"
+                      : ""
+                  }`}
+                >
+                  <td className="px-4 py-4 w-10 text-center">
+                    <div
+                      className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-indigo-600 transition-colors p-1.5 rounded hover:bg-gray-100/50 flex items-center justify-center"
+                      onMouseDown={() => setIsDraggable(true)}
+                      onMouseUp={() => setIsDraggable(false)}
+                      onTouchStart={() => setIsDraggable(true)}
+                      onTouchEnd={() => setIsDraggable(false)}
+                      title="Drag to reorder blog post"
+                    >
+                      <GripVertical size={16} />
+                    </div>
+                  </td>
                   <th className="px-6 py-4 font-semibold text-gray-700">{idx + 1}</th>
                   <td className="px-6 py-4 font-medium text-gray-800 max-w-md truncate">
                     {post.title}
@@ -145,7 +223,7 @@ export default function BlogListPage() {
               ))}
               {posts.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="px-6 py-10 text-center text-gray-400">
+                  <td colSpan="6" className="px-6 py-10 text-center text-gray-400">
                     No blog posts available in the database.
                   </td>
                 </tr>

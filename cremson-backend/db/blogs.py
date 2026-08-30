@@ -25,11 +25,12 @@ def init_blogs_db():
             content TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'Published',
             pdf_url TEXT,
-            pdf_name TEXT
+            pdf_name TEXT,
+            sort_order INTEGER DEFAULT 0
         )
     """)
     
-    # Run migration check for pdf and likes columns
+    # Run migration check for pdf, likes, and sort_order columns
     cursor.execute("PRAGMA table_info(blogs)")
     columns = [col[1] for col in cursor.fetchall()]
     if "pdf_url" not in columns:
@@ -38,6 +39,8 @@ def init_blogs_db():
         cursor.execute("ALTER TABLE blogs ADD COLUMN pdf_name TEXT")
     if "likes" not in columns:
         cursor.execute("ALTER TABLE blogs ADD COLUMN likes INTEGER DEFAULT 0")
+    if "sort_order" not in columns:
+        cursor.execute("ALTER TABLE blogs ADD COLUMN sort_order INTEGER DEFAULT 0")
     conn.commit()
     
     # Check if table is empty

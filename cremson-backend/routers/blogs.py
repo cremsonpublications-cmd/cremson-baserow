@@ -19,6 +19,7 @@ class BlogCreate(BaseModel):
     pdf_url: Optional[str] = ""
     pdf_name: Optional[str] = ""
     likes: Optional[int] = 0
+    sort_order: Optional[int] = 0
 
 class BlogResponse(BaseModel):
     id: int
@@ -34,6 +35,7 @@ class BlogResponse(BaseModel):
     pdf_url: Optional[str] = ""
     pdf_name: Optional[str] = ""
     likes: Optional[int] = 0
+    sort_order: Optional[int] = 0
 
 class CategoryCreate(BaseModel):
     name: str
@@ -144,8 +146,8 @@ def get_blogs(category: Optional[str] = None, status: Optional[str] = None):
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
         
-    # Order by ID descending so newest blogs appear first
-    query += " ORDER BY id DESC"
+    # Order by sort_order ASC, then by id DESC so custom order takes priority
+    query += " ORDER BY sort_order ASC, id DESC"
     
     cursor.execute(query, params)
     rows = cursor.fetchall()
@@ -179,9 +181,15 @@ def create_blog(blog: BlogCreate):
     try:
         # fallback category to empty string if None
         cat_val = blog.category or ""
+        
+        # Get the next sort_order value
+        cursor.execute("SELECT COALESCE(MAX(sort_order), 0) FROM blogs")
+        max_order = cursor.fetchone()[0]
+        next_sort_order = max_order + 1
+        
         cursor.execute("""
-            INSERT INTO blogs (slug, title, category, image, author, date, description, content, status, pdf_url, pdf_name)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO blogs (slug, title, category, image, author, date, description, content, status, pdf_url, pdf_name, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             blog.slug,
             blog.title,
@@ -193,7 +201,8 @@ def create_blog(blog: BlogCreate):
             blog.content,
             blog.status,
             blog.pdf_url or "",
-            blog.pdf_name or ""
+            blog.pdf_name or "",
+            next_sort_order
         ))
         conn.commit()
         blog_id = cursor.lastrowid
@@ -219,9 +228,13 @@ def update_blog(id: int, blog: BlogCreate):
         raise HTTPException(status_code=404, detail="Blog post not found")
         
     try:
+        # Get existing sort_order to preserve it if not provided
+        existing_sort_order = existing["sort_order"] if "sort_order" in existing.keys() else 0
+        sort_order_val = blog.sort_order if blog.sort_order is not None else existing_sort_order
+        
         cursor.execute("""
             UPDATE blogs
-            SET slug = ?, title = ?, category = ?, image = ?, author = ?, date = ?, description = ?, content = ?, status = ?, pdf_url = ?, pdf_name = ?
+            SET slug = ?, title = ?, category = ?, image = ?, author = ?, date = ?, description = ?, content = ?, status = ?, pdf_url = ?, pdf_name = ?, sort_order = ?
             WHERE id = ?
         """, (
             blog.slug,
@@ -235,6 +248,7 @@ def update_blog(id: int, blog: BlogCreate):
             blog.status,
             blog.pdf_url or "",
             blog.pdf_name or "",
+            sort_order_val,
             id
         ))
         conn.commit()
@@ -248,6 +262,29 @@ def update_blog(id: int, blog: BlogCreate):
     except Exception as e:
         conn.close()
         raise HTTPException(status_code=500, detail=str(e))
+
+class BlogOrderUpdate(BaseModel):
+    sort_order: int
+
+@router.patch("/{id}/order")
+def update_blog_order(id: int, body: BlogOrderUpdate):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT * FROM blogs WHERE id = ?", (id,))
+        existing = cursor.fetchone()
+        if not existing:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Blog post not found")
+        
+        cursor.execute("UPDATE blogs SET sort_order = ? WHERE id = ?", (body.sort_order, id))
+        conn.commit()
+        conn.close()
+        return {"success": True}
+    except Exception as e:
+        conn.close()
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 def delete_cloudinary_image_helper(image_url: str, resource_type: str = "image"):
     import os
