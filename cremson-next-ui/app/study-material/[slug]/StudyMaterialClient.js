@@ -127,10 +127,10 @@ export default function StudyMaterialDetailPage() {
           )}
 
           <style jsx global>{`
-            .rich-text h1 { font-size: 1.875rem; font-weight: 700; color: #1f2937; margin-top: 2rem; margin-bottom: 1rem; }
-            .rich-text h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; }
-            .rich-text p { margin-bottom: 1.25rem; }
-            .rich-text strong { font-weight: 600; }
+            .rich-text h1 { font-size: 2.25rem; font-weight: 800; color: #0f172a; margin-top: 2.5rem; margin-bottom: 1.25rem; line-height: 1.25; letter-spacing: -0.02em; }
+            .rich-text h2 { font-size: 1.75rem; font-weight: 700; color: #1e293b; margin-top: 2rem; margin-bottom: 1rem; line-height: 1.3; letter-spacing: -0.01em; }
+            .rich-text p { margin-bottom: 1.25rem; line-height: 1.75; color: #334155; }
+            .rich-text strong { font-weight: 700; color: #0f172a; }
           `}</style>
 
           <hr className="my-12 border-gray-150 max-w-3xl mx-auto" />
