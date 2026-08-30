@@ -2,3 +2,9 @@
 # Cloudflare Pages serves the pre-built HTML; useParams() reads the real token client-side
 /bulk-order/:token/pay/:studentToken  /bulk-order/placeholder/pay/placeholder  200
 /bulk-order/:token                    /bulk-order/placeholder                   200
+
+# SPA rewrite fallback routes for dynamic items to pre-rendered defaults
+/blogs/:slug            /blogs/default           200
+/study-material/:slug   /study-material/default  200
+/teaching-resource/:slug /teaching-resource/default 200
+/shop/product/:id       /shop/product/1          200
