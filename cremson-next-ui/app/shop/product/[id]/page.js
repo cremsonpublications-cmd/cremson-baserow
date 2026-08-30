@@ -1,21 +1,7 @@
 import ProductDetailClient from "./ProductDetailClient";
-import { fetchProduct, fetchAllProducts } from "../../../../lib/api/products";
+import { fetchProduct } from "../../../../lib/api/products";
 
-export async function generateStaticParams() {
-  try {
-    const products = await fetchAllProducts();
-    if (products && products.length > 0) {
-      const idSet = new Set(products.map((p) => String(p.id)));
-      for (let i = 1; i <= 200; i++) {
-        idSet.add(String(i));
-      }
-      return Array.from(idSet).map((id) => ({ id }));
-    }
-  } catch (error) {
-    console.error("Error fetching products for generateStaticParams:", error);
-  }
-  return Array.from({ length: 200 }, (_, i) => ({ id: String(i + 1) }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }) {
   const resolvedParams = await params;
