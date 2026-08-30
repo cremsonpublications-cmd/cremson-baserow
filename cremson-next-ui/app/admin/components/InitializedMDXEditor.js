@@ -9,10 +9,18 @@ import {
   thematicBreakPlugin,
   markdownShortcutPlugin,
   toolbarPlugin,
+  linkPlugin,
+  linkDialogPlugin,
+  tablePlugin,
   UndoRedo,
   BoldItalicUnderlineToggles,
   BlockTypeSelect,
-  ListsToggle
+  ListsToggle,
+  CreateLink,
+  InsertTable,
+  InsertThematicBreak,
+  CodeToggle,
+  StrikeThroughSupSubToggles
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
 
@@ -26,10 +34,13 @@ export default function InitializedMDXEditor({ editorRef, markdown, onChange, pl
       className="mdxeditor-custom w-full border border-gray-300 rounded-lg overflow-hidden bg-white text-left"
       contentEditableClassName="prose max-w-none text-sm text-gray-700 outline-none p-4 min-h-[250px]"
       plugins={[
-        headingsPlugin(),
+        headingsPlugin({ allowedHeadingLevels: [1, 2, 3, 4, 5, 6] }),
         listsPlugin(),
         quotePlugin(),
         thematicBreakPlugin(),
+        linkPlugin(),
+        linkDialogPlugin(),
+        tablePlugin(),
         markdownShortcutPlugin(),
         toolbarPlugin({
           toolbarContents: () => (
@@ -37,10 +48,16 @@ export default function InitializedMDXEditor({ editorRef, markdown, onChange, pl
               <UndoRedo />
               <span className="h-5 w-[1px] bg-gray-300 mx-1" />
               <BoldItalicUnderlineToggles />
+              <StrikeThroughSupSubToggles />
+              <CodeToggle />
               <span className="h-5 w-[1px] bg-gray-300 mx-1" />
               <BlockTypeSelect />
               <span className="h-5 w-[1px] bg-gray-300 mx-1" />
               <ListsToggle />
+              <span className="h-5 w-[1px] bg-gray-300 mx-1" />
+              <CreateLink />
+              <InsertTable />
+              <InsertThematicBreak />
             </div>
           ),
         }),
