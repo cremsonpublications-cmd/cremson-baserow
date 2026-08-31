@@ -261,12 +261,13 @@ async def list_products(
         filters["is_active"] = str(is_active).lower()
 
     search_str = search if isinstance(search, str) else None
+    if search_str:
+      filters["Name"] = ("contains", search_str)
 
     res = await client.get_rows(
         TABLE_IDS["products"],
         page=1,
         size=200,
-        search=search_str,
         filters=filters if filters else None,
     )
 

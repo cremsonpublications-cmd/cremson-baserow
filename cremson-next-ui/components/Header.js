@@ -133,8 +133,6 @@ export default function Header() {
         params.delete("page");
         router.replace(params.toString() ? `/shop?${params.toString()}` : "/shop", { scroll: false });
       }, 300);
-    } else {
-      router.push(val ? `/shop?search=${encodeURIComponent(val)}` : "/shop");
     }
   };
 
