@@ -31,6 +31,7 @@ from routers import bulk_orders as bulk_orders_router
 from routers import banners as banners_router
 from routers import reminders as reminders_router
 from routers import whatsapp_campaigns as whatsapp_campaigns_router
+from routers import campaigns as campaigns_router
 from db.campaigns_db import init_campaigns_db
 
 app = FastAPI(
@@ -115,6 +116,7 @@ app.include_router(bulk_orders_router.router, prefix="/api/bulk-orders", tags=["
 app.include_router(banners_router.router, prefix="/api/banners", tags=["Banners"])
 app.include_router(reminders_router.router, prefix="/api/reminders", tags=["Reminders"])
 app.include_router(whatsapp_campaigns_router.router, prefix="/api/admin/whatsapp", tags=["WhatsApp Campaigns"])
+app.include_router(campaigns_router.router, prefix="/api/campaigns", tags=["Campaigns"])
 
 
 import os

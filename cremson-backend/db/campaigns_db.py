@@ -96,6 +96,22 @@ def init_campaigns_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_recipient_wamid ON whatsapp_campaign_recipients(whatsapp_message_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_recipient_status ON whatsapp_campaign_recipients(campaign_id, status)")
 
+    # 3. Landing Campaigns Table (for campaign landing pages)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS landing_campaigns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            slug TEXT UNIQUE NOT NULL,
+            title TEXT NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            data TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_landing_campaign_slug ON landing_campaigns(slug)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_landing_campaign_active ON landing_campaigns(is_active)")
+
     conn.commit()
     conn.close()
     logger.info("[Campaigns DB] Initialized SQLite campaigns.db tables & indexes successfully.")

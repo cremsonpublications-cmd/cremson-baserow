@@ -28,6 +28,7 @@ import {
   Shield,
   Bell,
   Send,
+  Megaphone,
 } from "lucide-react";
 
 const coreLinks = [
@@ -48,6 +49,7 @@ const adminLinks = [
   { href: "/admin/users", label: "Users", Icon: Users },
   { href: "/admin/coupons", label: "Coupons", Icon: Ticket },
   { href: "/admin/products", label: "Products", Icon: Package },
+  { href: "/admin/campaigns", label: "Campaigns", Icon: Megaphone },
   { href: "/admin/banners", label: "Banner Images", Icon: LayoutDashboard },
   { href: "/admin/settings", label: "General Settings", Icon: Settings },
 ];
@@ -119,7 +121,7 @@ export default function AdminLayout({ children }) {
     if (href.startsWith("/admin/crm")) {
       return userPerms.includes("crm:write") || userPerms.includes("crm:read");
     }
-    if (href.startsWith("/admin/categories") || href.startsWith("/admin/products")) {
+    if (href.startsWith("/admin/categories") || href.startsWith("/admin/products") || href.startsWith("/admin/campaigns")) {
       return userPerms.includes("products:write") || userPerms.includes("products:read");
     }
     if (href.startsWith("/admin/users")) {

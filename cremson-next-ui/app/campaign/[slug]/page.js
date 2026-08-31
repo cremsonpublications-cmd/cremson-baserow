@@ -1,18 +1,34 @@
 export const runtime = "edge";
 
-import { campaignData } from "../../../data/campaignData";
+import { notFound } from "next/navigation";
 import CampaignPage from "../../../components/campaign/CampaignPage";
 
-export async function generateMetadata({ params }) {
-  // For Phase 2: replace with await getCampaign(params.slug)
-  return {
-    title: campaignData.meta.title,
-    description: campaignData.meta.description,
-  };
-}
+export default async function CampaignPageRoute({ params }) {
+  const slug = params.slug;
 
-export default function CampaignPageRoute({ params }) {
-  // For Phase 2: replace with: const data = await getCampaign(params.slug)
-  const data = campaignData;
-  return <CampaignPage data={data} />;
+  // Try to load from the API first; fall back to static data if not found
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const res = await fetch(`${apiUrl}/api/campaigns/${slug}`, {
+      cache: "no-store",
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      // The API returns { id, slug, title, is_active, data, ... }
+      // CampaignPage expects the nested data object directly
+      const campaignData = json.data || json;
+      return <CampaignPage data={campaignData} />;
+    }
+  } catch {
+    // Network error — fall through to static fallback
+  }
+
+  // Static fallback: import the hardcoded campaign data file and match by slug
+  const { campaignData } = await import("../../../data/campaignData");
+  if (campaignData.meta?.slug === slug) {
+    return <CampaignPage data={campaignData} />;
+  }
+
+  notFound();
 }
