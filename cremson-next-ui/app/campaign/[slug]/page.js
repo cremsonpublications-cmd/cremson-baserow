@@ -1,3 +1,5 @@
+export const runtime = "edge";
+
 import { campaignData } from "../../../data/campaignData";
 import CampaignPage from "../../../components/campaign/CampaignPage";
 
