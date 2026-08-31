@@ -40,9 +40,21 @@ export default function ProductDetailClient({ initialBook, bookId }) {
   const router = useRouter();
   const { cart, wishlist, addToCart, toggleWishlist, setIsCartOpen, updateQuantity, removeFromCart } = useApp();
 
-  const id = bookId;
+  const [id, setId] = useState(bookId);
 
-  const { data: book, isLoading: loading } = useProduct(id, initialBook);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const parts = window.location.pathname.split("/").filter(Boolean);
+      if (parts[0] === "shop" && parts[1] === "product" && parts[2]) {
+        const parsedId = parseInt(parts[2], 10);
+        if (!isNaN(parsedId)) {
+          setId(parsedId);
+        }
+      }
+    }
+  }, [bookId]);
+
+  const { data: book, isLoading: loading } = useProduct(id, id === bookId ? initialBook : undefined);
   const { data: allCatalogProducts } = useProducts();
 
   const comboIncludedProducts = React.useMemo(() => {

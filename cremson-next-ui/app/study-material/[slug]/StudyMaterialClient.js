@@ -7,7 +7,20 @@ import CPLogo from "../../../components/CPLogo";
 import api from "../../../lib/api/axios";
 
 export default function StudyMaterialDetailPage() {
-  const { slug } = useParams();
+  const params = useParams();
+  const rawSlug = params?.slug;
+  const [slug, setSlug] = useState(rawSlug || "");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const parts = window.location.pathname.split("/").filter(Boolean);
+      if (parts[0] === "study-material" && parts[1] && parts[1] !== "default") {
+        setSlug(parts[1]);
+      } else if (rawSlug) {
+        setSlug(rawSlug);
+      }
+    }
+  }, [rawSlug]);
 
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
