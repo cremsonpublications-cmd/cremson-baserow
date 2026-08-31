@@ -1,13 +1,6 @@
 import "./globals.css";
-import { Suspense } from "react";
-import { Toaster } from "sonner";
 import { AppProvider } from "../context/AppContext";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
-import CartDrawer from "../components/CartDrawer";
-import WishlistDrawer from "../components/WishlistDrawer";
-import MobileMenuDrawer from "../components/MobileMenuDrawer";
-import WhatsAppChatWidget from "../components/WhatsAppChatWidget";
+import SiteShell from "../components/SiteShell";
 import QueryProvider from "../lib/providers/QueryProvider";
 
 export const metadata = {
@@ -85,27 +78,7 @@ export default function RootLayout({ children }) {
       <body className="font-sans antialiased text-black bg-white flex flex-col min-h-screen" suppressHydrationWarning>
         <QueryProvider>
           <AppProvider>
-            <Suspense fallback={null}>
-              <Header />
-            </Suspense>
-            <main className="flex-1 flex flex-col">
-              {children}
-            </main>
-            <Footer />
-            <CartDrawer />
-            <WishlistDrawer />
-            <MobileMenuDrawer />
-            <WhatsAppChatWidget />
-            <Toaster
-              position="bottom-right"
-              richColors
-              closeButton
-              visibleToasts={1}
-              toastOptions={{
-                duration: 3500,
-                style: { fontFamily: "inherit" },
-              }}
-            />
+            <SiteShell>{children}</SiteShell>
           </AppProvider>
         </QueryProvider>
       </body>

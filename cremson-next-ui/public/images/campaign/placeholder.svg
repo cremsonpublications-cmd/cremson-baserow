@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#E8EDF5"/>
+  <rect x="150" y="80" width="100" height="130" rx="6" fill="#C5CDD9"/>
+  <rect x="160" y="90" width="80" height="10" rx="3" fill="#A0AABB"/>
+  <rect x="160" y="108" width="60" height="6" rx="3" fill="#A0AABB"/>
+  <rect x="160" y="120" width="70" height="6" rx="3" fill="#A0AABB"/>
+  <rect x="160" y="132" width="55" height="6" rx="3" fill="#A0AABB"/>
+  <text x="200" y="245" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#8899AA">Image Coming Soon</text>
+</svg>
