@@ -328,16 +328,24 @@ async def find_product(identifier: str) -> Tuple[Optional[Dict[str, Any]], Optio
             "Example: Product: 45 x 2"
         )
 
+    # Prefer exact name match (case-insensitive) over substring match.
+    # This prevents "XI" from matching "XII" when "XI" is a substring of "XII".
+    identifier_lower = identifier.lower()
+    exact = [r for r in active if r.get("name", "").strip().lower() == identifier_lower]
+    if len(exact) == 1:
+        return _map_product_for_order(exact[0]), None
+
     if len(active) == 1:
         return _map_product_for_order(active[0]), None
 
     # Multiple matches — show IDs so admin can retry precisely
-    lines = [f"• ID {r.get('id')} — {r.get('name', '')}" for r in active[:8]]
+    match_list = exact if exact else active
+    lines = [f"• ID {r.get('id')} — {r.get('name', '')}" for r in match_list[:8]]
     return None, (
         f"⚠️ Multiple products match \"{identifier}\":\n\n"
         + "\n".join(lines) +
         "\n\nUse the ID for exact match. Example:\n"
-        f"Product: {active[0].get('id')} x 1"
+        f"Product: {match_list[0].get('id')} x 1"
     )
 
 
