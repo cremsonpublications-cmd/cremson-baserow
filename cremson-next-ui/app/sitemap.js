@@ -1,4 +1,5 @@
 import { fetchAllProducts } from "../lib/api/products";
+import { authorToSlug } from "./shop/author/[slug]/page";
 
 export const dynamic = "force-static";
 
@@ -13,10 +14,13 @@ export default async function sitemap() {
     { url: `${baseUrl}/blogs`, changeFrequency: "weekly", priority: 0.7 },
   ].map((r) => ({ ...r, lastModified: new Date() }));
 
-  // Add all active product pages
   let productRoutes = [];
+  let authorRoutes = [];
+
   try {
     const products = await fetchAllProducts();
+
+    // All product pages
     productRoutes = (products || [])
       .filter((p) => p.id)
       .map((p) => ({
@@ -25,9 +29,20 @@ export default async function sitemap() {
         changeFrequency: "weekly",
         priority: 0.8,
       }));
+
+    // All author pages
+    const uniqueAuthors = [
+      ...new Set((products || []).map((p) => p.author).filter(Boolean)),
+    ];
+    authorRoutes = uniqueAuthors.map((author) => ({
+      url: `${baseUrl}/shop/author/${authorToSlug(author)}`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.75,
+    }));
   } catch (err) {
     console.error("[sitemap] Failed to fetch products:", err);
   }
 
-  return [...staticRoutes, ...productRoutes];
+  return [...staticRoutes, ...productRoutes, ...authorRoutes];
 }
