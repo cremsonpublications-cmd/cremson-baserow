@@ -561,8 +561,96 @@ async def create_razorpay_payment_link(
         return short_url
 
 
+async def _process_payment_link_paid(
+    order_id: str,
+    amount_paid_inr: float,
+    razorpay_payment_id: str,
+) -> None:
+    """Background task: mark order Paid, create Shipway shipment, send WhatsApp."""
+    try:
+        baserow_client = BaserowClient()
+        res = await baserow_client.get_rows(
+            TABLE_IDS["orders"],
+            filters={"order_id": ("equal", order_id)},
+            size=5,
+        )
+        results = res.get("results", [])
+        if not results:
+            logger.warning(f"[RazorpayWebhook] Order {order_id} not found in DB")
+            return
+
+        row = results[0]
+        row_id = row["id"]
+
+        # ── Idempotency: skip if already marked Paid ──────────────────────────
+        existing_payment_status = row.get("payment_status", "")
+        if existing_payment_status == "Paid":
+            logger.info(f"[RazorpayWebhook] Order {order_id} already Paid — skipping duplicate webhook")
+            return
+
+        # Update payment field
+        try:
+            payment_data = json.loads(row.get("payment") or "{}")
+        except Exception:
+            payment_data = {}
+
+        payment_data.update({
+            "status": "Paid",
+            "transactionId": razorpay_payment_id,
+            "razorpay_payment_id": razorpay_payment_id,
+            "amount": amount_paid_inr,
+        })
+
+        await baserow_client.update_row(TABLE_IDS["orders"], row_id, {
+            "payment_status": "Paid",
+            "payment": json.dumps(payment_data),
+        })
+
+        logger.info(f"[RazorpayWebhook] ✓ Order {order_id} marked as Paid")
+
+        # Auto-create Shipway shipment
+        try:
+            user_info = json.loads(row.get("user_info") or "{}")
+            items_data = json.loads(row.get("items") or "[]")
+            delivery_data = json.loads(row.get("delivery") or "{}")
+            order_date = row.get("order_date") or datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+            await _create_shipway_shipment(
+                baserow_row_id=row_id,
+                order_id=order_id,
+                order_date=order_date,
+                total_amount=amount_paid_inr,
+                items=items_data,
+                user_info=user_info,
+                delivery=delivery_data,
+            )
+            logger.info(f"[RazorpayWebhook] ✓ Shipway shipment triggered for {order_id}")
+        except Exception as ship_err:
+            logger.error(f"[RazorpayWebhook] Shipway creation failed for {order_id}: {ship_err}")
+
+        # Send WhatsApp payment success notification
+        try:
+            user_info_pay = json.loads(row.get("user_info") or "{}")
+            customer_phone = user_info_pay.get("phone", "")
+            customer_name = user_info_pay.get("name", "Customer")
+            if customer_phone:
+                from services.whatsapp import send_payment_success
+                await send_payment_success(
+                    phone=customer_phone,
+                    customer_name=customer_name,
+                    order_id=order_id,
+                    amount=amount_paid_inr,
+                    transaction_id=razorpay_payment_id,
+                )
+        except Exception as notif_err:
+            logger.warning(f"[RazorpayWebhook] Customer payment notification failed: {notif_err}")
+
+    except Exception as exc:
+        logger.error(f"[RazorpayWebhook] Error processing payment_link.paid for {order_id}: {exc}")
+
+
 @router.post("/razorpay-webhook", summary="Razorpay webhook for payment link events")
-async def razorpay_webhook(request: Request):
+async def razorpay_webhook(request: Request, background_tasks: BackgroundTasks):
     """
     Receives Razorpay webhook events.
     Handles payment_link.paid to mark WhatsApp admin orders as Paid.
@@ -598,8 +686,8 @@ async def razorpay_webhook(request: Request):
         pl_entity = payload["payload"]["payment_link"]["entity"]
         pay_entity = payload["payload"]["payment"]["entity"]
 
-        order_id = pl_entity.get("reference_id", "")          # e.g. "WABOOK2368"
-        amount_paid_inr = pay_entity.get("amount", 0) / 100   # paise → INR
+        order_id = pl_entity.get("reference_id", "")
+        amount_paid_inr = pay_entity.get("amount", 0) / 100
         razorpay_payment_id = pay_entity.get("id", "")
 
         if not order_id:
@@ -608,79 +696,10 @@ async def razorpay_webhook(request: Request):
 
         logger.info(f"[RazorpayWebhook] Payment link paid — order={order_id} payment={razorpay_payment_id} amount=₹{amount_paid_inr}")
 
-        # Find order by order_id
-        baserow_client = BaserowClient()
-        res = await baserow_client.get_rows(
-            TABLE_IDS["orders"],
-            filters={"order_id": ("equal", order_id)},
-            size=5,
-        )
-        results = res.get("results", [])
-        if not results:
-            logger.warning(f"[RazorpayWebhook] Order {order_id} not found in DB")
-            return {"status": "order_not_found"}
-
-        row = results[0]
-        row_id = row["id"]
-
-        # Update payment field
-        try:
-            payment_data = json.loads(row.get("payment") or "{}")
-        except Exception:
-            payment_data = {}
-
-        payment_data.update({
-            "status": "Paid",
-            "transactionId": razorpay_payment_id,
-            "razorpay_payment_id": razorpay_payment_id,
-            "amount": amount_paid_inr,
-        })
-
-        await baserow_client.update_row(TABLE_IDS["orders"], row_id, {
-            "payment_status": "Paid",
-            "payment": json.dumps(payment_data),
-        })
-
-        logger.info(f"[RazorpayWebhook] ✓ Order {order_id} marked as Paid")
-
-        # Auto-create Shipway shipment (same flow as website online payment)
-        try:
-            user_info = json.loads(row.get("user_info") or "{}")
-            items_data = json.loads(row.get("items") or "[]")
-            delivery_data = json.loads(row.get("delivery") or "{}")
-            order_date = row.get("order_date") or datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-
-            await _create_shipway_shipment(
-                baserow_row_id=row_id,
-                order_id=order_id,
-                order_date=order_date,
-                total_amount=amount_paid_inr,
-                items=items_data,
-                user_info=user_info,
-                delivery=delivery_data,
-            )
-            logger.info(f"[RazorpayWebhook] ✓ Shipway shipment triggered for {order_id}")
-        except Exception as ship_err:
-            logger.error(f"[RazorpayWebhook] Shipway creation failed for {order_id}: {ship_err}")
-
-        # Send WhatsApp payment success notification via approved template
-        try:
-            user_info_pay = json.loads(row.get("user_info") or "{}")
-            customer_phone = user_info_pay.get("phone", "")
-            customer_name = user_info_pay.get("name", "Customer")
-            if customer_phone:
-                from services.whatsapp import send_payment_success
-                await send_payment_success(
-                    phone=customer_phone,
-                    customer_name=customer_name,
-                    order_id=order_id,
-                    amount=amount_paid_inr,
-                    transaction_id=razorpay_payment_id,
-                )
-        except Exception as notif_err:
-            logger.warning(f"[RazorpayWebhook] Customer payment notification failed: {notif_err}")
+        # Respond 200 immediately so Razorpay doesn't retry; process in background
+        background_tasks.add_task(_process_payment_link_paid, order_id, amount_paid_inr, razorpay_payment_id)
 
     except Exception as exc:
-        logger.error(f"[RazorpayWebhook] Error processing payment_link.paid: {exc}")
+        logger.error(f"[RazorpayWebhook] Error parsing payload: {exc}")
 
     return {"status": "ok"}

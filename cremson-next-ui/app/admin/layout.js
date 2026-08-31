@@ -43,6 +43,7 @@ const coreLinks = [
   { href: "/admin/crm?tab=schools", label: "CRM Database Hub", Icon: Database },
   { href: "/admin/support-tickets", label: "Support & Enquiries", Icon: MessageSquare },
   { href: "/admin/reminders", label: "Reminders", Icon: Bell, badgeKey: "reminders" },
+  { href: "/admin/campaigns", label: "Campaigns", Icon: Megaphone },
 ];
 
 const adminLinks = [
@@ -50,7 +51,6 @@ const adminLinks = [
   { href: "/admin/users", label: "Users", Icon: Users },
   { href: "/admin/coupons", label: "Coupons", Icon: Ticket },
   { href: "/admin/products", label: "Products", Icon: Package },
-  { href: "/admin/campaigns", label: "Campaigns", Icon: Megaphone },
   { href: "/admin/banners", label: "Banner Images", Icon: LayoutDashboard },
   { href: "/admin/settings", label: "General Settings", Icon: Settings },
 ];
