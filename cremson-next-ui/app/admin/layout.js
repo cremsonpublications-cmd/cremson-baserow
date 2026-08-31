@@ -29,6 +29,7 @@ import {
   Bell,
   Send,
   Megaphone,
+  Lock,
 } from "lucide-react";
 
 const coreLinks = [
