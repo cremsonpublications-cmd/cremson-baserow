@@ -93,8 +93,7 @@ _VALID_PAYMENT_METHODS = {"cod", "cash", "cash on delivery", "online", "prepaid"
 _REQUIRED_FIELDS = {
     "customer_name": "Customer Name",
     "customer_phone": "Customer Phone",
-    "product_name": "Product",
-    "quantity": "Qty",
+    "products": "Product (at least one)",
     "address": "Address",
     "payment_method": "Payment",
 }
@@ -119,8 +118,8 @@ def parse_admin_order(text: str) -> Tuple[Optional[Dict[str, Any]], Optional[str
         Customer Name: Santhosh
         Phone: 9876543210
 
-        Product: 10th Science Book
-        Qty: 2
+        Product: 45 x 2
+        Product: 67 x 1
 
         Address:
         12 Anna Street
@@ -129,6 +128,11 @@ def parse_admin_order(text: str) -> Tuple[Optional[Dict[str, Any]], Optional[str
         600001
 
         Payment: COD
+
+    Each Product line: "<ID or Name> x <Qty>"
+    - Use numeric ID for exact match (recommended): Product: 45 x 2
+    - Use name for search (may be ambiguous):       Product: Science Book x 1
+    Multiple Product lines are supported for multi-book orders.
     """
     lines = text.strip().splitlines()
     data: Dict[str, Any] = {}
@@ -151,17 +155,32 @@ def parse_admin_order(text: str) -> Tuple[Optional[Dict[str, Any]], Optional[str
             )
         data["customer_phone"] = normalized
 
-    # Product
-    product_name = _extract_field(lines, r"product")
-    if product_name:
-        data["product_name"] = product_name
+    # Products — collect ALL "Product: ..." lines, each with inline qty
+    # Format: "Product: <ID or Name> x <Qty>"
+    product_entries: List[Dict[str, Any]] = []
+    for line in lines:
+        m = re.match(r"(?i)product\s*:\s*(.+)", line.strip())
+        if not m:
+            continue
+        raw = m.group(1).strip()
+        # Split on " x " or " X " (space-x-space) at the end: "Name x 2"
+        # Also handle "Name x2" or "Namex2" less gracefully
+        qty_match = re.search(r"\s+[xX]\s+(\d+)\s*$", raw)
+        if qty_match:
+            qty_val = int(qty_match.group(1))
+            identifier = raw[:qty_match.start()].strip()
+        else:
+            # No inline qty — default to 1
+            qty_val = 1
+            identifier = raw.strip()
 
-    # Quantity
-    qty_str = _extract_field(lines, r"qty|quantity")
-    if qty_str:
-        if not qty_str.isdigit() or int(qty_str) <= 0:
-            return None, f"❌ Invalid quantity '{qty_str}'. Qty must be a positive whole number."
-        data["quantity"] = int(qty_str)
+        if qty_val <= 0:
+            return None, f"❌ Invalid quantity '{qty_val}' for product '{identifier}'. Qty must be ≥ 1."
+
+        product_entries.append({"identifier": identifier, "qty": qty_val})
+
+    if product_entries:
+        data["products"] = product_entries
 
     # Payment
     payment_str = _extract_field(lines, r"payment")
@@ -185,20 +204,17 @@ def parse_admin_order(text: str) -> Tuple[Optional[Dict[str, Any]], Optional[str
         stripped = line.strip()
         if re.match(r"(?i)address\s*:", stripped):
             in_addr = True
-            # Anything on the same line after "Address:"
             after = re.sub(r"(?i)address\s*:", "", stripped).strip()
             if after:
                 addr_lines.append(after)
             continue
         if in_addr:
-            # Stop at next known field
             if re.match(r"(?i)(payment|product|qty|quantity|phone|customer)\s*:", stripped):
                 break
             if stripped:
                 addr_lines.append(stripped)
 
     if addr_lines:
-        # Convention: last line = pincode (6 digits), second-last = state, third-last = city
         parts = list(addr_lines)
         pincode = state = city = ""
         if parts and re.match(r"^\d{6}$", parts[-1]):
@@ -229,8 +245,6 @@ def parse_admin_order(text: str) -> Tuple[Optional[Dict[str, Any]], Optional[str
             missing.append("• Address — State")
         if not addr.get("pincode"):
             missing.append("• Address — Pincode (6 digits)")
-    elif "address" not in data:
-        pass  # Already captured as missing above
 
     if missing:
         return None, (
@@ -244,29 +258,55 @@ def parse_admin_order(text: str) -> Tuple[Optional[Dict[str, Any]], Optional[str
 
 # ── Product lookup ─────────────────────────────────────────────────────────────
 
-async def find_product(product_name: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+async def find_product(identifier: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     """
-    Search for a product by name in the Products table.
-    Returns (product_row, None) for exactly one match,
-    or (None, error_message) for zero/multiple matches.
-    Reuses the existing name field and filter conventions from products router.
+    Look up a single product by ID (numeric) or by name (text search).
+
+    ID lookup  — exact, fast, always recommended:
+        identifier = "45"  → fetches row 45 directly
+    Name lookup — fuzzy contains search, may be ambiguous:
+        identifier = "Science Book"  → searches name field
+
+    When name search returns multiple matches, the error message includes
+    each product's ID so the admin can retry with the ID for precision.
+
+    Returns (product_dict, None) on success or (None, error_message) on failure.
     """
+    identifier = identifier.strip()
+
+    # ── ID lookup ──────────────────────────────────────────────────────────────
+    if identifier.isdigit():
+        product_id = int(identifier)
+        try:
+            row = await _client.get_row(TABLE_IDS["products"], product_id)
+        except Exception as exc:
+            logger.error(f"[AdminOrder] Product ID lookup error id={product_id}: {exc}")
+            return None, f"❌ Product ID {product_id} not found. Check the ID and try again."
+
+        if not row or not row.get("id"):
+            return None, f"❌ Product ID {product_id} not found. Check the ID and try again."
+
+        is_active = row.get("is_active") in (True, 1, "true", "True", "1")
+        if not is_active:
+            return None, f"❌ Product ID {product_id} ({row.get('name', '')}) is inactive."
+
+        return _map_product_for_order(row), None
+
+    # ── Name search ────────────────────────────────────────────────────────────
     try:
         res = await _client.get_rows(
             TABLE_IDS["products"],
             size=200,
             filters={
-                "name": ("contains", product_name),
+                "name": ("contains", identifier),
                 "is_active": "true",
             },
         )
     except Exception as exc:
-        logger.error(f"[AdminOrder] Product lookup error: {exc}")
+        logger.error(f"[AdminOrder] Product name search error: {exc}")
         return None, "❌ Error looking up product. Please try again."
 
     results = res.get("results", [])
-
-    # Filter by active status defensively
     active = [
         r for r in results
         if r.get("is_active") in (True, 1, "true", "True", "1")
@@ -274,21 +314,42 @@ async def find_product(product_name: str) -> Tuple[Optional[Dict[str, Any]], Opt
 
     if not active:
         return None, (
-            f"❌ Product not found: \"{product_name}\"\n\n"
-            "Please check the product name and send the order again."
+            f"❌ Product not found: \"{identifier}\"\n\n"
+            "Tip: Use the product ID for exact match.\n"
+            "Example: Product: 45 x 2"
         )
 
     if len(active) == 1:
         return _map_product_for_order(active[0]), None
 
-    # Multiple matches — ask admin to be more specific
-    names = [r.get("name", f"Product #{r.get('id')}") for r in active[:6]]
-    name_list = "\n".join(f"• {n}" for n in names)
+    # Multiple matches — show IDs so admin can retry precisely
+    lines = [f"• ID {r.get('id')} — {r.get('name', '')}" for r in active[:8]]
     return None, (
-        f"⚠️ Multiple products match \"{product_name}\":\n\n"
-        f"{name_list}\n\n"
-        "Please send the order again with a more specific product name."
+        f"⚠️ Multiple products match \"{identifier}\":\n\n"
+        + "\n".join(lines) +
+        "\n\nUse the ID for exact match. Example:\n"
+        f"Product: {active[0].get('id')} x 1"
     )
+
+
+async def find_all_products(
+    product_entries: List[Dict[str, Any]],
+) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str]]:
+    """
+    Resolve all product entries from a parsed order.
+    Each entry: {"identifier": "45" or "Book Name", "qty": 2}
+    Returns (resolved_list, None) where each item = {"product": {...}, "qty": int}
+    or (None, error_message) if any product fails to resolve.
+    """
+    resolved: List[Dict[str, Any]] = []
+    for entry in product_entries:
+        identifier = entry["identifier"]
+        qty = entry["qty"]
+        product, error = await find_product(identifier)
+        if error:
+            return None, error
+        resolved.append({"product": product, "qty": qty})
+    return resolved, None
 
 
 def _map_product_for_order(row: Dict[str, Any]) -> Dict[str, Any]:
@@ -370,32 +431,45 @@ async def find_or_create_guest_customer(
 
 async def create_whatsapp_admin_order(
     parsed_order: Dict[str, Any],
-    product: Dict[str, Any],
+    resolved_products: List[Dict[str, Any]],
     customer: Dict[str, Any],
     admin_phone: str,
 ) -> Dict[str, Any]:
     """
     Create an order in Baserow Orders table (762).
-    Reuses the same JSON field structure as website orders so it appears
-    seamlessly in the existing admin orders page.
+    resolved_products: list of {"product": {...}, "qty": int}
+    Reuses the same JSON field structure as website orders.
     Returns the created order dict with order_id assigned.
     """
     name = parsed_order["customer_name"]
     phone = parsed_order["customer_phone"]
-    qty = int(parsed_order["quantity"])
     payment_method = parsed_order["payment_method"]
     addr = parsed_order["address"]
-
-    unit_price = float(product.get("price") or product.get("mrp") or 0)
-    total = round(unit_price * qty, 2)
-    product_name = product.get("name") or ""
     admin_phone_clean = normalize_phone(admin_phone)
+
+    items = []
+    subtotal = 0.0
+    for entry in resolved_products:
+        p = entry["product"]
+        qty = int(entry["qty"])
+        unit_price = float(p.get("price") or p.get("mrp") or 0)
+        item_total = round(unit_price * qty, 2)
+        subtotal += item_total
+        items.append({
+            "product_id": p.get("id"),
+            "name": p.get("name") or "",
+            "quantity": qty,
+            "price": unit_price,
+            "currentPrice": unit_price,
+            "totalPrice": item_total,
+        })
+    total = round(subtotal, 2)
 
     user_info = {
         "name": name,
         "email": customer.get("email", ""),
         "phone": phone,
-        "user_id": customer.get("id"),
+        "userId": customer.get("id"),
         "address": {
             "street": addr.get("street", ""),
             "apartment": "",
@@ -405,16 +479,6 @@ async def create_whatsapp_admin_order(
             "country": "India",
         },
     }
-
-    items = [
-        {
-            "name": product_name,
-            "quantity": qty,
-            "price": unit_price,
-            "currentPrice": unit_price,
-            "totalPrice": total,
-        }
-    ]
 
     order_summary = {
         "subtotal": total,
@@ -426,7 +490,7 @@ async def create_whatsapp_admin_order(
     payment_data = {
         "amount": total,
         "method": payment_method,
-        "status": "Pending" if payment_method == "COD" else "Pending",
+        "status": "Pending",
         "transactionId": "-",
         "razorpay_order_id": "",
         "razorpay_payment_id": "",
@@ -438,7 +502,6 @@ async def create_whatsapp_admin_order(
         "city": addr.get("city", ""),
         "state": addr.get("state", ""),
         "pincode": addr.get("pincode", ""),
-        # Source metadata — visible in admin orders page
         "source": "WHATSAPP_ADMIN",
         "created_by_phone": admin_phone_clean,
         "awb": "",
@@ -464,16 +527,18 @@ async def create_whatsapp_admin_order(
 
     created_row = await _client.create_row(TABLE_IDS["orders"], row_data)
 
-    # Assign order_id = "WABOOK{id}" so it's visually distinct from website orders
     row_id = created_row.get("id")
     order_id = f"WABOOK{row_id}"
     await _client.update_row(TABLE_IDS["orders"], row_id, {"order_id": order_id})
     created_row["order_id"] = order_id
 
+    item_summary = ", ".join(
+        f"{e['product'].get('name')} x{e['qty']}" for e in resolved_products
+    )
     logger.info(
         f"[AdminOrder] ✓ Created order {order_id} "
         f"customer={name} ({phone}) "
-        f"product={product_name} x{qty} "
+        f"items=[{item_summary}] "
         f"total=₹{total} "
         f"by_admin={admin_phone_clean}"
     )
@@ -484,18 +549,17 @@ async def create_whatsapp_admin_order(
 
 def format_order_preview(
     parsed_order: Dict[str, Any],
-    product: Dict[str, Any],
+    resolved_products: List[Dict[str, Any]],
     customer: Dict[str, Any],
 ) -> str:
-    """Format a human-readable order preview message for admin confirmation."""
+    """
+    Format a human-readable order preview for admin confirmation.
+    resolved_products: list of {"product": {...}, "qty": int}
+    """
     name = parsed_order["customer_name"]
     phone = parsed_order["customer_phone"]
-    qty = int(parsed_order["quantity"])
     payment_method = parsed_order["payment_method"]
     addr = parsed_order["address"]
-    product_name = product.get("name") or "Book"
-    unit_price = float(product.get("price") or product.get("mrp") or 0)
-    total = round(unit_price * qty, 2)
 
     addr_parts = [
         addr.get("street", ""),
@@ -506,20 +570,34 @@ def format_order_preview(
     addr_str = "\n".join(p for p in addr_parts if p)
 
     notes = str(customer.get("Notes") or "")
-    customer_status = " (New Guest)" if "WHATSAPP_ADMIN" in notes else " (Existing Customer)"
+    customer_status = " (New Guest)" if "WHATSAPP_ADMIN" in notes else " (Existing)"
 
-    stock = product.get("stock_status") or ""
-    stock_note = ""
-    if "out_of_stock" in stock.lower():
-        stock_note = "\n⚠️ Note: This product is currently Out of Stock."
+    # Build product lines
+    product_lines = []
+    total = 0.0
+    out_of_stock_warnings = []
+    for entry in resolved_products:
+        p = entry["product"]
+        qty = int(entry["qty"])
+        unit_price = float(p.get("price") or p.get("mrp") or 0)
+        item_total = round(unit_price * qty, 2)
+        total += item_total
+        product_lines.append(
+            f"• {p.get('name')} (ID:{p.get('id')}) × {qty} = ₹{item_total:.0f}"
+        )
+        stock = str(p.get("stock_status") or "")
+        if "out_of_stock" in stock.lower():
+            out_of_stock_warnings.append(f"⚠️ {p.get('name')} is Out of Stock")
+
+    total = round(total, 2)
+    products_str = "\n".join(product_lines)
+    stock_warn = ("\n" + "\n".join(out_of_stock_warnings)) if out_of_stock_warnings else ""
 
     return (
         "📦 ORDER PREVIEW\n\n"
         f"Customer: {name}{customer_status}\n"
         f"Phone: {phone}\n\n"
-        f"Product:\n{product_name} × {qty}\n"
-        f"Unit Price: ₹{unit_price:.0f}\n"
-        f"{stock_note}\n"
+        f"Products:\n{products_str}{stock_warn}\n\n"
         "Address:\n"
         f"{addr_str}\n\n"
         f"Payment: {payment_method}\n"

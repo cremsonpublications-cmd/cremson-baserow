@@ -19,7 +19,7 @@ from services.baserow import BaserowClient
 from services.admin_order import (
     is_admin_number,
     parse_admin_order,
-    find_product,
+    find_all_products,
     find_or_create_guest_customer,
     create_whatsapp_admin_order,
     format_order_preview,
@@ -768,10 +768,10 @@ async def _handle_admin_order_message(from_phone: str, message_text: str) -> Non
         await send_text_message(from_phone, parse_error)
         return
 
-    # 2. Find product
-    product, product_error = await find_product(parsed_order["product_name"])
+    # 2. Resolve all products (by ID or name)
+    resolved_products, product_error = await find_all_products(parsed_order["products"])
     if product_error:
-        logger.warning(f"[AdminOrder] Product error: {product_error[:80]}")
+        logger.warning(f"[AdminOrder] Product error: {product_error[:120]}")
         await send_text_message(from_phone, product_error)
         return
 
@@ -787,7 +787,7 @@ async def _handle_admin_order_message(from_phone: str, message_text: str) -> Non
         return
 
     # 4. Build preview and enter confirmation state
-    preview = format_order_preview(parsed_order, product, customer)
+    preview = format_order_preview(parsed_order, resolved_products, customer)
 
     # Store all parsed data in conversation context for confirmation step
     set_conversation_state(
@@ -795,7 +795,7 @@ async def _handle_admin_order_message(from_phone: str, message_text: str) -> Non
         "ADMIN_ORDER_PENDING_CONFIRMATION",
         context={
             "parsed_order": parsed_order,
-            "product": product,
+            "resolved_products": resolved_products,
             "customer": {
                 "id": customer.get("id"),
                 "name": customer.get("name"),
@@ -846,11 +846,11 @@ async def _handle_admin_order_confirmation(
         return
 
     parsed_order = context.get("parsed_order")
-    product = context.get("product")
+    resolved_products = context.get("resolved_products")
     customer = context.get("customer")
     admin_phone = context.get("admin_phone", from_phone)
 
-    if not parsed_order or not product or not customer:
+    if not parsed_order or not resolved_products or not customer:
         set_conversation_state(from_phone, "MAIN_MENU")
         await send_text_message(
             from_phone,
@@ -866,7 +866,7 @@ async def _handle_admin_order_confirmation(
     try:
         order = await create_whatsapp_admin_order(
             parsed_order=parsed_order,
-            product=product,
+            resolved_products=resolved_products,
             customer=customer,
             admin_phone=admin_phone,
         )
@@ -886,11 +886,20 @@ async def _handle_admin_order_confirmation(
     order_id = order.get("order_id") or f"WABOOK{order.get('id')}"
     customer_name = parsed_order["customer_name"]
     customer_phone = parsed_order["customer_phone"]
-    product_name = product.get("name") or "Book"
-    qty = parsed_order["quantity"]
-    unit_price = float(product.get("price") or product.get("mrp") or 0)
-    total = round(unit_price * qty, 2)
     payment_method = parsed_order["payment_method"]
+
+    # Build items summary + total
+    total = 0.0
+    item_lines = []
+    for entry in resolved_products:
+        p = entry["product"]
+        qty = int(entry["qty"])
+        unit_price = float(p.get("price") or p.get("mrp") or 0)
+        item_total = round(unit_price * qty, 2)
+        total += item_total
+        item_lines.append(f"  {p.get('name')} × {qty} = ₹{item_total:.0f}")
+    total = round(total, 2)
+    items_str = "\n".join(item_lines)
 
     # Reset admin state
     set_conversation_state(from_phone, "MAIN_MENU")
@@ -900,7 +909,7 @@ async def _handle_admin_order_confirmation(
         f"✅ Order Created Successfully!\n\n"
         f"Order ID: {order_id}\n"
         f"Customer: {customer_name} ({customer_phone})\n"
-        f"Product: {product_name} × {qty}\n"
+        f"Products:\n{items_str}\n"
         f"Total: ₹{total:.0f}\n"
         f"Payment: {payment_method}\n\n"
         f"The order is now visible in the Admin Orders page."
