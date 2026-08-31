@@ -643,7 +643,27 @@ async def razorpay_webhook(request: Request):
 
         logger.info(f"[RazorpayWebhook] ✓ Order {order_id} marked as Paid")
 
-        # Send WhatsApp confirmation to customer
+        # Auto-create Shipway shipment (same flow as website online payment)
+        try:
+            user_info = json.loads(row.get("user_info") or "{}")
+            items_data = json.loads(row.get("items") or "[]")
+            delivery_data = json.loads(row.get("delivery") or "{}")
+            order_date = row.get("order_date") or datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+            await _create_shipway_shipment(
+                baserow_row_id=row_id,
+                order_id=order_id,
+                order_date=order_date,
+                total_amount=amount_paid_inr,
+                items=items_data,
+                user_info=user_info,
+                delivery=delivery_data,
+            )
+            logger.info(f"[RazorpayWebhook] ✓ Shipway shipment triggered for {order_id}")
+        except Exception as ship_err:
+            logger.error(f"[RazorpayWebhook] Shipway creation failed for {order_id}: {ship_err}")
+
+        # Send WhatsApp payment confirmation to customer
         try:
             user_info = json.loads(row.get("user_info") or "{}")
             customer_phone = user_info.get("phone", "")
@@ -654,7 +674,8 @@ async def razorpay_webhook(request: Request):
                     customer_phone,
                     f"✅ Payment Received!\n\n"
                     f"Hi {customer_name}, we've received your payment of ₹{amount_paid_inr:.0f} for order {order_id}.\n\n"
-                    f"Your order is confirmed and will be dispatched soon.\n"
+                    f"Your order is confirmed and will be dispatched soon. "
+                    f"You'll receive a tracking link once shipped.\n\n"
                     f"Thank you for choosing Cremson Publications! 🙏"
                 )
         except Exception as notif_err:

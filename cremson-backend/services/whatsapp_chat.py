@@ -904,6 +904,53 @@ async def _handle_admin_order_confirmation(
     # Reset admin state
     set_conversation_state(from_phone, "MAIN_MENU")
 
+    # 5a-pre. For COD orders — auto-create Shipway shipment immediately
+    # (Online orders: shipment created after payment via Razorpay webhook)
+    if payment_method == "COD":
+        try:
+            from routers.payment import _create_shipway_shipment
+            items_for_shipway = [
+                {
+                    "name": e["product"].get("name", ""),
+                    "quantity": e["qty"],
+                    "price": float(e["product"].get("price") or e["product"].get("mrp") or 0),
+                }
+                for e in resolved_products
+            ]
+            addr = parsed_order["address"]
+            delivery_for_shipway = {
+                "name": customer_name,
+                "phone": customer_phone,
+                "address": addr.get("street", ""),
+                "city": addr.get("city", ""),
+                "state": addr.get("state", ""),
+                "pincode": addr.get("pincode", ""),
+                "source": "WHATSAPP_ADMIN",
+            }
+            user_info_for_shipway = {
+                "name": customer_name,
+                "phone": customer_phone,
+                "email": customer.get("email", ""),
+                "address": {
+                    "street": addr.get("street", ""),
+                    "city": addr.get("city", ""),
+                    "state": addr.get("state", ""),
+                    "pincode": addr.get("pincode", ""),
+                },
+            }
+            await _create_shipway_shipment(
+                baserow_row_id=order.get("id"),
+                order_id=order_id,
+                order_date=order.get("order_date", ""),
+                total_amount=total,
+                items=items_for_shipway,
+                user_info=user_info_for_shipway,
+                delivery=delivery_for_shipway,
+            )
+            logger.info(f"[AdminOrder] ✓ COD shipment created for {order_id}")
+        except Exception as ship_err:
+            logger.error(f"[AdminOrder] COD shipment creation failed for {order_id}: {ship_err}")
+
     # 5a. Notify admin of success
     admin_success = (
         f"✅ Order Created Successfully!\n\n"
