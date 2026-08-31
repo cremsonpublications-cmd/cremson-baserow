@@ -544,8 +544,13 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal, onOpen
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-bold text-slate-900">Order Details</h2>
               <StatusBadge status={order.order_status ?? order.status} />
+              {delivery.source === "WHATSAPP_ADMIN" && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-700 border border-green-200 tracking-wide">
+                  📱 WhatsApp
+                </span>
+              )}
             </div>
-            <p className="text-xs text-slate-400 font-mono mt-1">ID: {order.order_id || order.id} &bull; Row ID: {order.id}</p>
+            <p className="text-xs text-slate-400 font-mono mt-1">ID: {order.order_id || order.id} &bull; Row ID: {order.id}{delivery.created_by_phone ? ` • By: ${delivery.created_by_phone}` : ""}</p>
           </div>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-650 hover:bg-slate-50 rounded-full transition-all cursor-pointer">
             <X className="w-5 h-5" />

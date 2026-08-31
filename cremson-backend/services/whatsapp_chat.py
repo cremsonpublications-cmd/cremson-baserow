@@ -16,6 +16,16 @@ from config import (
     TABLE_IDS,
 )
 from services.baserow import BaserowClient
+from services.admin_order import (
+    is_admin_number,
+    parse_admin_order,
+    find_product,
+    find_or_create_guest_customer,
+    create_whatsapp_admin_order,
+    format_order_preview,
+    is_confirm_already_processed,
+    mark_confirm_processed,
+)
 from utils.conversation_state import (
     get_conversation_state,
     set_conversation_state,
@@ -195,16 +205,41 @@ def get_bulk_order_message() -> str:
 
 # --- MAIN WORKFLOW HANDLER ---
 
-async def handle_incoming_message(from_phone: str, message_text: str) -> None:
+async def handle_incoming_message(from_phone: str, message_text: str, msg_id: str = "") -> None:
     """Main entry point for processing incoming WhatsApp messages against AiSensy flow rules."""
     clean_text = (message_text or "").strip()
-    logger.info(f"[WhatsApp Chat] Received message from {from_phone}: '{clean_text}'")
+    logger.info(f"[WhatsApp Chat] Received message from {from_phone}: '{clean_text[:80]}'")
 
     current_session = get_conversation_state(from_phone)
     current_state = current_session.get("state", "MAIN_MENU")
     context = current_session.get("context", {})
 
     logger.info(f"[WhatsApp Chat] Current session state for {from_phone}: {current_state}")
+
+    # ── ADMIN ORDER FLOW ───────────────────────────────────────────────────────
+    # Must be checked BEFORE global triggers so CONFIRM/CANCEL don't get
+    # captured by the bulk_pattern ("yes|order|...").
+
+    # 1. Admin sends "ADMIN ORDER ..." — initiate flow (admin only)
+    if re.match(r"(?i)^admin\s+order", clean_text):
+        if not is_admin_number(from_phone):
+            logger.warning(f"[AdminOrder] Unauthorized ADMIN ORDER attempt from {from_phone}")
+            # Fall through to normal customer chatbot — do NOT reveal the command exists
+        else:
+            logger.info(f"[AdminOrder] Admin order message received from {from_phone}")
+            await _handle_admin_order_message(from_phone, clean_text)
+            return
+
+    # 2. Admin is in ADMIN_ORDER_PENDING_CONFIRMATION state — handle CONFIRM/CANCEL
+    if current_state == "ADMIN_ORDER_PENDING_CONFIRMATION":
+        if not is_admin_number(from_phone):
+            # Shouldn't normally happen, but be safe
+            set_conversation_state(from_phone, "MAIN_MENU")
+        else:
+            await _handle_admin_order_confirmation(from_phone, clean_text, context, msg_id)
+            return
+
+    # ── END ADMIN ORDER FLOW ───────────────────────────────────────────────────
 
     # Global reset triggers
     if clean_text.lower() in ["hi", "hello", "start", "menu", "main", "main menu"]:
@@ -714,3 +749,179 @@ async def _send_order_details_response(from_phone: str, order_id: str) -> None:
         logger.error(f"[WhatsApp Chat] Error rendering order details: {exc}")
         set_conversation_state(from_phone, "MAIN_MENU")
         await send_text_message(from_phone, "Error retrieving order details. Please try again.")
+
+
+# ── ADMIN ORDER HANDLERS ───────────────────────────────────────────────────────
+
+async def _handle_admin_order_message(from_phone: str, message_text: str) -> None:
+    """
+    Parse the admin's order message, look up product and customer,
+    then send an order preview for confirmation.
+    Called only after is_admin_number() returns True.
+    """
+    logger.info(f"[AdminOrder] Parsing order message from {from_phone}")
+
+    # 1. Parse & validate
+    parsed_order, parse_error = parse_admin_order(message_text)
+    if parse_error:
+        logger.warning(f"[AdminOrder] Parse error for {from_phone}: {parse_error[:80]}")
+        await send_text_message(from_phone, parse_error)
+        return
+
+    # 2. Find product
+    product, product_error = await find_product(parsed_order["product_name"])
+    if product_error:
+        logger.warning(f"[AdminOrder] Product error: {product_error[:80]}")
+        await send_text_message(from_phone, product_error)
+        return
+
+    # 3. Find or create guest customer
+    try:
+        customer = await find_or_create_guest_customer(
+            name=parsed_order["customer_name"],
+            phone=parsed_order["customer_phone"],
+        )
+    except Exception as exc:
+        logger.error(f"[AdminOrder] Customer find/create error: {exc}")
+        await send_text_message(from_phone, "❌ Error looking up customer. Please try again.")
+        return
+
+    # 4. Build preview and enter confirmation state
+    preview = format_order_preview(parsed_order, product, customer)
+
+    # Store all parsed data in conversation context for confirmation step
+    set_conversation_state(
+        from_phone,
+        "ADMIN_ORDER_PENDING_CONFIRMATION",
+        context={
+            "parsed_order": parsed_order,
+            "product": product,
+            "customer": {
+                "id": customer.get("id"),
+                "name": customer.get("name"),
+                "email": customer.get("email"),
+                "phone": customer.get("phone"),
+                "Notes": customer.get("Notes", ""),
+            },
+            "admin_phone": from_phone,
+        },
+    )
+
+    logger.info(f"[AdminOrder] Preview sent to {from_phone} — awaiting CONFIRM/CANCEL")
+    await send_text_message(from_phone, preview)
+
+
+async def _handle_admin_order_confirmation(
+    from_phone: str,
+    clean_text: str,
+    context: dict,
+    msg_id: str,
+) -> None:
+    """
+    Handle CONFIRM or CANCEL reply from admin after receiving order preview.
+    Creates the actual order only on CONFIRM.
+    Uses msg_id for idempotency — duplicate webhook deliveries are ignored.
+    """
+    response_lower = clean_text.lower().strip()
+
+    if response_lower in ["cancel", "❌ cancel", "❌cancel", "no"]:
+        set_conversation_state(from_phone, "MAIN_MENU")
+        logger.info(f"[AdminOrder] Order cancelled by {from_phone}")
+        await send_text_message(from_phone, "❌ Order cancelled. No order was created.")
+        return
+
+    if response_lower not in ["confirm", "✅ confirm", "✅confirm", "yes", "confirmed"]:
+        # Unrecognised input — re-prompt
+        await send_text_message(
+            from_phone,
+            "Please reply:\n✅ CONFIRM — to place the order\n❌ CANCEL — to discard"
+        )
+        return
+
+    # CONFIRM path
+    # Idempotency check — prevent duplicate orders from retried webhooks
+    if msg_id and is_confirm_already_processed(msg_id):
+        logger.warning(f"[AdminOrder] Duplicate CONFIRM webhook msg_id={msg_id} — skipping")
+        await send_text_message(from_phone, "ℹ️ This order was already confirmed and created.")
+        return
+
+    parsed_order = context.get("parsed_order")
+    product = context.get("product")
+    customer = context.get("customer")
+    admin_phone = context.get("admin_phone", from_phone)
+
+    if not parsed_order or not product or not customer:
+        set_conversation_state(from_phone, "MAIN_MENU")
+        await send_text_message(
+            from_phone,
+            "❌ Order session expired. Please send the order message again."
+        )
+        return
+
+    # Mark this wamid as processed BEFORE creating order to prevent race conditions
+    if msg_id:
+        mark_confirm_processed(msg_id)
+
+    # Create the order
+    try:
+        order = await create_whatsapp_admin_order(
+            parsed_order=parsed_order,
+            product=product,
+            customer=customer,
+            admin_phone=admin_phone,
+        )
+    except Exception as exc:
+        logger.error(f"[AdminOrder] Order creation failed for {from_phone}: {exc}")
+        # Remove the processed mark so admin can retry
+        if msg_id:
+            from services.admin_order import _PROCESSED_CONFIRM_IDS
+            _PROCESSED_CONFIRM_IDS.pop(msg_id, None)
+        set_conversation_state(from_phone, "MAIN_MENU")
+        await send_text_message(
+            from_phone,
+            f"❌ Order creation failed. Please try again.\n\nError: {str(exc)[:120]}"
+        )
+        return
+
+    order_id = order.get("order_id") or f"WABOOK{order.get('id')}"
+    customer_name = parsed_order["customer_name"]
+    customer_phone = parsed_order["customer_phone"]
+    product_name = product.get("name") or "Book"
+    qty = parsed_order["quantity"]
+    unit_price = float(product.get("price") or product.get("mrp") or 0)
+    total = round(unit_price * qty, 2)
+    payment_method = parsed_order["payment_method"]
+
+    # Reset admin state
+    set_conversation_state(from_phone, "MAIN_MENU")
+
+    # 5a. Notify admin of success
+    admin_success = (
+        f"✅ Order Created Successfully!\n\n"
+        f"Order ID: {order_id}\n"
+        f"Customer: {customer_name} ({customer_phone})\n"
+        f"Product: {product_name} × {qty}\n"
+        f"Total: ₹{total:.0f}\n"
+        f"Payment: {payment_method}\n\n"
+        f"The order is now visible in the Admin Orders page."
+    )
+    await send_text_message(from_phone, admin_success)
+    logger.info(f"[AdminOrder] ✓ Admin notified of order {order_id}")
+
+    # 5b. Notify customer on their WhatsApp
+    try:
+        customer_msg = (
+            f"✅ Order Confirmed!\n\n"
+            f"Hi {customer_name},\n\n"
+            f"Your order has been placed successfully by Cremson Publications.\n\n"
+            f"📦 Order ID: {order_id}\n"
+            f"📚 {product_name} × {qty}\n"
+            f"💰 Total: ₹{total:.0f}\n"
+            f"💳 Payment: {payment_method}\n\n"
+            f"Thank you for choosing Cremson Publications! 🙏\n\n"
+            f"Track your order: https://cremsonpublications.com"
+        )
+        await send_text_message(customer_phone, customer_msg)
+        logger.info(f"[AdminOrder] ✓ Customer notified at {customer_phone}")
+    except Exception as exc:
+        logger.warning(f"[AdminOrder] Customer notification failed: {exc}")

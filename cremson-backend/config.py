@@ -12,6 +12,9 @@ WHATSAPP_WABA_ID = os.getenv("WHATSAPP_WABA_ID", "2467890800356408")
 WHATSAPP_TEMPLATE_NAME = os.getenv("WHATSAPP_TEMPLATE_NAME", "hello_world")
 WHATSAPP_TEMPLATE_LANGUAGE = os.getenv("WHATSAPP_TEMPLATE_LANGUAGE", "en")
 WHATSAPP_MAIN_PHONE = os.getenv("WHATSAPP_MAIN_PHONE", "919205153617")
+# Comma-separated list of authorized admin/staff WhatsApp numbers (e.g. "919876543210,919876543211")
+# These numbers can create orders via WhatsApp admin order flow.
+WHATSAPP_ADMIN_NUMBERS = os.getenv("WHATSAPP_ADMIN_NUMBERS", "")
 
 # 2Factor SMS Gateway Config
 TWOFACTOR_API_KEY = os.getenv("TWOFACTOR_API_KEY") or ""

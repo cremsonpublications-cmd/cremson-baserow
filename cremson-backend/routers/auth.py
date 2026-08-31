@@ -24,6 +24,8 @@ from db.auth import (
     get_valid_otp,
     consume_otp,
     normalize_phone,
+    is_guest_user,
+    activate_guest_to_active,
 )
 from services.baserow import BaserowClient
 from config import TABLE_IDS
@@ -215,6 +217,29 @@ async def register(body: RegisterRequest):
         if existing_phone:
             if existing_phone.get("is_approved") == -1 or existing_phone.get("is_active") == 0:
                 raise HTTPException(status_code=409, detail="This phone number has been blocked or rejected by administration.")
+
+            # ── GUEST-TO-ACTIVE conversion ─────────────────────────────────
+            # If this phone belongs to a GUEST customer created via WhatsApp admin order,
+            # convert the existing record instead of creating a duplicate user.
+            # The existing orders remain linked to the same user_id.
+            if is_guest_user(existing_phone):
+                loop = asyncio.get_event_loop()
+                pw_hash = await loop.run_in_executor(None, partial(pwd_ctx.hash, body.password))
+                updated_user = await activate_guest_to_active(
+                    user_id=existing_phone["id"],
+                    email=body.email,
+                    password_hash=pw_hash,
+                    name=body.name,
+                )
+                otp = make_otp()
+                await save_otp(body.email, otp, otp_expires_at())
+                await send_otp_to_user(body.email, body.name, body.phone, otp)
+                return {
+                    "message": "Account created. Check your WhatsApp for the 6-digit verification code.",
+                    "guest_activated": True,
+                }
+            # ── END GUEST-TO-ACTIVE ────────────────────────────────────────
+
             raise HTTPException(status_code=409, detail="An account with this phone number already exists.")
 
     existing = await get_user_by_email(body.email)

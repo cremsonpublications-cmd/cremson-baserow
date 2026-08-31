@@ -93,11 +93,13 @@ async def receive_whatsapp_webhook(request: Request, background_tasks: Backgroun
 
                 if msg_type == "text" and from_phone:
                     text_body = (msg.get("text") or {}).get("body", "")
+                    msg_wamid = msg.get("id", "")  # Unique WhatsApp message ID for dedup
                     # Schedule background handling of chatbot flow
                     background_tasks.add_task(
                         handle_incoming_message,
                         from_phone,
                         text_body,
+                        msg_wamid,
                     )
                 else:
                     logger.info(f"[WhatsApp Webhook] Received non-text message type '{msg_type}' from {from_phone}")

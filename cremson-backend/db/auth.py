@@ -220,6 +220,39 @@ async def mark_user_verified(email: str):
         await _client.update_row(T_USERS, user["id"], {"is_verified": 1})
 
 
+def is_guest_user(user: dict) -> bool:
+    """Return True if this is a WhatsApp-admin-created GUEST customer."""
+    notes = str(user.get("Notes") or "")
+    return "WHATSAPP_ADMIN" in notes and not int(user.get("is_verified") or 0)
+
+
+async def activate_guest_to_active(
+    user_id: int,
+    email: str,
+    password_hash: str,
+    name: str,
+) -> dict:
+    """
+    Convert a GUEST customer (created via WhatsApp admin order) into a full account.
+    Called during normal website signup when the phone number matches an existing GUEST.
+    The user_id — and therefore all previous orders — remain unchanged.
+    Authentication still requires OTP verification before is_verified is set to 1.
+    """
+    # Rebuild Notes without the WHATSAPP_ADMIN marker
+    notes = "role: customer; is_approved: 1"
+
+    payload = {
+        "email": email.lower().strip(),
+        "name": name.strip(),
+        "password_hash": password_hash,
+        "is_verified": 0,  # Still needs OTP verification
+        "is_active": 1,
+        "Notes": notes,
+    }
+    row = await _client.update_row(T_USERS, user_id, payload)
+    return _row(row)
+
+
 # ── OTP helpers ───────────────────────────────────────────────────────────────
 
 async def save_otp(email: str, otp: str, expires_at: str):
