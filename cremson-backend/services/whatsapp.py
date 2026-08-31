@@ -660,6 +660,75 @@ async def send_whatsapp_otp(phone: str, otp: str):
     )
 
 
+async def send_admin_order_payment_link(
+    phone: str,
+    customer_name: str,
+    order_id: str,
+    items_summary: str,
+    total: float,
+    pay_url: str,
+) -> bool:
+    """
+    Send payment link to customer for WhatsApp admin Online orders.
+    Template: wa_admin_order_online_v1
+    Body vars: {{1}}=name {{2}}=order_id {{3}}=items {{4}}=total
+    Button URL var: {{1}}=rzp short code (extracted from rzp.io/l/<code>)
+    """
+    # Extract the short code from the rzp.io URL for the button variable
+    # e.g. "https://rzp.io/l/AbCdEf" → "AbCdEf"
+    rzp_code = pay_url.rstrip("/").split("/")[-1] if pay_url else pay_url
+
+    components = [
+        {
+            "type": "body",
+            "parameters": [
+                _txt(customer_name),
+                _txt(order_id),
+                _txt(items_summary),
+                _txt(str(int(total))),
+            ],
+        },
+        {
+            "type": "button",
+            "sub_type": "url",
+            "index": "0",
+            "parameters": [_txt(rzp_code)],
+        },
+    ]
+    return await _send_template(
+        phone=phone,
+        template_name="wa_admin_order_online_v1",
+        parameters=[],
+        log_tag=f"admin_order_payment_link order={order_id} to={phone}",
+        components=components,
+    )
+
+
+async def send_admin_order_cod_confirmation(
+    phone: str,
+    customer_name: str,
+    order_id: str,
+    items_summary: str,
+    total: float,
+) -> bool:
+    """
+    Send COD order confirmation to customer for WhatsApp admin COD orders.
+    Template: wa_admin_order_cod_v1
+    Body vars: {{1}}=name {{2}}=order_id {{3}}=items {{4}}=total
+    """
+    return await _send_template(
+        phone=phone,
+        template_name="wa_admin_order_cod_v1",
+        parameters=[
+            _txt(customer_name),
+            _txt(order_id),
+            _txt(items_summary),
+            _txt(str(int(total))),
+        ],
+        log_tag=f"admin_order_cod order={order_id} to={phone}",
+    )
+
+
 async def send_specimen_received_whatsapp(phone: str, name: str, books_requested: str):
     """Sends a WhatsApp template notification to teacher when a specimen request is created."""
     await _send_template(

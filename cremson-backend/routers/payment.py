@@ -663,20 +663,19 @@ async def razorpay_webhook(request: Request):
         except Exception as ship_err:
             logger.error(f"[RazorpayWebhook] Shipway creation failed for {order_id}: {ship_err}")
 
-        # Send WhatsApp payment confirmation to customer
+        # Send WhatsApp payment success notification via approved template
         try:
-            user_info = json.loads(row.get("user_info") or "{}")
-            customer_phone = user_info.get("phone", "")
-            customer_name = user_info.get("name", "Customer")
+            user_info_pay = json.loads(row.get("user_info") or "{}")
+            customer_phone = user_info_pay.get("phone", "")
+            customer_name = user_info_pay.get("name", "Customer")
             if customer_phone:
-                from services.whatsapp_chat import send_text_message
-                await send_text_message(
-                    customer_phone,
-                    f"✅ Payment Received!\n\n"
-                    f"Hi {customer_name}, we've received your payment of ₹{amount_paid_inr:.0f} for order {order_id}.\n\n"
-                    f"Your order is confirmed and will be dispatched soon. "
-                    f"You'll receive a tracking link once shipped.\n\n"
-                    f"Thank you for choosing Cremson Publications! 🙏"
+                from services.whatsapp import send_payment_success
+                await send_payment_success(
+                    phone=customer_phone,
+                    customer_name=customer_name,
+                    order_id=order_id,
+                    amount=amount_paid_inr,
+                    transaction_id=razorpay_payment_id,
                 )
         except Exception as notif_err:
             logger.warning(f"[RazorpayWebhook] Customer payment notification failed: {notif_err}")

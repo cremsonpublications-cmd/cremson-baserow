@@ -964,10 +964,14 @@ async def _handle_admin_order_confirmation(
     await send_text_message(from_phone, admin_success)
     logger.info(f"[AdminOrder] ✓ Admin notified of order {order_id}")
 
-    # 5b. Notify customer on their WhatsApp
+    # 5b. Notify customer via approved WhatsApp template
+    # (templates work even when customer hasn't messaged first — no 24h restriction)
+    items_summary = "; ".join(
+        f"{e['product'].get('name')} × {e['qty']}" for e in resolved_products
+    )
     try:
+        from services.whatsapp import send_admin_order_payment_link, send_admin_order_cod_confirmation
         if payment_method == "Online":
-            # Create Razorpay payment link and send URL to customer
             try:
                 from routers.payment import create_razorpay_payment_link
                 pay_link = await create_razorpay_payment_link(
@@ -977,40 +981,25 @@ async def _handle_admin_order_confirmation(
                     customer_phone=customer_phone,
                     description=f"Cremson Publications — Order {order_id}",
                 )
-                customer_msg = (
-                    f"📦 Order Placed!\n\n"
-                    f"Hi {customer_name},\n\n"
-                    f"Your order {order_id} has been placed by Cremson Publications.\n\n"
-                    f"Products:\n{items_str}\n"
-                    f"💰 Total: ₹{total:.0f}\n\n"
-                    f"👇 Click below to complete your payment:\n"
-                    f"{pay_link}\n\n"
-                    f"Order will be confirmed once payment is received."
+                await send_admin_order_payment_link(
+                    phone=customer_phone,
+                    customer_name=customer_name,
+                    order_id=order_id,
+                    items_summary=items_summary,
+                    total=total,
+                    pay_url=pay_link,
                 )
-                logger.info(f"[AdminOrder] ✓ Payment link sent to customer {customer_phone}: {pay_link}")
+                logger.info(f"[AdminOrder] ✓ Payment link template sent to {customer_phone}: {pay_link}")
             except Exception as link_err:
-                logger.error(f"[AdminOrder] Payment link creation failed: {link_err}")
-                customer_msg = (
-                    f"📦 Order Placed!\n\n"
-                    f"Hi {customer_name},\n\n"
-                    f"Your order {order_id} has been placed. Our team will contact you shortly for payment.\n\n"
-                    f"Products:\n{items_str}\n"
-                    f"💰 Total: ₹{total:.0f}"
-                )
+                logger.error(f"[AdminOrder] Payment link/template failed: {link_err}")
         else:
-            # COD — simple confirmation
-            customer_msg = (
-                f"✅ Order Confirmed!\n\n"
-                f"Hi {customer_name},\n\n"
-                f"Your order has been placed by Cremson Publications.\n\n"
-                f"📦 Order ID: {order_id}\n"
-                f"Products:\n{items_str}\n"
-                f"💰 Total: ₹{total:.0f}\n"
-                f"💳 Payment: Cash on Delivery\n\n"
-                f"Thank you for choosing Cremson Publications! 🙏"
+            await send_admin_order_cod_confirmation(
+                phone=customer_phone,
+                customer_name=customer_name,
+                order_id=order_id,
+                items_summary=items_summary,
+                total=total,
             )
-
-        await send_text_message(customer_phone, customer_msg)
-        logger.info(f"[AdminOrder] ✓ Customer notified at {customer_phone}")
+            logger.info(f"[AdminOrder] ✓ COD confirmation template sent to {customer_phone}")
     except Exception as exc:
         logger.warning(f"[AdminOrder] Customer notification failed: {exc}")
