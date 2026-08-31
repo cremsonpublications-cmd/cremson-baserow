@@ -100,7 +100,7 @@ export default function PublicBulkOrderPage() {
   const { data: productsData, isLoading: loadingProducts } = useQuery({
     queryKey: ["public-products-bulk"],
     queryFn: async () => {
-      const res = await api.get("/api/products/?size=200");
+      const res = await api.get("/api/products/?size=200&is_active=true");
       return res.data?.results ?? res.data?.items ?? res.data ?? [];
     },
   });

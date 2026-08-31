@@ -327,7 +327,7 @@ function SpecimenContent() {
   const { data: productsData, isLoading: loadingProducts } = useQuery({
     queryKey: ["specimen-products"],
     queryFn: async () => {
-      const { data } = await api.get("/api/products/", { params: { size: 200 } });
+      const { data } = await api.get("/api/products/", { params: { size: 200, is_active: true } });
       return data;
     },
     staleTime: 5 * 60 * 1000,

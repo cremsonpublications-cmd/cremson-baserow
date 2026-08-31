@@ -746,7 +746,7 @@ function ProductModal({ product, onClose, onSaved }) {
             </div>
 
             {/* Target Classes & Stock Status */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Classes {!form.is_combo && <span className="text-red-500">*</span>}
@@ -773,6 +773,29 @@ function ProductModal({ product, onClose, onSaved }) {
                   onChange={(val) => setForm((f) => ({ ...f, stock_status: val }))}
                   placeholder="Select status"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Visibility Status</label>
+                <div className="flex items-center mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, is_active: !f.is_active }))}
+                    className={`${
+                      form.is_active ? "bg-purple-600" : "bg-gray-200"
+                    } relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`${
+                        form.is_active ? "translate-x-5" : "translate-x-0"
+                      } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out`}
+                    />
+                  </button>
+                  <span className="ml-3 text-sm font-semibold text-gray-800">
+                    {form.is_active ? "Active" : "Inactive"}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1964,7 +1987,7 @@ function ComboModal({ product, onClose, onSaved }) {
           </div>
 
           {/* 4. Stock Status & Category */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
               <CustomSelect
@@ -1995,6 +2018,29 @@ function ComboModal({ product, onClose, onSaved }) {
                 onChange={(val) => setForm((f) => ({ ...f, category_id: val }))}
                 placeholder="Select category"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Visibility Status</label>
+              <div className="flex items-center mt-2.5">
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, is_active: !f.is_active }))}
+                  className={`${
+                    form.is_active ? "bg-purple-600" : "bg-gray-200"
+                  } relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`${
+                      form.is_active ? "translate-x-5" : "translate-x-0"
+                    } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out`}
+                  />
+                </button>
+                <span className="ml-3 text-sm font-semibold text-gray-800">
+                  {form.is_active ? "Active" : "Inactive"}
+                </span>
+              </div>
             </div>
           </div>
 

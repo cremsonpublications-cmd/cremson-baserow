@@ -107,7 +107,7 @@ export function mapProduct(p) {
 }
 
 export async function fetchProducts(params = {}) {
-  const { data } = await api.get("/api/products/", { params });
+  const { data } = await api.get("/api/products/", { params: { is_active: true, ...params } });
   const results = (data.results || []).filter((p) => p.name).map(mapProduct);
   return { count: data.count || 0, results };
 }
@@ -119,7 +119,7 @@ export async function fetchAllProducts(params = {}) {
 
   while (hasNext) {
     const { data } = await api.get("/api/products/", {
-      params: { size: 200, page, ...params }
+      params: { size: 200, page, is_active: true, ...params }
     });
     const results = data.results || [];
     allResults = [...allResults, ...results];
