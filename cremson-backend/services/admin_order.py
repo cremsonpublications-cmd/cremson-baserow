@@ -158,11 +158,14 @@ def parse_admin_order(text: str) -> Tuple[Optional[Dict[str, Any]], Optional[str
     # Products — collect ALL "Product: ..." lines, each with inline qty
     # Format: "Product: <ID or Name> x <Qty>"
     product_entries: List[Dict[str, Any]] = []
+    _INVIS = "\u2060\u200b\u200c\u200d\u200e\u200f\ufeff\u00ad"
     for line in lines:
         m = re.match(r"(?i)product\s*:\s*(.+)", line.strip())
         if not m:
             continue
-        raw = m.group(1).strip()
+        raw = m.group(1).strip().strip(_INVIS).strip()
+        # Normalize multiple spaces and invisible Unicode chars within the raw value
+        raw = re.sub(r"[ \t]+", " ", raw).strip(_INVIS).strip()
         # Split on " x " or " X " (space-x-space) at the end: "Name x 2"
         # Also handle "Name x2" or "Namex2" less gracefully
         qty_match = re.search(r"\s+[xX]\s+(\d+)\s*$", raw)
@@ -272,7 +275,13 @@ async def find_product(identifier: str) -> Tuple[Optional[Dict[str, Any]], Optio
 
     Returns (product_dict, None) on success or (None, error_message) on failure.
     """
-    identifier = identifier.strip()
+    # Strip ASCII whitespace + invisible Unicode characters WhatsApp injects
+    # (U+2060 WORD JOINER, U+200B ZERO WIDTH SPACE, U+FEFF BOM, etc.)
+    _INVISIBLE = "\u2060\u200b\u200c\u200d\u200e\u200f\ufeff\u00ad"
+    identifier = identifier.strip().strip(_INVISIBLE).strip()
+    # Normalize multiple consecutive spaces/tabs to a single space
+    import re as _re
+    identifier = _re.sub(r"[ \t]+", " ", identifier).strip()
 
     # ── ID lookup ──────────────────────────────────────────────────────────────
     if identifier.isdigit():
