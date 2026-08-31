@@ -32,10 +32,16 @@ export async function generateMetadata({ params }) {
 
     const title = `${book.title} by ${book.author} | Class ${book.class || "All"} Book`;
     const description = book.shortDescription || book.description || `Buy ${book.title} by ${book.author} online. High quality educational books by Cremson Publications.`;
+    const keywords = Array.isArray(book.tags) && book.tags.length > 0
+      ? book.tags.join(", ")
+      : typeof book.tags === "string" && book.tags.trim()
+        ? book.tags.trim()
+        : undefined;
 
     return {
       title,
       description,
+      ...(keywords ? { keywords } : {}),
       openGraph: {
         title,
         description,
