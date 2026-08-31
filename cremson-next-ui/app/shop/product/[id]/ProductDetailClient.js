@@ -340,7 +340,7 @@ export default function ProductDetailClient({ initialBook, bookId }) {
             {/* Left side: Image and Thumbnails */}
             <div>
               <div className="flex flex-col space-y-3">
-                <div className="relative bg-transparent rounded-[13px] sm:rounded-[20px] w-full mx-auto h-[400px] sm:h-[450px] lg:h-[500px] overflow-hidden flex items-center justify-center p-4">
+                <div className="relative bg-transparent rounded-[13px] sm:rounded-[20px] w-full mx-auto h-[400px] sm:h-[450px] lg:h-[500px] overflow-hidden flex items-center justify-center p-4 border-2 border-black">
                   <div className="relative w-full h-full bg-transparent overflow-hidden rounded-lg group">
                     <div
                       className="relative w-full h-full overflow-hidden cursor-crosshair flex items-center justify-center"
@@ -381,7 +381,7 @@ export default function ProductDetailClient({ initialBook, bookId }) {
                 {/* Product thumbnails */}
                 <div className="flex space-x-3 w-full items-center justify-start overflow-x-auto py-2">
                   {book.image && (
-                    <button type="button" className="bg-transparent rounded-[8px] w-[80px] h-[80px] flex-shrink-0 overflow-hidden p-1 border-2 transition-all border-gray-600">
+                    <button type="button" className="bg-transparent rounded-[8px] w-[80px] h-[80px] flex-shrink-0 overflow-hidden p-1 border-2 transition-all border-black">
                       <img src={book.image || null} className="w-full h-full object-contain hover:scale-105 transition-all duration-500" alt={book.title} />
                     </button>
                   )}
