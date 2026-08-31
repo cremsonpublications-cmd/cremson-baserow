@@ -26,6 +26,7 @@ export default function StudyMaterialDetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!slug || slug === "default") return;
     const fetchPost = async () => {
       try {
         setLoading(true);

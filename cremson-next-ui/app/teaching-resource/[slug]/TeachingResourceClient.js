@@ -31,6 +31,7 @@ export default function TeachingResourceDetailPage() {
   const [pendingFile, setPendingFile] = useState(null);
 
   useEffect(() => {
+    if (!slug || slug === "default") return;
     const fetchPost = async () => {
       try {
         setLoading(true);

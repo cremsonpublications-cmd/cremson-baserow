@@ -54,6 +54,7 @@ export default function BlogDetailPage() {
 
   // Fetch Post Details & Comments
   useEffect(() => {
+    if (!slug || slug === "default") return;
     const fetchPostAndComments = async () => {
       try {
         setLoading(true);
