@@ -34,24 +34,18 @@ export default function AdminDashboard() {
 
   // Fetch stat counts
   useEffect(() => {
-    const endpoints = {
-      categories: "/api/categories/?size=1",
-      products: "/api/products/?size=1",
+    const fetchCounts = async () => {
+      try {
+        const res = await fetch(`${API}/api/products/?size=1`);
+        const data = await res.json();
+        setCounts({ products: data.count ?? data.total ?? "—" });
+      } catch {
+        setCounts({ products: "—" });
+      } finally {
+        setCountsLoading(false);
+      }
     };
-    Promise.all(
-      Object.entries(endpoints).map(async ([key, path]) => {
-        try {
-          const res = await fetch(`${API}${path}`);
-          const data = await res.json();
-          return [key, data.count ?? data.total ?? "—"];
-        } catch {
-          return [key, "—"];
-        }
-      })
-    ).then((pairs) => {
-      setCounts(Object.fromEntries(pairs));
-      setCountsLoading(false);
-    });
+    fetchCounts();
   }, [API]);
 
   // Fetch Reminders
@@ -115,14 +109,6 @@ export default function AdminDashboard() {
   };
 
   const statCards = [
-    {
-      key: "categories",
-      label: "Total Categories",
-      bg: "bg-blue-50",
-      iconBg: "bg-blue-100",
-      emoji: "📁",
-      href: "/admin/categories",
-    },
     {
       key: "products",
       label: "Total Products",
