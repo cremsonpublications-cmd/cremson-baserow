@@ -670,13 +670,14 @@ async def send_admin_order_payment_link(
 ) -> bool:
     """
     Send payment link to customer for WhatsApp admin Online orders.
-    Template: wa_admin_order_online_v1
+    Template: wa_admin_order_online_v2 (uses https://rzp.io/rzp/{{1}} button URL)
     Body vars: {{1}}=name {{2}}=order_id {{3}}=items {{4}}=total
-    Button URL var: {{1}}=rzp short code (extracted from rzp.io/l/<code>)
+    Button URL var: {{1}}=rzp short code (extracted from rzp.io/rzp/<code>)
+    Falls back to sending a plain-text URL if the template is still PENDING.
     """
     # Extract the short code from the rzp.io URL for the button variable
-    # e.g. "https://rzp.io/l/AbCdEf" → "AbCdEf"
-    rzp_code = pay_url.rstrip("/").split("/")[-1] if pay_url else pay_url
+    # Razorpay short_url format: "https://rzp.io/rzp/AbCdEf" → "AbCdEf"
+    rzp_code = pay_url.rstrip("/").split("/")[-1] if pay_url else ""
 
     components = [
         {
@@ -695,13 +696,24 @@ async def send_admin_order_payment_link(
             "parameters": [_txt(rzp_code)],
         },
     ]
-    return await _send_template(
+    ok = await _send_template(
         phone=phone,
-        template_name="wa_admin_order_online_v1",
+        template_name="wa_admin_order_online_v2",
         parameters=[],
         log_tag=f"admin_order_payment_link order={order_id} to={phone}",
         components=components,
     )
+    if not ok and pay_url:
+        # Template may still be PENDING — send a plain-text fallback so
+        # the customer can still access the payment link.
+        fallback = (
+            f"Hello {customer_name},\n\n"
+            f"Your Cremson Publications order *{order_id}* is ready.\n"
+            f"Total: ₹{int(total)}\n\n"
+            f"Pay here: {pay_url}"
+        )
+        await _send_text_message(phone, fallback, log_tag=f"admin_order_payment_link_fallback order={order_id}")
+    return ok
 
 
 async def send_admin_order_cod_confirmation(
