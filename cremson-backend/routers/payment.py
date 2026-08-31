@@ -9,7 +9,7 @@ from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel
 
 from services.baserow import BaserowClient
@@ -509,3 +509,158 @@ async def refund_completed(body: RefundNotificationRequest):
     except Exception as exc:
         logger.error(f"[Payment] send_refund_completed error: {exc}")
     return {"success": True}
+
+
+# ── Razorpay Payment Link (for WhatsApp Admin Orders) ─────────────────────────
+
+RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
+
+
+async def create_razorpay_payment_link(
+    order_id: str,
+    amount_inr: float,
+    customer_name: str,
+    customer_phone: str,
+    description: str = "",
+) -> str:
+    """
+    Create a Razorpay Payment Link and return the short_url.
+    Used for WhatsApp admin orders where the customer needs to pay online.
+    The reference_id is set to order_id so the webhook can match payment to order.
+    """
+    phone_digits = "".join(filter(str.isdigit, customer_phone))
+    if len(phone_digits) == 10:
+        phone_digits = "91" + phone_digits
+
+    payload = {
+        "amount": int(amount_inr * 100),  # Razorpay expects paise
+        "currency": "INR",
+        "description": description or f"Cremson Publications — Order {order_id}",
+        "reference_id": order_id,
+        "customer": {
+            "name": customer_name,
+            "contact": f"+{phone_digits}",
+        },
+        "notify": {"sms": False, "email": False},  # We send via WhatsApp
+        "reminder_enable": False,
+    }
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(
+            f"{RAZORPAY_API}/payment_links",
+            json=payload,
+            headers={
+                "Authorization": _auth_header(),
+                "Content-Type": "application/json",
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        short_url = data.get("short_url") or data.get("id")
+        logger.info(f"[PaymentLink] Created payment link for {order_id}: {short_url}")
+        return short_url
+
+
+@router.post("/razorpay-webhook", summary="Razorpay webhook for payment link events")
+async def razorpay_webhook(request: Request):
+    """
+    Receives Razorpay webhook events.
+    Handles payment_link.paid to mark WhatsApp admin orders as Paid.
+    Configure in Razorpay Dashboard → Webhooks → URL: /api/payment/razorpay-webhook
+    Events to enable: payment_link.paid
+    """
+    raw_body = await request.body()
+
+    # Verify signature if webhook secret is configured
+    if RAZORPAY_WEBHOOK_SECRET:
+        sig = request.headers.get("X-Razorpay-Signature", "")
+        expected = hmac.new(
+            RAZORPAY_WEBHOOK_SECRET.encode(),
+            msg=raw_body,
+            digestmod=hashlib.sha256,
+        ).hexdigest()
+        if not hmac.compare_digest(expected, sig):
+            logger.warning("[RazorpayWebhook] Invalid signature — rejected")
+            raise HTTPException(status_code=400, detail="Invalid webhook signature")
+
+    try:
+        payload = json.loads(raw_body)
+    except Exception:
+        return {"status": "ignored"}
+
+    event = payload.get("event")
+    logger.info(f"[RazorpayWebhook] Event received: {event}")
+
+    if event != "payment_link.paid":
+        return {"status": "ignored"}
+
+    try:
+        pl_entity = payload["payload"]["payment_link"]["entity"]
+        pay_entity = payload["payload"]["payment"]["entity"]
+
+        order_id = pl_entity.get("reference_id", "")          # e.g. "WABOOK2368"
+        amount_paid_inr = pay_entity.get("amount", 0) / 100   # paise → INR
+        razorpay_payment_id = pay_entity.get("id", "")
+
+        if not order_id:
+            logger.warning("[RazorpayWebhook] payment_link.paid missing reference_id")
+            return {"status": "ignored"}
+
+        logger.info(f"[RazorpayWebhook] Payment link paid — order={order_id} payment={razorpay_payment_id} amount=₹{amount_paid_inr}")
+
+        # Find order by order_id
+        baserow_client = BaserowClient()
+        res = await baserow_client.get_rows(
+            TABLE_IDS["orders"],
+            filters={"order_id": ("equal", order_id)},
+            size=5,
+        )
+        results = res.get("results", [])
+        if not results:
+            logger.warning(f"[RazorpayWebhook] Order {order_id} not found in DB")
+            return {"status": "order_not_found"}
+
+        row = results[0]
+        row_id = row["id"]
+
+        # Update payment field
+        try:
+            payment_data = json.loads(row.get("payment") or "{}")
+        except Exception:
+            payment_data = {}
+
+        payment_data.update({
+            "status": "Paid",
+            "transactionId": razorpay_payment_id,
+            "razorpay_payment_id": razorpay_payment_id,
+            "amount": amount_paid_inr,
+        })
+
+        await baserow_client.update_row(TABLE_IDS["orders"], row_id, {
+            "payment_status": "Paid",
+            "payment": json.dumps(payment_data),
+        })
+
+        logger.info(f"[RazorpayWebhook] ✓ Order {order_id} marked as Paid")
+
+        # Send WhatsApp confirmation to customer
+        try:
+            user_info = json.loads(row.get("user_info") or "{}")
+            customer_phone = user_info.get("phone", "")
+            customer_name = user_info.get("name", "Customer")
+            if customer_phone:
+                from services.whatsapp_chat import send_text_message
+                await send_text_message(
+                    customer_phone,
+                    f"✅ Payment Received!\n\n"
+                    f"Hi {customer_name}, we've received your payment of ₹{amount_paid_inr:.0f} for order {order_id}.\n\n"
+                    f"Your order is confirmed and will be dispatched soon.\n"
+                    f"Thank you for choosing Cremson Publications! 🙏"
+                )
+        except Exception as notif_err:
+            logger.warning(f"[RazorpayWebhook] Customer payment notification failed: {notif_err}")
+
+    except Exception as exc:
+        logger.error(f"[RazorpayWebhook] Error processing payment_link.paid: {exc}")
+
+    return {"status": "ok"}
