@@ -34,19 +34,20 @@ import {
 
 const coreLinks = [
   { href: "/admin", label: "Dashboard", Icon: LayoutDashboard },
+  // Orders group
   { href: "/admin/orders", label: "Orders", Icon: ShoppingCart, badgeKey: "orders" },
-  { href: "/admin/whatsapp/campaigns", label: "WhatsApp Campaigns", Icon: Send },
-  { href: "/admin/whatsapp/templates", label: "WhatsApp Templates", Icon: FileText },
-  { href: "/admin/bulk-orders", label: "Bulk Orders", Icon: Package, badgeKey: "bulkOrders" },
   { href: "/admin/specimen-requests", label: "Specimen Requests", Icon: FileText, badgeKey: "specimenRequests" },
-  { href: "/admin/specimen-books", label: "Specimen Books", Icon: BookOpen },
-  { href: "/admin/crm?tab=schools", label: "CRM Database Hub", Icon: Database },
+  { href: "/admin/bulk-orders", label: "Bulk Orders", Icon: Package, badgeKey: "bulkOrders" },
   { href: "/admin/support-tickets", label: "Support & Enquiries", Icon: MessageSquare },
   { href: "/admin/reminders", label: "Reminders", Icon: Bell, badgeKey: "reminders" },
-  { href: "/admin/campaigns", label: "Campaigns", Icon: Megaphone },
 ];
 
 const adminLinks = [
+  { href: "/admin/whatsapp/campaigns", label: "WhatsApp Campaigns", Icon: Send },
+  { href: "/admin/whatsapp/templates", label: "WhatsApp Templates", Icon: FileText },
+  { href: "/admin/specimen-books", label: "Specimen Books", Icon: BookOpen },
+  { href: "/admin/crm?tab=schools", label: "CRM Database Hub", Icon: Database },
+  { href: "/admin/campaigns", label: "Campaigns", Icon: Megaphone },
   { href: "/admin/categories", label: "Categories", Icon: FolderOpen },
   { href: "/admin/users", label: "Users", Icon: Users },
   { href: "/admin/coupons", label: "Coupons", Icon: Ticket },
@@ -86,6 +87,43 @@ export default function AdminLayout({ children }) {
   });
 
   const isLoginPage = pathname === "/admin/login";
+
+  // ── Dynamic page title ──────────────────────────────────────────────────────
+  useEffect(() => {
+    const PAGE_TITLES = {
+      "/admin": "Dashboard",
+      "/admin/orders": "Orders",
+      "/admin/specimen-requests": "Specimen Requests",
+      "/admin/bulk-orders": "Bulk Orders",
+      "/admin/support-tickets": "Support & Enquiries",
+      "/admin/reminders": "Reminders",
+      "/admin/whatsapp/campaigns": "WhatsApp Campaigns",
+      "/admin/whatsapp/templates": "WhatsApp Templates",
+      "/admin/specimen-books": "Specimen Books",
+      "/admin/crm": "CRM Database Hub",
+      "/admin/campaigns": "Campaigns",
+      "/admin/categories": "Categories",
+      "/admin/users": "Users",
+      "/admin/coupons": "Coupons",
+      "/admin/products": "Products",
+      "/admin/banners": "Banner Images",
+      "/admin/settings": "General Settings",
+      "/admin/blogs": "Blogs Dashboard",
+      "/admin/addBlog": "Add Blog",
+      "/admin/listBlog": "Blog List",
+      "/admin/comments": "Blog Comments",
+      "/admin/teaching-resources": "Teaching Resources",
+      "/admin/study-materials": "Study Materials",
+      "/admin/reviews": "Reviews",
+      "/admin/login": "Login",
+    };
+    // Match exact path first, then prefix
+    const pageName =
+      PAGE_TITLES[pathname] ||
+      Object.entries(PAGE_TITLES).find(([key]) => pathname.startsWith(key) && key !== "/admin")?.[1] ||
+      "Admin";
+    document.title = `Cremson Publications | ${pageName}`;
+  }, [pathname]);
 
   useEffect(() => {
     if (!checked || isLoginPage) {

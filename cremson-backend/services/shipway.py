@@ -356,31 +356,23 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
             max_breadth = max(max_breadth, breadth)
             total_height += height * qty
         
-        # Consolidate all items into a single product entry for the shipping label
-        items_desc_parts = []
-        total_qty = 0
+        # Send each book as its own line item so every name appears on the label
+        products = []
         for item in items:
             name = item.get("name") or item.get("title") or "Book"
             qty = int(item.get("quantity") or item.get("qty") or 1)
-            items_desc_parts.append(f"{name} (x{qty})")
-            total_qty += qty
-            
-        combined_desc = ", ".join(items_desc_parts)
-        if len(combined_desc) > 200:
-            suffix = f" ... (Total: {total_qty} items)"
-            # Leave enough room for the suffix
-            allowed_len = 200 - len(suffix)
-            combined_desc = combined_desc[:allowed_len] + suffix
-            
-        products = [{
-            "product": combined_desc,
-            "price": float(order.get("total_amount") or 0),
-            "product_code": "MULTIPLE",
-            "product_quantity": total_qty,
-            "discount": 0,
-            "tax_rate": 0,
-            "tax_title": "GST",
-        }]
+            prod_id = str(item.get("product_id") or item.get("productId") or item.get("id") or "BOOK")
+            # Truncate name to 200 chars (Shipway limit)
+            product_name = name[:200] if len(name) > 200 else name
+            products.append({
+                "product": product_name,
+                "price": 0,
+                "product_code": prod_id if not prod_id.isdigit() else f"SKU-{prod_id}",
+                "product_quantity": qty,
+                "discount": 0,
+                "tax_rate": 0,
+                "tax_title": "GST",
+            })
     else:
         products = [
             {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "../../../lib/api/axios";
@@ -31,6 +31,43 @@ export default function CreateSpecimenModal({ onClose, onSuccess }) {
   });
 
   const [selectedBooks, setSelectedBooks] = useState([]);
+  const [bookSearch, setBookSearch] = useState("");
+  const [pincodeLoading, setPincodeLoading] = useState(false);
+  const [pincodeError, setPincodeError] = useState("");
+  const [pincodeResolved, setPincodeResolved] = useState(false);
+
+  // Auto-fetch city when a 6-digit pincode is entered
+  useEffect(() => {
+    const pin = form.pincode.trim();
+    if (pin.length !== 6) {
+      setPincodeResolved(false);
+      setPincodeError("");
+      return;
+    }
+    setPincodeLoading(true);
+    setPincodeError("");
+    fetch(`https://api.postalpincode.in/pincode/${pin}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const post = data?.[0];
+        if (post?.Status === "Success" && post.PostOffice?.length > 0) {
+          const po = post.PostOffice[0];
+          let city = po.District || po.Division || po.Name || "";
+          city = city.replace(/^(North|South|East|West|Central|New)\s+/i, "").trim() || city;
+          setForm((prev) => ({ ...prev, city }));
+          setPincodeResolved(true);
+          setPincodeError("");
+        } else {
+          setPincodeResolved(false);
+          setPincodeError("Pincode not found. Enter city manually.");
+        }
+      })
+      .catch(() => {
+        setPincodeResolved(false);
+        setPincodeError("Could not fetch pincode details.");
+      })
+      .finally(() => setPincodeLoading(false));
+  }, [form.pincode]);
 
   // Fetch teachers from CRM table 877
   const { data: teachersData } = useQuery({
@@ -280,25 +317,44 @@ export default function CreateSpecimenModal({ onClose, onSuccess }) {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">City</label>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                City {pincodeResolved && <span className="text-green-600 font-normal normal-case text-[10px]">(auto-filled)</span>}
+              </label>
               <input
                 type="text"
                 value={form.city}
                 onChange={(e) => setForm({ ...form, city: e.target.value })}
                 placeholder="e.g. New Delhi"
-                className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:border-red-500 outline-none"
+                readOnly={pincodeResolved}
+                className={`w-full px-3.5 py-2.5 border rounded-xl text-xs font-semibold outline-none transition-all ${
+                  pincodeResolved
+                    ? "bg-green-50 border-green-200 text-green-800 cursor-not-allowed"
+                    : "bg-white border-slate-200 focus:border-red-500"
+                }`}
               />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Pincode</label>
-              <input
-                type="text"
-                maxLength={6}
-                value={form.pincode}
-                onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })}
-                placeholder="6-digit Pincode"
-                className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:border-red-500 outline-none"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={form.pincode}
+                  onChange={(e) => {
+                    setForm({ ...form, pincode: e.target.value.replace(/\D/g, "").slice(0, 6), city: "" });
+                    setPincodeResolved(false);
+                  }}
+                  placeholder="6-digit Pincode"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:border-red-500 outline-none pr-8"
+                />
+                {pincodeLoading && (
+                  <RefreshCw className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 animate-spin" />
+                )}
+                {pincodeResolved && !pincodeLoading && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-xs">✓</span>
+                )}
+              </div>
+              {pincodeError && <p className="text-xs text-red-500 mt-1">{pincodeError}</p>}
             </div>
           </div>
 
@@ -307,8 +363,34 @@ export default function CreateSpecimenModal({ onClose, onSuccess }) {
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center justify-between">
               <span>Select Books from Website Catalog ({selectedBooks.length} selected) <span className="text-red-500">*</span></span>
             </label>
+
+            {/* Book name search */}
+            <div className="relative mb-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search books by name..."
+                value={bookSearch}
+                onChange={(e) => setBookSearch(e.target.value)}
+                className="w-full pl-9 pr-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+              />
+              {bookSearch && (
+                <button
+                  type="button"
+                  onClick={() => setBookSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
             <div className="max-h-48 overflow-y-auto p-3 bg-white border border-slate-200 rounded-2xl space-y-2">
-              {catalogProducts.map((p) => {
+              {catalogProducts
+                .filter((p) =>
+                  p.name?.toLowerCase().includes(bookSearch.toLowerCase())
+                )
+                .map((p) => {
                 const isSelected = selectedBooks.includes(p.name);
                 return (
                   <div
@@ -338,6 +420,11 @@ export default function CreateSpecimenModal({ onClose, onSuccess }) {
                   </div>
                 );
               })}
+              {catalogProducts.filter((p) =>
+                p.name?.toLowerCase().includes(bookSearch.toLowerCase())
+              ).length === 0 && (
+                <p className="text-center text-xs text-slate-400 py-4">No books match your search.</p>
+              )}
             </div>
           </div>
 

@@ -61,6 +61,55 @@ function SortDropdown({ value, onChange }) {
   );
 }
 
+// Custom per-page dropdown — same style as SortDropdown
+const PER_PAGE_OPTIONS = [10, 20, 50, 100];
+
+function PerPageDropdown({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2 border border-black/10 rounded-lg py-1.5 px-3 text-sm font-semibold text-black bg-white hover:border-black/20 transition-colors cursor-pointer min-w-[72px] justify-between"
+      >
+        <span>{value}</span>
+        <ChevronDown className={`w-4 h-4 text-black/50 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-1.5 w-full min-w-[72px] bg-white border border-black/10 rounded-xl shadow-lg z-30 py-1 overflow-hidden">
+          {PER_PAGE_OPTIONS.map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => { onChange(n); setOpen(false); }}
+              className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors cursor-pointer ${
+                value === n
+                  ? "bg-black text-white font-semibold"
+                  : "text-black hover:bg-gray-50"
+              }`}
+            >
+              <span>{n}</span>
+              {value === n && <Check className="w-3.5 h-3.5" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Custom premium checkbox component matching the CSS structure
 function CustomCheckbox({ checked, onChange, label }) {
   return (
@@ -118,7 +167,7 @@ function Shop() {
     status: true,
   });
 
-  const ITEMS_PER_PAGE = 9;
+  const ITEMS_PER_PAGE = parseInt(searchParams.get("perPage")) || 9;
 
   // --- Read all filter values from URL (single source of truth) ---
   const searchVal = searchParams.get("search") || "";
@@ -785,6 +834,14 @@ function Shop() {
                   Showing {totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}-
                   {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)} of {totalCount} Products
                 </span>
+
+                <div className="flex items-center gap-2 text-sm sm:text-base font-semibold">
+                  <span className="text-black/60">Per page:</span>
+                  <PerPageDropdown
+                    value={ITEMS_PER_PAGE}
+                    onChange={(n) => updateUrl({ perPage: n !== 9 ? String(n) : null, page: null })}
+                  />
+                </div>
 
                 <div className="flex items-center gap-2 text-sm sm:text-base font-semibold">
                   <span className="text-black/60">Sort by:</span>

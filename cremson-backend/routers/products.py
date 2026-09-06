@@ -264,6 +264,7 @@ async def list_products(
     if search_str:
       filters["name"] = ("contains", search_str)
 
+    # Fetch products and categories to resolve category offer discounts
     res = await client.get_rows(
         TABLE_IDS["products"],
         page=1,
@@ -271,10 +272,61 @@ async def list_products(
         filters=filters if filters else None,
     )
 
+    cat_res = await client.get_rows(TABLE_IDS["categories"], size=200)
+    cat_map = {}
+    if isinstance(cat_res, dict) and "results" in cat_res:
+        for c in cat_res["results"]:
+            cid = c.get("id")
+            c_name = (c.get("Name") or c.get("name") or "").strip().lower()
+            cat_map[cid] = c
+            if c_name:
+                cat_map[c_name] = c
+
+    def apply_category_discount(p):
+        has_own = bool(p.get("has_own_discount"))
+        use_cat = bool(p.get("use_category_discount"))
+        
+        # If product does NOT have own discount (or explicitly set use_category_discount)
+        if not has_own or use_cat:
+            cat_obj = None
+            p_cat_id = p.get("category_id")
+            p_cat_name = (p.get("category") or "").strip().lower()
+            if p_cat_id and p_cat_id in cat_map:
+                cat_obj = cat_map[p_cat_id]
+            elif p_cat_name and p_cat_name in cat_map:
+                cat_obj = cat_map[p_cat_name]
+
+            if cat_obj:
+                offer_type = cat_obj.get("offer_type") or "none"
+                pct = cat_obj.get("offer_percentage")
+                amt = cat_obj.get("offer_amount")
+                mrp = float(p.get("mrp") or 0.0)
+
+                if offer_type == "percentage" and pct is not None:
+                    try:
+                        p_pct = float(pct)
+                        if p_pct > 0:
+                            p["own_discount_percentage"] = p_pct
+                            p["has_own_discount"] = True
+                            p["price"] = round(mrp * (1.0 - p_pct / 100.0))
+                    except (ValueError, TypeError):
+                        pass
+                elif offer_type == "flat" and amt is not None:
+                    try:
+                        p_amt = float(amt)
+                        if p_amt > 0:
+                            p["price"] = max(0.0, round(mrp - p_amt))
+                            if mrp > 0:
+                                p["own_discount_percentage"] = round((p_amt / mrp) * 100)
+                                p["has_own_discount"] = True
+                    except (ValueError, TypeError):
+                        pass
+        return p
+
     if isinstance(res, dict) and "results" in res:
-        all_results = sorted([map_product_out(r) for r in res["results"]], key=lambda x: (x.get("display_order", 999999), -x.get("id", 0)))
+        all_results = sorted([apply_category_discount(map_product_out(r)) for r in res["results"]], key=lambda x: (x.get("display_order", 999999), -x.get("id", 0)))
     elif isinstance(res, list):
-        all_results = sorted([map_product_out(r) for r in res], key=lambda x: (x.get("display_order", 999999), -x.get("id", 0)))
+        all_results = sorted([apply_category_discount(map_product_out(r)) for r in res], key=lambda x: (x.get("display_order", 999999), -x.get("id", 0)))
     else:
         return {"count": 0, "results": []}
 
@@ -384,9 +436,60 @@ async def reorder_products(body: ReorderProductsPayload):
 
 @router.get("/{row_id}", summary="Get a single product")
 async def get_product(row_id: int):
-    """Return a single product by Baserow row ID."""
+    """Return a single product by Baserow row ID with category offer discounts resolved."""
     row = await client.get_row(TABLE_IDS["products"], row_id)
-    return map_product_out(row)
+    p = map_product_out(row)
+    if not p:
+        return p
+
+    has_own = bool(p.get("has_own_discount"))
+    use_cat = bool(p.get("use_category_discount"))
+
+    if not has_own or use_cat:
+        cat_res = await client.get_rows(TABLE_IDS["categories"], size=200)
+        cat_map = {}
+        if isinstance(cat_res, dict) and "results" in cat_res:
+            for c in cat_res["results"]:
+                cid = c.get("id")
+                c_name = (c.get("Name") or c.get("name") or "").strip().lower()
+                cat_map[cid] = c
+                if c_name:
+                    cat_map[c_name] = c
+
+        cat_obj = None
+        p_cat_id = p.get("category_id")
+        p_cat_name = (p.get("category") or "").strip().lower()
+        if p_cat_id and p_cat_id in cat_map:
+            cat_obj = cat_map[p_cat_id]
+        elif p_cat_name and p_cat_name in cat_map:
+            cat_obj = cat_map[p_cat_name]
+
+        if cat_obj:
+            offer_type = cat_obj.get("offer_type") or "none"
+            pct = cat_obj.get("offer_percentage")
+            amt = cat_obj.get("offer_amount")
+            mrp = float(p.get("mrp") or 0.0)
+
+            if offer_type == "percentage" and pct is not None:
+                try:
+                    p_pct = float(pct)
+                    if p_pct > 0:
+                        p["own_discount_percentage"] = p_pct
+                        p["has_own_discount"] = True
+                        p["price"] = round(mrp * (1.0 - p_pct / 100.0))
+                except (ValueError, TypeError):
+                    pass
+            elif offer_type == "flat" and amt is not None:
+                try:
+                    p_amt = float(amt)
+                    if p_amt > 0:
+                        p["price"] = max(0.0, round(mrp - p_amt))
+                        if mrp > 0:
+                            p["own_discount_percentage"] = round((p_amt / mrp) * 100)
+                            p["has_own_discount"] = True
+                except (ValueError, TypeError):
+                    pass
+    return p
 
 
 @router.post("/", summary="Create product")

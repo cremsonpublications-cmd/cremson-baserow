@@ -457,6 +457,145 @@ function RefundModal({ order, onClose, onRefundSuccess }) {
   );
 }
 
+function CancelOrderModal({ order, onClose, onCancelSuccess }) {
+  if (!order) return null;
+  const orderSummary = safeParseJSON(order.order_summary) || {};
+  const totalAmount = Number(orderSummary.grandTotal || order.total_amount || 0);
+
+  const [issueRefund, setIssueRefund] = useState(true);
+  const [reason, setReason] = useState("Customer requested cancellation");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleConfirm(e) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const orderId = order.order_id || `BOOK${order.id}`;
+
+      // If issueRefund is checked, trigger refund
+      if (issueRefund && totalAmount > 0) {
+        try {
+          await adminIssueRefund(orderId, {
+            refund_amount: totalAmount,
+            refund_reason: reason,
+            refund_notes: "Cancelled order refund",
+          });
+        } catch (refundErr) {
+          const errMsg = refundErr?.response?.data?.detail || refundErr?.message || "Refund failed";
+          console.warn("Refund attempt during cancellation failed:", errMsg);
+          toast.error(`Refund failed: ${errMsg}. Order cancelled without online refund.`);
+        }
+      }
+
+      // Update order status to Cancelled
+      await adminUpdateOrderStatus(order.id, "Cancelled");
+      toast.success(`Order #${orderId} has been cancelled!`);
+      onCancelSuccess(order.id);
+      onClose();
+    } catch (err) {
+      setError(err?.response?.data?.detail || err.message || "Failed to cancel order.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-md overflow-hidden text-left">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-rose-950 text-white">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-rose-500/20 rounded-xl border border-rose-500/30 text-rose-400">
+              <Trash2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Cancel Order</h3>
+              <p className="text-xs text-rose-200">Order #{order.order_id || order.id}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white rounded-full transition-all cursor-pointer">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <form onSubmit={handleConfirm} className="p-6 space-y-4">
+          
+          <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
+            <div className="flex justify-between items-center text-xs text-slate-600">
+              <span>Customer:</span>
+              <span className="font-semibold text-slate-900">{safeParseJSON(order.user_info)?.name || order.customer_name || "—"}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs text-slate-600">
+              <span>Order Amount:</span>
+              <span className="font-black text-rose-600 text-sm">₹{totalAmount.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Cancellation Reason</label>
+            <input
+              type="text"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Customer requested cancellation"
+              className="w-full text-xs px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:bg-white outline-none"
+              required
+            />
+          </div>
+
+          <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200/80 rounded-xl cursor-pointer" onClick={() => setIssueRefund(!issueRefund)}>
+            <input
+              type="checkbox"
+              checked={issueRefund}
+              onChange={(e) => setIssueRefund(e.target.checked)}
+              className="w-4 h-4 text-rose-600 rounded focus:ring-rose-500 cursor-pointer"
+            />
+            <div className="text-xs">
+              <span className="font-bold text-amber-950">Process Full Razorpay Refund (₹{totalAmount.toFixed(2)})</span>
+              <p className="text-[11px] text-amber-800">Automatically refund customer account upon cancellation</p>
+            </div>
+          </div>
+
+          {error && (
+            <p className="text-xs font-bold text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-200 text-center">{error}</p>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer"
+            >
+              Keep Order
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 rounded-xl shadow-md shadow-rose-600/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {submitting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Cancelling...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-3.5 h-3.5" /> Cancel Order
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal, onOpenRefundModal }) {
   if (!order) return null;
   const userInfo = safeParseJSON(order.user_info) || {};
@@ -954,6 +1093,7 @@ export default function AdminOrders() {
   const [selected, setSelected] = useState(null);
   const [returnModalOrder, setReturnModalOrder] = useState(null);
   const [refundModalOrder, setRefundModalOrder] = useState(null);
+  const [cancelModalOrder, setCancelModalOrder] = useState(null);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
 
   useEffect(() => {
@@ -1568,6 +1708,8 @@ export default function AdminOrders() {
                           delivColorClass = "bg-blue-100 text-blue-800";
                         } else if (deliveryStatusRaw === "delivered") {
                           delivColorClass = "bg-emerald-100 text-emerald-800";
+                        } else if (deliveryStatusRaw === "cancellation_requested" || deliveryStatusRaw === "cancellation requested") {
+                          delivColorClass = "bg-amber-500 text-white font-bold animate-pulse";
                         } else if (deliveryStatusRaw === "cancelled" || deliveryStatusRaw === "refunded") {
                           delivColorClass = "bg-rose-100 text-rose-800";
                         } else if (deliveryStatusRaw === "return_initiated" || deliveryStatusRaw === "return initiated") {
@@ -1646,6 +1788,20 @@ export default function AdminOrders() {
                                   </button>
                                 )}
 
+                                {/* Accept Cancellation Button — for cancellation_requested orders */}
+                                {["cancellation_requested", "cancellation requested"].includes(deliveryStatusRaw) && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setCancelModalOrder(order);
+                                    }}
+                                    className="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 rounded-full shadow-sm hover:shadow transition-all cursor-pointer inline-flex items-center gap-1.5 flex-shrink-0"
+                                    title="Review & Accept Cancellation"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    Accept Cancellation
+                                  </button>
+                                )}
                                 <button 
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1683,16 +1839,18 @@ export default function AdminOrders() {
                                     <RotateCcw className="w-4 h-4 text-gray-400 hover:text-rose-600" />
                                   </button>
                                 )}
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelected(order);
-                                  }}
-                                  className="p-1.5 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                  title="Cancel/Delete"
-                                >
-                                  <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-600" />
-                                </button>
+                                {deliveryStatusRaw !== "cancelled" && deliveryStatusRaw !== "refunded" && (
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setCancelModalOrder(order);
+                                    }}
+                                    className="p-1.5 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                    title="Cancel Order"
+                                  >
+                                    <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-600" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -1767,6 +1925,14 @@ export default function AdminOrders() {
                               >
                                 <Download className="w-4 h-4 text-gray-400 hover:text-green-600" />
                               </button>
+                              {deliveryStatusRaw !== "cancelled" && deliveryStatusRaw !== "refunded" && (
+                                <button
+                                  onClick={() => setCancelModalOrder(order)}
+                                  className="p-1.5 hover:bg-rose-50 rounded transition-colors cursor-pointer" title="Cancel Order"
+                                >
+                                  <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-600" />
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1870,6 +2036,20 @@ export default function AdminOrders() {
                 refunded_at: res.refunded_at || "",
               };
               setSelected((prev) => prev ? { ...prev, delivery: JSON.stringify(updatedDeliv) } : null);
+            }
+          }}
+        />
+      )}
+
+      {/* Cancel / Delete Order Confirmation Modal */}
+      {cancelModalOrder && (
+        <CancelOrderModal
+          order={cancelModalOrder}
+          onClose={() => setCancelModalOrder(null)}
+          onCancelSuccess={(orderId) => {
+            queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+            if (selected && (selected.id === orderId || selected.order_id === orderId)) {
+              setSelected(null);
             }
           }}
         />

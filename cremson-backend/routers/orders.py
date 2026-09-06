@@ -605,6 +605,7 @@ async def list_orders(
             "delivered": "Delivered",
             "pending": "pending",
             "cancelled": "Cancelled",
+            "cancellation_requested": "CANCELLATION_REQUESTED",
             "refunded": "Refunded"
         }
         mapped_status = status_map.get(order_status.lower(), order_status)
@@ -898,9 +899,10 @@ async def ready_for_pickup(order_id: str, background_tasks: BackgroundTasks):
     5. Sends WhatsApp to customer (background task)
     """
     # ── 1. Find order ─────────────────────────────────────────────────────────
-    if order_id.startswith("BOOK") and order_id[4:].isdigit():
+    if (order_id.startswith("BOOK") and order_id[4:].isdigit()) or (order_id.startswith("WABOOK") and order_id[6:].isdigit()):
+        row_num = int(order_id[6:]) if order_id.startswith("WABOOK") else int(order_id[4:])
         try:
-            row = await client.get_row(TABLE_IDS["orders"], int(order_id[4:]))
+            row = await client.get_row(TABLE_IDS["orders"], row_num)
             results = [row] if row else []
         except Exception:
             results = []
@@ -1112,9 +1114,10 @@ async def return_order(order_id: str, body: ReturnOrderRequest):
     """
     from services.shipway import create_reverse_shipment
 
-    if order_id.startswith("BOOK") and order_id[4:].isdigit():
+    if (order_id.startswith("BOOK") and order_id[4:].isdigit()) or (order_id.startswith("WABOOK") and order_id[6:].isdigit()):
+        row_num = int(order_id[6:]) if order_id.startswith("WABOOK") else int(order_id[4:])
         try:
-            row = await client.get_row(TABLE_IDS["orders"], int(order_id[4:]))
+            row = await client.get_row(TABLE_IDS["orders"], row_num)
             results = [row] if row else []
         except Exception:
             results = []
@@ -1306,9 +1309,10 @@ async def refund_order(order_id: str, body: RefundOrderRequest):
     """
     from services.razorpay import issue_refund
 
-    if order_id.startswith("BOOK") and order_id[4:].isdigit():
+    if (order_id.startswith("BOOK") and order_id[4:].isdigit()) or (order_id.startswith("WABOOK") and order_id[6:].isdigit()):
+        row_num = int(order_id[6:]) if order_id.startswith("WABOOK") else int(order_id[4:])
         try:
-            row = await client.get_row(TABLE_IDS["orders"], int(order_id[4:]))
+            row = await client.get_row(TABLE_IDS["orders"], row_num)
             results = [row] if row else []
         except Exception:
             results = []
@@ -1530,4 +1534,87 @@ async def upload_order_invoice(
         "order_id": order_id,
         "invoice_url": invoice_url,
         "message": "Tax invoice uploaded successfully and WhatsApp notification sent to customer.",
+    }
+
+
+class RequestCancellationBody(BaseModel):
+    reason: Optional[str] = "Customer requested cancellation"
+
+
+@router.post("/{order_id}/request-cancellation", summary="User: Request order cancellation before dispatch")
+async def request_order_cancellation(order_id: str, body: RequestCancellationBody):
+    """
+    Called when a customer requests order cancellation from 'My Orders' in frontend.
+    1. Validates if order is already dispatched/shipped.
+    2. If not dispatched, sets status to CANCELLATION_REQUESTED.
+    3. Notifies admin in dashboard for approval.
+    """
+    if (order_id.startswith("BOOK") and order_id[4:].isdigit()) or (order_id.startswith("WABOOK") and order_id[6:].isdigit()):
+        row_num = int(order_id[6:]) if order_id.startswith("WABOOK") else int(order_id[4:])
+        try:
+            row = await client.get_row(TABLE_IDS["orders"], row_num)
+            results = [row] if row else []
+        except Exception:
+            results = []
+    else:
+        rows = await client.get_rows(TABLE_IDS["orders"], filters={"order_id": order_id})
+        results = rows.get("results", [])
+
+    is_bulk = False
+    if not results:
+        bulk_row = await _get_bulk_order_by_order_id(order_id)
+        if not bulk_row:
+            raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
+        from routers.bulk_orders import _normalize_bulk_row
+        bulk_norm = _normalize_bulk_row(bulk_row)
+        order = _map_bulk_to_standard_order(bulk_norm)
+        is_bulk = True
+        row_id = bulk_norm["id"]
+    else:
+        order = results[0]
+        row_id = order["id"]
+
+    delivery_raw = order.get("delivery") or "{}"
+    try:
+        delivery_data = json.loads(delivery_raw) if isinstance(delivery_raw, str) else (delivery_raw or {})
+    except Exception:
+        delivery_data = {}
+
+    current_status = str(order.get("order_status") or "").upper().replace(" ", "_")
+    delivery_status = str(delivery_data.get("delivery_status") or "").upper().replace(" ", "_")
+    awb_code = delivery_data.get("awb_code") or delivery_data.get("tracking_number") or ""
+
+    # Dispatched / Left warehouse check
+    dispatched_statuses = {"SHIPPED", "DISPATCHED", "OUT_FOR_DELIVERY", "DELIVERED", "IN_TRANSIT", "RTO"}
+    if current_status in dispatched_statuses or delivery_status in dispatched_statuses or (awb_code and current_status == "SHIPPED"):
+        raise HTTPException(
+            status_code=400,
+            detail="Order has already been dispatched from the warehouse and cannot be cancelled directly. You may initiate a return after delivery."
+        )
+
+    if current_status in {"CANCELLED", "REFUNDED"}:
+        raise HTTPException(status_code=400, detail="Order is already cancelled.")
+
+    # Save cancellation request in delivery JSON & update order_status
+    delivery_data["cancellation_requested"] = True
+    delivery_data["cancellation_reason"] = body.reason
+    delivery_data["cancellation_requested_at"] = datetime.now().isoformat()
+
+    if is_bulk:
+        from routers.bulk_orders import _normalize_bulk_row, _save_bulk_data
+        bulk_row = await client.get_row(TABLE_IDS["bulk_orders"], row_id)
+        norm = _normalize_bulk_row(bulk_row)
+        norm["status"] = "cancellation_requested"
+        norm["cancellation_reason"] = body.reason
+        await _save_bulk_data(row_id, norm)
+    else:
+        await client.update_row(TABLE_IDS["orders"], row_id, {
+            "order_status": "CANCELLATION_REQUESTED",
+            "delivery": json.dumps(delivery_data),
+        })
+
+    return {
+        "success": True,
+        "order_id": order_id,
+        "message": "Cancellation request submitted successfully. Admin will review and process your request.",
     }

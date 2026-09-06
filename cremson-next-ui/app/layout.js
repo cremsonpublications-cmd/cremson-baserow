@@ -5,7 +5,7 @@ import QueryProvider from "../lib/providers/QueryProvider";
 
 export const metadata = {
   title: {
-    default: "Cremson Publications | Best Educational Books & Reference Materials",
+    default: "Cremson | CBSE Textbooks, Sample Papers & Lab Manuals",
     template: "%s | Cremson Publications",
   },
   description:
@@ -36,7 +36,7 @@ export const metadata = {
     shortcut: "/icon.png",
   },
   openGraph: {
-    title: "Cremson Publications | Best Educational Books & Reference Materials",
+    title: "Cremson | CBSE Textbooks, Sample Papers & Lab Manuals",
     description:
       "Discover quality educational books and publications that enhance learning and inspire knowledge.",
     url: "https://cremsonpublications.com",
@@ -54,7 +54,7 @@ export const metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Cremson Publications | Best Educational Books & Reference Materials",
+    title: "Cremson | CBSE Textbooks, Sample Papers & Lab Manuals",
     description:
       "Discover quality educational books and publications that enhance learning and inspire knowledge.",
     images: ["/poster.png"],
