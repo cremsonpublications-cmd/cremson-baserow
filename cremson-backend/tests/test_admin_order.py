@@ -65,6 +65,19 @@ def test_unauthorized_number_rejected():
         assert ao.is_admin_number("919999999999") is False
 
 
+def test_multiple_authorized_admin_numbers():
+    with patch.dict(os.environ, {"WHATSAPP_ADMIN_NUMBERS": "917200362436,918585937875"}):
+        import importlib, config as cfg
+        importlib.reload(cfg)
+        import services.admin_order as ao
+        importlib.reload(ao)
+
+        assert ao.is_admin_number("917200362436") is True
+        assert ao.is_admin_number("+918585937875") is True
+        assert ao.is_admin_number("8585937875") is True
+        assert ao.is_admin_number("919999999999") is False
+
+
 def test_empty_admin_numbers_rejects_all():
     with patch.dict(os.environ, {"WHATSAPP_ADMIN_NUMBERS": ""}):
         import importlib, config as cfg
