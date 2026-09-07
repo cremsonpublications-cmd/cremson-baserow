@@ -47,7 +47,6 @@ const adminLinks = [
   { href: "/admin/whatsapp/templates", label: "WhatsApp Templates", Icon: FileText },
   { href: "/admin/specimen-books", label: "Specimen Books", Icon: BookOpen },
   { href: "/admin/crm?tab=schools", label: "CRM Database Hub", Icon: Database },
-  { href: "/admin/campaigns", label: "Campaigns", Icon: Megaphone },
   { href: "/admin/categories", label: "Categories", Icon: FolderOpen },
   { href: "/admin/users", label: "Users", Icon: Users },
   { href: "/admin/coupons", label: "Coupons", Icon: Ticket },
@@ -101,7 +100,6 @@ export default function AdminLayout({ children }) {
       "/admin/whatsapp/templates": "WhatsApp Templates",
       "/admin/specimen-books": "Specimen Books",
       "/admin/crm": "CRM Database Hub",
-      "/admin/campaigns": "Campaigns",
       "/admin/categories": "Categories",
       "/admin/users": "Users",
       "/admin/coupons": "Coupons",
@@ -160,7 +158,7 @@ export default function AdminLayout({ children }) {
     if (href.startsWith("/admin/crm")) {
       return userPerms.includes("crm:write") || userPerms.includes("crm:read");
     }
-    if (href.startsWith("/admin/categories") || href.startsWith("/admin/products") || href.startsWith("/admin/campaigns")) {
+    if (href.startsWith("/admin/categories") || href.startsWith("/admin/products")) {
       return userPerms.includes("products:write") || userPerms.includes("products:read");
     }
     if (href.startsWith("/admin/users")) {
