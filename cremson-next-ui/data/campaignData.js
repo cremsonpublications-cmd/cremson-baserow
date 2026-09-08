@@ -77,6 +77,84 @@ export const campaignData = {
     imageAlt: "PAT Physical Education Book Class XI",
     cta: { label: "Order Now", href: "#combo" },
   },
+  insidePages: {
+    visible: true,
+    heading: "What's Inside",
+    items: [
+      {
+        image: "/images/campaign/inside-chapter-notes.png",
+        caption: "Chapter-wise Notes",
+        description: "Concise, exam-ready notes for every chapter",
+      },
+      {
+        image: "/images/campaign/inside-activities.png",
+        caption: "Activity & Project Ideas",
+        description: "Hands-on activities aligned with NEP 2020",
+      },
+      {
+        image: "/images/campaign/inside-mcq.png",
+        caption: "MCQs & Practice Questions",
+        description: "Multiple choice, short and long answer questions",
+      },
+      {
+        image: "/images/campaign/inside-practical.png",
+        caption: "Practical Guidelines",
+        description: "Step-by-step practical session guides",
+      },
+      {
+        image: "/images/campaign/inside-case-studies.png",
+        caption: "Case Studies",
+        description: "Real-world examples for conceptual understanding",
+      },
+      {
+        image: "/images/campaign/inside-assessment.png",
+        caption: "Assessment Tasks",
+        description: "Formative and summative evaluation tools",
+      },
+    ],
+  },
+  features: {
+    visible: true,
+    heading: "Key Features",
+    items: [
+      {
+        icon: "Layers",
+        title: "Structured Learning Path",
+        description:
+          "Chapters are sequenced to build concept clarity progressively, from fundamentals to advanced topics.",
+      },
+      {
+        icon: "Zap",
+        title: "Exam-Ready Content",
+        description:
+          "Every chapter includes important questions, marking schemes and model answers for board exam preparation.",
+      },
+      {
+        icon: "PenTool",
+        title: "Teacher Resource Kit",
+        description:
+          "Includes lesson plans, activity templates and project ideas so teachers can focus on delivery.",
+      },
+      {
+        icon: "Repeat",
+        title: "Regular Syllabus Updates",
+        description:
+          "Content is reviewed and updated each session to stay aligned with CBSE syllabus changes.",
+      },
+      {
+        icon: "FileText",
+        title: "Comprehensive Coverage",
+        description:
+          "All theory, practicals and co-scholastic areas covered under a single resource.",
+      },
+      {
+        icon: "Shield",
+        title: "Verified & Trusted Content",
+        description:
+          "Written and reviewed by experienced Physical Education teachers and subject experts.",
+      },
+    ],
+  },
   comboOffer: {
     visible: true,
     heading: "Combo Offer",

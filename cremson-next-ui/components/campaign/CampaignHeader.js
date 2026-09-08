@@ -1,7 +1,8 @@
 "use client";
 
-import { MessageCircle } from "lucide-react";
 import Link from "next/link";
+import logoImg from "../../images/CP-Logo.png";
+import whatsappIcon from "../../images/whatsapp.png";
 
 export default function CampaignHeader({ brand }) {
   const waHref = `https://wa.me/${brand.whatsappNumber}?text=${encodeURIComponent(brand.whatsappText)}`;
@@ -12,16 +13,10 @@ export default function CampaignHeader({ brand }) {
         {/* Logo / Brand */}
         <Link href="/" className="flex items-center gap-3">
           <img
-            src={brand.logo}
+            src={logoImg.src}
             alt={brand.name}
             className="h-10 w-auto object-contain"
-            onError={(e) => {
-              e.currentTarget.style.display = "none";
-            }}
           />
-          <span className="font-bold text-[#0A1628] text-lg hidden sm:block">
-            {brand.name}
-          </span>
         </Link>
 
         {/* WhatsApp CTA */}
@@ -31,7 +26,7 @@ export default function CampaignHeader({ brand }) {
           rel="noopener noreferrer"
           className="flex items-center gap-2 bg-[#25D366] hover:bg-[#1ebe5d] text-white font-semibold px-4 py-2 rounded-full transition-colors duration-200 text-sm"
         >
-          <MessageCircle size={18} />
+          <img src={whatsappIcon.src} alt="WhatsApp" className="w-5 h-5 object-contain" />
           <span className="hidden sm:inline">WhatsApp Us</span>
           <span className="sm:hidden">Chat</span>
         </a>

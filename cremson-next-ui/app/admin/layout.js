@@ -34,6 +34,7 @@ import {
 
 const coreLinks = [
   { href: "/admin", label: "Dashboard", Icon: LayoutDashboard },
+  { href: "/admin/campaigns", label: "Campaign Pages", Icon: Megaphone },
   // Orders group
   { href: "/admin/orders", label: "Orders", Icon: ShoppingCart, badgeKey: "orders" },
   { href: "/admin/specimen-requests", label: "Specimen Requests", Icon: FileText, badgeKey: "specimenRequests" },
@@ -91,6 +92,7 @@ export default function AdminLayout({ children }) {
   useEffect(() => {
     const PAGE_TITLES = {
       "/admin": "Dashboard",
+      "/admin/campaigns": "Campaign Pages",
       "/admin/orders": "Orders",
       "/admin/specimen-requests": "Specimen Requests",
       "/admin/bulk-orders": "Bulk Orders",

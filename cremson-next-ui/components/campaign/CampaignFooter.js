@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Phone, Mail } from "lucide-react";
+import logoImg from "../../images/CP-Logo.png";
 
 export default function CampaignFooter({ footer, brand }) {
   return (
@@ -9,12 +10,9 @@ export default function CampaignFooter({ footer, brand }) {
           {/* Logo + brand */}
           <div className="flex items-center gap-3">
             <img
-              src={brand.logo}
+              src={logoImg.src}
               alt={brand.name}
               className="h-9 w-auto object-contain"
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-              }}
             />
             <span className="font-bold text-white text-base">{brand.name}</span>
           </div>

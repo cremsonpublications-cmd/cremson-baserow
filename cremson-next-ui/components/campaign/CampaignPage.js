@@ -4,6 +4,8 @@ import CampaignHeader from "./CampaignHeader";
 import HeroSection from "./HeroSection";
 import WhyChooseSection from "./WhyChooseSection";
 import ProductSection from "./ProductSection";
+import InsideProductSection from "./InsideProductSection";
+import FeaturesSection from "./FeaturesSection";
 import ComboOfferCard from "./ComboOfferCard";
 import AudienceSection from "./AudienceSection";
 import TestimonialsSection from "./TestimonialsSection";
@@ -29,6 +31,20 @@ export default function CampaignPage({ data }) {
 
       {data.product?.visible && <ProductSection data={data.product} />}
 
+      {data.insidePages?.visible && data.insidePages.items?.length > 0 && (
+        <InsideProductSection
+          heading={data.insidePages.heading}
+          items={data.insidePages.items}
+        />
+      )}
+
+      {data.features?.visible && data.features.items?.length > 0 && (
+        <FeaturesSection
+          heading={data.features.heading}
+          items={data.features.items}
+        />
+      )}
+
       {data.comboOffer?.visible && <ComboOfferCard data={data.comboOffer} />}
 
       {data.audience?.visible && (
@@ -38,7 +54,7 @@ export default function CampaignPage({ data }) {
         />
       )}
 
-      {data.testimonials?.visible && (
+      {data.testimonials?.visible && data.testimonials.items?.length > 0 && (
         <TestimonialsSection
           heading={data.testimonials.heading}
           items={data.testimonials.items}
