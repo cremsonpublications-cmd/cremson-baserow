@@ -34,7 +34,6 @@ import {
 
 const coreLinks = [
   { href: "/admin", label: "Dashboard", Icon: LayoutDashboard },
-  { href: "/admin/campaigns", label: "Campaign Pages", Icon: Megaphone },
   // Orders group
   { href: "/admin/orders", label: "Orders", Icon: ShoppingCart, badgeKey: "orders" },
   { href: "/admin/specimen-requests", label: "Specimen Requests", Icon: FileText, badgeKey: "specimenRequests" },
@@ -44,6 +43,7 @@ const coreLinks = [
 ];
 
 const adminLinks = [
+  { href: "/admin/campaigns", label: "Campaign Pages", Icon: Megaphone },
   { href: "/admin/whatsapp/campaigns", label: "WhatsApp Campaigns", Icon: Send },
   { href: "/admin/whatsapp/templates", label: "WhatsApp Templates", Icon: FileText },
   { href: "/admin/specimen-books", label: "Specimen Books", Icon: BookOpen },
