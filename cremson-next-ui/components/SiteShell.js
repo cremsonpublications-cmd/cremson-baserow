@@ -9,6 +9,7 @@ import CartDrawer from "./CartDrawer";
 import WishlistDrawer from "./WishlistDrawer";
 import MobileMenuDrawer from "./MobileMenuDrawer";
 import WhatsAppChatWidget from "./WhatsAppChatWidget";
+import ChatwootWidget from "./ChatwootWidget";
 
 // Routes that should render without the site Header/Footer/drawers
 const STANDALONE_PREFIXES = ["/campaign", "/admin", "/staff/createorder"];
@@ -48,6 +49,7 @@ export default function SiteShell({ children }) {
       <WishlistDrawer />
       <MobileMenuDrawer />
       <WhatsAppChatWidget />
+      <ChatwootWidget />
       <Toaster
         position="bottom-right"
         richColors
