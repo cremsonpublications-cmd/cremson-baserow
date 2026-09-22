@@ -19,6 +19,8 @@ export const adminUpdateOrderStatus = (id, status) => api.patch(`/api/orders/${i
 export const adminMarkReadyForPickup = (orderId) => api.post(`/api/orders/${orderId}/ready-for-pickup`).then(r => r.data);
 export const adminReturnOrder = (orderId, data) => api.post(`/api/orders/${orderId}/return`, data).then(r => r.data);
 export const adminIssueRefund = (orderId, data) => api.post(`/api/orders/${orderId}/refund`, data).then(r => r.data);
+export const adminCreateManualOrder = (data) => api.post("/api/orders/admin-create", data).then(r => r.data);
+export const adminParseOrderText = (text) => api.post("/api/orders/parse-admin-text", { text }).then(r => r.data);
 
 
 // Coupons

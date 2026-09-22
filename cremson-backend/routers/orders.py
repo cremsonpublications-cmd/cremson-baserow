@@ -4,7 +4,7 @@ import io
 import zipfile
 import httpx
 from datetime import datetime
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Dict, Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, File, UploadFile
 from fastapi.responses import Response
@@ -864,6 +864,46 @@ async def update_order(row_id: str, body: OrderStatusUpdate):
         return await client.update_row(TABLE_IDS["orders"], int(row_id), body.model_dump(exclude_none=True))
 
 
+class UpdateOrderNotesPayload(BaseModel):
+    admin_notes: str
+
+
+@router.patch("/{order_id}/update-notes", summary="Update admin notes for an order")
+async def update_order_notes(order_id: str, payload: UpdateOrderNotesPayload):
+    """Update admin notes / description for an order."""
+    client = BaserowClient()
+    row_id = None
+    if order_id.isdigit():
+        row_id = int(order_id)
+    else:
+        orders_res = await client.get_rows(TABLE_IDS["orders"], search=order_id, size=1)
+        results = orders_res.get("results", [])
+        if results:
+            row_id = results[0].get("id")
+
+    if not row_id:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    order_row = await client.get_row(TABLE_IDS["orders"], row_id)
+    if not order_row:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    delivery_raw = order_row.get("delivery") or "{}"
+    try:
+        delivery = json.loads(delivery_raw) if isinstance(delivery_raw, str) else (delivery_raw or {})
+    except Exception:
+        delivery = {}
+
+    delivery["admin_notes"] = payload.admin_notes
+
+    await client.update_row(TABLE_IDS["orders"], row_id, {"delivery": json.dumps(delivery)})
+    return {
+        "status": "success",
+        "message": "Admin notes updated successfully",
+        "admin_notes": payload.admin_notes,
+    }
+
+
 # ── Admin action: Packed & Ready for Pickup ───────────────────────────────────
 
 
@@ -1617,4 +1657,252 @@ async def request_order_cancellation(order_id: str, body: RequestCancellationBod
         "success": True,
         "order_id": order_id,
         "message": "Cancellation request submitted successfully. Admin will review and process your request.",
+    }
+
+
+class AdminOrderTextParseRequest(BaseModel):
+    text: str
+
+
+class AdminOrderCreatePayload(BaseModel):
+    raw_text: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
+    products: Optional[List[Dict[str, Any]]] = None
+    address: Optional[Dict[str, Any]] = None
+    payment_method: Optional[str] = "PAID"
+    description: Optional[str] = None
+    custom_prices: Optional[Dict[str, float]] = None  # productId -> overridden price
+    payment_screenshot_url: Optional[str] = None
+
+
+@router.post("/parse-admin-text", summary="Parse raw WhatsApp/text formatted admin order")
+async def parse_admin_text_endpoint(payload: AdminOrderTextParseRequest):
+    from services.admin_order import parse_admin_order, find_all_products
+    parsed_order, parse_error = parse_admin_order(payload.text)
+    if parse_error:
+        raise HTTPException(status_code=400, detail=parse_error)
+
+    resolved_products, product_error = await find_all_products(parsed_order["products"])
+    if product_error:
+        raise HTTPException(status_code=400, detail=product_error)
+
+    return {
+        "success": True,
+        "parsed_order": parsed_order,
+        "resolved_products": [
+            {
+                "product_id": item["product"].get("id"),
+                "name": item["product"].get("name"),
+                "price": item["product"].get("price"),
+                "mrp": item["product"].get("mrp"),
+                "qty": item["qty"],
+                "stock_status": item["product"].get("stock_status"),
+            }
+            for item in resolved_products
+        ],
+    }
+
+
+@router.post("/admin-create", summary="Create admin manual/WhatsApp order")
+async def create_admin_manual_order(payload: AdminOrderCreatePayload):
+    from db.auth import normalize_phone
+    from services.admin_order import (
+        parse_admin_order,
+        find_all_products,
+        find_or_create_guest_customer,
+        create_whatsapp_admin_order,
+    )
+
+    # 1. Obtain parsed order structure
+    if payload.raw_text and payload.raw_text.strip():
+        parsed_order, parse_error = parse_admin_order(payload.raw_text)
+        if parse_error:
+            raise HTTPException(status_code=400, detail=parse_error)
+    else:
+        if not payload.customer_name or not payload.customer_phone or not payload.products or not payload.address:
+            raise HTTPException(
+                status_code=400,
+                detail="Missing required order fields (customer_name, customer_phone, products, address)",
+            )
+        clean_phone = normalize_phone(payload.customer_phone)
+        if len(clean_phone) != 10:
+            raise HTTPException(status_code=400, detail="Invalid customer phone number. Must be a 10-digit mobile number.")
+
+        raw_method = (payload.payment_method or "PAID").upper()
+        # Normalize PAID / PAY_LATER / legacy COD / ONLINE
+        if raw_method in ("PAID", "COD"):
+            method = "PAID"
+        elif raw_method in ("PAY_LATER", "ONLINE"):
+            method = "PAY_LATER"
+        else:
+            method = "PAID"
+
+        parsed_order = {
+            "customer_name": payload.customer_name.strip(),
+            "customer_phone": clean_phone,
+            "products": payload.products,
+            "address": payload.address,
+            "payment_method": method,
+            "description": payload.description or "",
+            "custom_prices": payload.custom_prices or {},
+            "payment_screenshot_url": payload.payment_screenshot_url or "",
+        }
+
+    # 2. Resolve products
+    resolved_products, product_error = await find_all_products(parsed_order["products"])
+    if product_error:
+        raise HTTPException(status_code=400, detail=product_error)
+
+    # 3. Customer find-or-create
+    try:
+        customer = await find_or_create_guest_customer(
+            name=parsed_order["customer_name"],
+            phone=parsed_order["customer_phone"],
+        )
+    except Exception as exc:
+        logger.error(f"[AdminCreateOrder] Customer creation failed: {exc}")
+        raise HTTPException(status_code=500, detail=f"Failed to lookup or create customer: {exc}")
+
+    # 4. Create Order row in Baserow
+    try:
+        order = await create_whatsapp_admin_order(
+            parsed_order=parsed_order,
+            resolved_products=resolved_products,
+            customer=customer,
+            admin_phone="ADMIN_PANEL",
+        )
+
+        # Patch description + screenshot into delivery notes if provided
+        row_id = order.get("id")
+        if row_id and (parsed_order.get("description") or parsed_order.get("payment_screenshot_url")):
+            import json as _json
+            try:
+                existing_delivery = _json.loads(order.get("delivery") or "{}")
+            except Exception:
+                existing_delivery = {}
+            if parsed_order.get("description"):
+                existing_delivery["admin_notes"] = parsed_order["description"]
+            if parsed_order.get("payment_screenshot_url"):
+                existing_delivery["payment_screenshot_url"] = parsed_order["payment_screenshot_url"]
+            try:
+                await client.update_row(TABLE_IDS["orders"], row_id, {"delivery": _json.dumps(existing_delivery)})
+            except Exception as patch_err:
+                logger.warning(f"[AdminCreateOrder] Failed to patch delivery notes: {patch_err}")
+    except Exception as exc:
+        logger.error(f"[AdminCreateOrder] Order creation failed: {exc}")
+        raise HTTPException(status_code=500, detail=f"Failed to create order in database: {exc}")
+
+    order_id = order.get("order_id") or f"WABOOK{order.get('id')}"
+    total = float(order.get("total_amount") or 0.0)
+    payment_method = parsed_order["payment_method"]
+    customer_name = parsed_order["customer_name"]
+    customer_phone = parsed_order["customer_phone"]
+    items_summary = "; ".join(f"{e['product'].get('name')} × {e['qty']}" for e in resolved_products)
+
+    pay_link = ""
+    custom_prices = parsed_order.get("custom_prices") or payload.custom_prices or {}
+
+    # Construct itemized product list for Shipway and WhatsApp notification
+    items_for_shipway = []
+    for e in resolved_products:
+        p = e["product"]
+        pid_str = str(p.get("id"))
+        unit_p = float(custom_prices.get(pid_str) or custom_prices.get(p.get("id")) or p.get("price") or p.get("mrp") or 0)
+        items_for_shipway.append({
+            "name": p.get("name") or p.get("title") or f"Book #{p.get('id')}",
+            "quantity": e["qty"],
+            "qty": e["qty"],
+            "price": unit_p,
+            "currentPrice": unit_p,
+            "totalPrice": round(unit_p * e["qty"], 2),
+        })
+
+    if payment_method in ("PAID", "COD", "PAY_LATER"):
+        # Create Shipway shipment (standard user order flow)
+        try:
+            from routers.payment import _create_shipway_shipment
+            addr = parsed_order["address"]
+            await _create_shipway_shipment(
+                baserow_row_id=order.get("id"),
+                order_id=order_id,
+                order_date=order.get("order_date", ""),
+                total_amount=total,
+                items=items_for_shipway,
+                user_info={
+                    "name": customer_name,
+                    "phone": customer_phone,
+                    "email": customer.get("email", ""),
+                    "address": addr,
+                },
+                delivery={
+                    "name": customer_name,
+                    "phone": customer_phone,
+                    "address": addr.get("street", ""),
+                    "city": addr.get("city", ""),
+                    "state": addr.get("state", ""),
+                    "pincode": addr.get("pincode", ""),
+                    "source": "ONLINE",
+                },
+            )
+        except Exception as ship_err:
+            logger.error(f"[AdminCreateOrder] Shipment trigger failed: {ship_err}")
+
+        # Send standard customer order confirmation via WhatsApp (order_confirmation_v8)
+        try:
+            from services.whatsapp import send_order_confirmation
+            tx_status = "Paid" if payment_method == "PAID" else "Pay Later"
+            await send_order_confirmation(
+                phone=customer_phone,
+                customer_name=customer_name,
+                order_id=order_id,
+                total_amount=total,
+                transaction_id=tx_status,
+                items=items_for_shipway,
+            )
+        except Exception as wa_err:
+            logger.warning(f"[AdminCreateOrder] WhatsApp order confirmation failed: {wa_err}")
+
+    else:
+        # Online payment — generate Razorpay link & send WhatsApp message
+        try:
+            from routers.payment import create_razorpay_payment_link
+            pay_link = await create_razorpay_payment_link(
+                order_id=order_id,
+                amount_inr=total,
+                customer_name=customer_name,
+                customer_phone=customer_phone,
+                description=f"Cremson Publications — Order {order_id}",
+            )
+        except Exception as link_err:
+            logger.error(f"[AdminCreateOrder] Payment link generation failed: {link_err}")
+
+        if pay_link:
+            try:
+                from services.whatsapp import send_admin_order_payment_link
+                await send_admin_order_payment_link(
+                    phone=customer_phone,
+                    customer_name=customer_name,
+                    order_id=order_id,
+                    items_summary=items_summary,
+                    total=total,
+                    pay_url=pay_link,
+                )
+            except Exception as wa_err:
+                logger.warning(f"[AdminCreateOrder] WhatsApp payment link notification failed: {wa_err}")
+
+    return {
+        "success": True,
+        "order_id": order_id,
+        "row_id": order.get("id"),
+        "total_amount": total,
+        "payment_method": payment_method,
+        "payment_link": pay_link,
+        "message": (
+            "Order created & confirmed. Payment received."
+            if payment_method == "PAID"
+            else "Order created & confirmed. Payment to be collected later."
+            if payment_method == "PAY_LATER"
+            else "Order created & confirmed."
+        ),
     }

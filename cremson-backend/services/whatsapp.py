@@ -322,11 +322,11 @@ async def send_order_confirmation(
         phone,
         template,
         [
-            _txt(customer_name),
-            _txt(order_id),
-            _txt(transaction_id),
-            _txt(formatted_items),
-            _txt(f"₹{total_amount:.2f}"),
+            _txt(customer_name),          # {{1}} Customer Name
+            _txt(order_id),               # {{2}} Order ID
+            _txt(formatted_items),        # {{3}} Order Details / Items
+            _txt(f"₹{total_amount:.2f}"), # {{4}} Total Paid
+            _txt(transaction_id),         # {{5}} Transaction ID
         ],
         log_tag=f"order_confirmation order={order_id}",
     )

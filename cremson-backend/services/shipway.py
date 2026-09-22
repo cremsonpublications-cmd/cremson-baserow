@@ -211,21 +211,18 @@ async def get_all_available_carriers(
         except Exception as exc:
             logger.debug(f"[Shipway Rate Check] Endpoint {url} check error: {exc}")
 
-    # Fallback to known Delhivery carriers in weight order
-    if weight_grams <= 500:
-        fallback = [{"id": "80622", "name": "Delhivery 0.5kg", "price": 0},
-                    {"id": "80734", "name": "Delhivery 1kg", "price": 1},
-                    {"id": "80977", "name": "Delhivery 2kg", "price": 2}]
-    elif weight_grams <= 1500:
-        fallback = [{"id": "80734", "name": "Delhivery 1kg", "price": 0},
-                    {"id": "80622", "name": "Delhivery 0.5kg", "price": 1},
-                    {"id": "80977", "name": "Delhivery 2kg", "price": 2}]
-    else:
-        fallback = [{"id": "80977", "name": "Delhivery 2kg", "price": 0},
-                    {"id": "80734", "name": "Delhivery 1kg", "price": 1},
-                    {"id": "80622", "name": "Delhivery 0.5kg", "price": 2}]
+    # Fallback to multi-carrier list (Delhivery, Bluedart, Amazon Shipping)
+    fallback = [
+        {"id": "80622", "name": "Delhivery 0.5kg", "price": 0},
+        {"id": "80734", "name": "Delhivery 1kg", "price": 1},
+        {"id": "81769", "name": "Bluedart 0.5kg", "price": 2},
+        {"id": "7377", "name": "Bluedart Express 0.5kg", "price": 3},
+        {"id": "19339", "name": "Amazon Shipping 0.5kg", "price": 4},
+        {"id": "9157", "name": "Amazon Shipping 1kg", "price": 5},
+        {"id": "80977", "name": "Delhivery 2kg", "price": 6},
+    ]
 
-    logger.info(f"[Shipway Rate Check] Using weight-matched fallback carriers for {weight_grams}g")
+    logger.info(f"[Shipway Rate Check] Using multi-carrier fallback candidates for {weight_grams}g")
     return fallback
 
 
@@ -464,8 +461,11 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
     logger.info(f"[Shipway] → create_shipment: order={order['order_id']}")
     logger.info(f"[Shipway] Payload: {json.dumps(payload, default=str)}")
 
-    # Try each candidate carrier in order until one succeeds
-    carriers_to_try = candidate_carriers if candidate_carriers else [{"id": str(effective_carrier_id or ""), "name": "default", "price": 0}]
+    # Try each candidate carrier in order, then auto-allocate if all specific IDs fail
+    carriers_to_try = list(candidate_carriers) if candidate_carriers else [{"id": str(effective_carrier_id or ""), "name": "default", "price": 0}]
+    # Append auto-allocation attempt (omitting carrier_id) so Shipway picks any active courier partner servicing the pincode
+    if not any(c.get("id") == "" for c in carriers_to_try):
+        carriers_to_try.append({"id": "", "name": "Shipway Auto-Allocate", "price": 0})
     last_error = "Unknown Shipway error"
 
     for attempt_idx, carrier_opt in enumerate(carriers_to_try):

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import JSZip from "jszip";
@@ -33,7 +34,8 @@ import {
   Edit3,
   Trash2,
   RotateCcw,
-  FileText
+  FileText,
+  Plus
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
@@ -604,6 +606,27 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal, onOpen
   const payment = safeParseJSON(order.payment) || {};
   const delivery = safeParseJSON(order.delivery) || {};
 
+  const adminNotes = delivery.admin_notes || delivery.description || delivery.notes || order.description || "";
+  const paymentScreenshot = delivery.payment_screenshot_url || delivery.screenshot_url || order.payment_screenshot_url || "";
+
+  const [notesText, setNotesText] = useState(adminNotes);
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+
+  async function handleSaveNotes() {
+    setSavingNotes(true);
+    try {
+      await api.patch(`/api/orders/${order.id}/update-notes`, { admin_notes: notesText });
+      toast.success("Admin notes updated successfully!");
+      setIsEditingNotes(false);
+      delivery.admin_notes = notesText;
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Failed to update notes.");
+    } finally {
+      setSavingNotes(false);
+    }
+  }
+
   const [selectedStatus, setSelectedStatus] = useState(order.order_status ?? order.status ?? "");
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState("");
@@ -819,6 +842,87 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal, onOpen
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Admin Notes & Payment Screenshot Card (Always visible for admin notes editing) */}
+              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.01)] space-y-4 text-left">
+                <div className="flex items-center justify-between border-b border-slate-50 pb-3">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-purple-600" />
+                    <h3 className="text-sm font-bold text-slate-800">Order Notes & Payment Proof</h3>
+                  </div>
+                  {!isEditingNotes && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingNotes(true)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Edit3 className="w-3 h-3" /> Edit Notes
+                    </button>
+                  )}
+                </div>
+                
+                {/* Admin Notes Field */}
+                <div className="space-y-2 text-left">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Admin Notes / Description</p>
+                  {isEditingNotes ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={notesText}
+                        onChange={(e) => setNotesText(e.target.value)}
+                        placeholder="Enter admin notes or special instructions..."
+                        rows={3}
+                        className="w-full text-xs text-slate-800 bg-white border border-purple-300 focus:border-purple-600 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-purple-100 font-medium"
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleSaveNotes}
+                          disabled={savingNotes}
+                          className="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold rounded-lg transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {savingNotes ? "Saving..." : "Save Notes"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setNotesText(adminNotes); setIsEditingNotes(false); }}
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-lg transition-all cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-700 bg-slate-50 border border-slate-200/80 rounded-xl p-3 font-medium whitespace-pre-wrap leading-relaxed">
+                      {notesText.trim() ? notesText : <span className="text-slate-400 italic">No notes added. Click 'Edit Notes' to add instructions.</span>}
+                    </div>
+                  )}
+                </div>
+
+                {/* Payment Screenshot (if available) */}
+                {paymentScreenshot && (
+                  <div className="space-y-2 text-left pt-2 border-t border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Payment Proof Screenshot</p>
+                    <div className="relative group inline-block">
+                      <a
+                        href={paymentScreenshot}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all max-w-xs group"
+                      >
+                        <img
+                          src={paymentScreenshot}
+                          alt="Payment Screenshot"
+                          className="w-full h-auto max-h-56 object-contain bg-slate-50 p-1"
+                        />
+                        <div className="p-2 bg-slate-900/90 text-white text-[11px] font-bold text-center flex items-center justify-center gap-1.5 group-hover:bg-purple-700 transition-colors">
+                          <span>Open Full Image</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </div>
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1090,6 +1194,7 @@ export default function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const router = useRouter();
   const [selected, setSelected] = useState(null);
   const [returnModalOrder, setReturnModalOrder] = useState(null);
   const [refundModalOrder, setRefundModalOrder] = useState(null);
@@ -1464,6 +1569,14 @@ export default function AdminOrders() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 mt-0 text-left">
         <h2 className="text-2xl font-semibold text-gray-900 m-0">Orders</h2>
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => router.push("/admin/orders/create")}
+            className="flex items-center gap-1.5 px-4 py-2 text-xs md:text-sm font-bold text-white bg-purple-700 hover:bg-purple-800 active:bg-purple-900 rounded-xl shadow-sm hover:shadow transition-all cursor-pointer"
+            title="Create a new manual or WhatsApp order"
+          >
+            <Plus className="w-4 h-4" />
+            Create Order
+          </button>
           <div className="flex items-center gap-1.5">
             <span className="text-xs md:text-sm text-gray-500 font-semibold">From:</span>
             <input
@@ -2054,6 +2167,7 @@ export default function AdminOrders() {
           }}
         />
       )}
+
     </div>
   );
 }

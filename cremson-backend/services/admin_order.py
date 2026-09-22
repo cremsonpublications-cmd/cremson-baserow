@@ -470,12 +470,20 @@ async def create_whatsapp_admin_order(
     addr = parsed_order["address"]
     admin_phone_clean = normalize_phone(admin_phone)
 
+    custom_prices = parsed_order.get("custom_prices") or {}
     items = []
     subtotal = 0.0
     for entry in resolved_products:
         p = entry["product"]
         qty = int(entry["qty"])
-        unit_price = float(p.get("price") or p.get("mrp") or 0)
+        pid_str = str(p.get("id", ""))
+        pid_int = p.get("id")
+        if pid_str in custom_prices and custom_prices[pid_str] is not None:
+            unit_price = float(custom_prices[pid_str])
+        elif pid_int in custom_prices and custom_prices[pid_int] is not None:
+            unit_price = float(custom_prices[pid_int])
+        else:
+            unit_price = float(p.get("price") or p.get("mrp") or 0.0)
         item_total = round(unit_price * qty, 2)
         subtotal += item_total
         items.append({
@@ -510,17 +518,22 @@ async def create_whatsapp_admin_order(
         "deliveryCharge": 0,
     }
 
+    pay_status = "Paid" if payment_method == "PAID" else ("Pay Later" if payment_method == "PAY_LATER" else "Pending")
+
     payment_data = {
         "amount": total,
         "method": payment_method,
-        "status": "Pending",
+        "status": pay_status,
         "transactionId": "-",
         "razorpay_order_id": "",
         "razorpay_payment_id": "",
     }
 
+    # Both PAID and PAY_LATER result in a Confirmed order with shipment
+    # Only the payment_status differs
+    is_confirmed = True  # always confirmed for admin-created orders
     delivery = {
-        "status": "Confirmed",
+        "status": "READY_TO_PACK",
         "address": addr.get("street", ""),
         "city": addr.get("city", ""),
         "state": addr.get("state", ""),
@@ -537,7 +550,7 @@ async def create_whatsapp_admin_order(
     }
 
     row_data = {
-        "order_status": "Confirmed",
+        "order_status": "READY_TO_PACK",
         "order_date": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
         "user_info": json.dumps(user_info),
         "items": json.dumps(items),
@@ -545,7 +558,7 @@ async def create_whatsapp_admin_order(
         "payment": json.dumps(payment_data),
         "delivery": json.dumps(delivery),
         "total_amount": total,
-        "payment_status": "COD Pending" if payment_method == "COD" else "Pending",
+        "payment_status": pay_status,
     }
 
     created_row = await _client.create_row(TABLE_IDS["orders"], row_data)
@@ -554,6 +567,7 @@ async def create_whatsapp_admin_order(
     order_id = f"WABOOK{row_id}"
     await _client.update_row(TABLE_IDS["orders"], row_id, {"order_id": order_id})
     created_row["order_id"] = order_id
+    created_row["total_amount"] = total
 
     item_summary = ", ".join(
         f"{e['product'].get('name')} x{e['qty']}" for e in resolved_products

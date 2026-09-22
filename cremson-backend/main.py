@@ -32,6 +32,7 @@ from routers import banners as banners_router
 from routers import reminders as reminders_router
 from routers import whatsapp_campaigns as whatsapp_campaigns_router
 from routers import campaigns as campaigns_router
+from routers import upload as upload_router
 from db.campaigns_db import init_campaigns_db
 
 app = FastAPI(
@@ -117,6 +118,7 @@ app.include_router(banners_router.router, prefix="/api/banners", tags=["Banners"
 app.include_router(reminders_router.router, prefix="/api/reminders", tags=["Reminders"])
 app.include_router(whatsapp_campaigns_router.router, prefix="/api/admin/whatsapp", tags=["WhatsApp Campaigns"])
 app.include_router(campaigns_router.router, prefix="/api/campaigns", tags=["Campaigns"])
+app.include_router(upload_router.router, prefix="/api/upload", tags=["Upload"])
 
 
 import os
@@ -124,6 +126,7 @@ from fastapi.staticfiles import StaticFiles
 
 # Mount uploads directory for static invoice PDFs and media
 os.makedirs("uploads/invoices", exist_ok=True)
+os.makedirs("uploads/images", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
