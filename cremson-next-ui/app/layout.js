@@ -2,7 +2,6 @@ import "./globals.css";
 import { AppProvider } from "../context/AppContext";
 import SiteShell from "../components/SiteShell";
 import QueryProvider from "../lib/providers/QueryProvider";
-import Script from "next/script";
 
 export const metadata = {
   title: {
@@ -82,27 +81,7 @@ export default function RootLayout({ children }) {
             <SiteShell>{children}</SiteShell>
           </AppProvider>
         </QueryProvider>
-        <Script
-          id="chatwoot-widget"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function(d,t) {
-                var BASE_URL="https://chat.cremsonpublications.com";
-                var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
-                g.src=BASE_URL+"/packs/js/sdk.js";
-                g.async = true;
-                s.parentNode.insertBefore(g,s);
-                g.onload=function(){
-                  window.chatwootSDK.run({
-                    websiteToken: 'H4sA5Fvi4totFGBd7rLd6Eop',
-                    baseUrl: BASE_URL
-                  })
-                }
-              })(document,"script");
-            `,
-          }}
-        />
+
       </body>
     </html>
   );
