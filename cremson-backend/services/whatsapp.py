@@ -8,6 +8,8 @@ from typing import List, Optional
 
 import httpx
 
+from services.chatwoot import post_to_chatwoot
+
 from config import (
     WHATSAPP_ACCESS_TOKEN,
     WHATSAPP_PHONE_NUMBER_ID,
@@ -330,6 +332,10 @@ async def send_order_confirmation(
         ],
         log_tag=f"order_confirmation order={order_id}",
     )
+    await post_to_chatwoot(
+        phone, customer_name,
+        f"✅ Order Confirmed\nOrder ID: {order_id}\nItems: {formatted_items}\nTotal: ₹{total_amount:.2f}\nTransaction: {transaction_id}",
+    )
 
 
 async def send_order_status_update(
@@ -450,6 +456,10 @@ async def send_shipment_created(
         log_tag=f"shipment_created order={order_id} awb={awb}",
         components=components,
     )
+    await post_to_chatwoot(
+        phone, customer_name,
+        f"📦 Shipment Created\nOrder ID: {order_id}\nAWB: {awb}\nCourier: {courier_name}\nTracking: {tracking_url}",
+    )
 
 
 async def send_pickup_requested(
@@ -483,6 +493,7 @@ async def send_out_for_delivery(
         [_txt(customer_name), _txt(order_id), _txt(tracking_url)],
         log_tag=f"out_for_delivery order={order_id}",
     )
+    await post_to_chatwoot(phone, customer_name, f"🚚 Out for Delivery\nOrder ID: {order_id}\nTracking: {tracking_url}")
 
 
 async def send_delivered(
@@ -502,6 +513,7 @@ async def send_delivered(
         [_txt(customer_name), _txt(order_id)],
         log_tag=f"delivered order={order_id}",
     )
+    await post_to_chatwoot(phone, customer_name, f"✅ Order Delivered\nOrder ID: {order_id}")
 
 
 async def send_rto(
@@ -713,6 +725,10 @@ async def send_admin_order_payment_link(
             f"Pay here: {pay_url}"
         )
         await _send_text_message(phone, fallback, log_tag=f"admin_order_payment_link_fallback order={order_id}")
+    await post_to_chatwoot(
+        phone, customer_name,
+        f"💳 Payment Link Sent\nOrder ID: {order_id}\nItems: {items_summary}\nTotal: ₹{int(total)}\nLink: {pay_url}",
+    )
     return ok
 
 
@@ -728,7 +744,7 @@ async def send_admin_order_cod_confirmation(
     Template: wa_admin_order_cod_v1
     Body vars: {{1}}=name {{2}}=order_id {{3}}=items {{4}}=total
     """
-    return await _send_template(
+    ok = await _send_template(
         phone=phone,
         template_name="wa_admin_order_cod_v1",
         parameters=[
@@ -739,6 +755,11 @@ async def send_admin_order_cod_confirmation(
         ],
         log_tag=f"admin_order_cod order={order_id} to={phone}",
     )
+    await post_to_chatwoot(
+        phone, customer_name,
+        f"📦 COD Order Confirmed\nOrder ID: {order_id}\nItems: {items_summary}\nTotal: ₹{int(total)}",
+    )
+    return ok
 
 
 async def send_specimen_received_whatsapp(phone: str, name: str, books_requested: str):
