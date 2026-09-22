@@ -30,9 +30,9 @@ async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks):
     if event != "message_created":
         return {"status": "ignored", "event": event}
 
-    # Only process incoming messages (message_type 0 = incoming from customer)
+    # Only process incoming messages (message_type 0 or "incoming" = from customer)
     message_type = payload.get("message_type")
-    if message_type != "incoming":
+    if message_type not in (0, "incoming"):
         return {"status": "ignored", "message_type": message_type}
 
     # Only act on messages from WhatsApp inboxes
