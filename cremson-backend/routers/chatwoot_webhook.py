@@ -59,8 +59,9 @@ async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks):
         return {"status": "error", "reason": "no phone"}
 
     msg_id = str(payload.get("id", ""))
+    chatwoot_conversation_id = conversation.get("id")
 
     logger.info(f"[ChatwootWH] Incoming message from {from_phone}: '{content[:60]}'")
-    background_tasks.add_task(handle_incoming_message, from_phone, content, msg_id)
+    background_tasks.add_task(handle_incoming_message, from_phone, content, msg_id, chatwoot_conversation_id)
 
     return {"status": "success"}

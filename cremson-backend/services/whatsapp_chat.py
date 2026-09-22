@@ -6,7 +6,9 @@ and full flow logic extracted from AiSensy HAR configuration.
 
 import json
 import logging
+import os
 import re
+from contextvars import ContextVar
 from typing import Dict, Any, List, Optional
 import httpx
 
@@ -15,6 +17,14 @@ from config import (
     WHATSAPP_PHONE_NUMBER_ID,
     TABLE_IDS,
 )
+
+# Chatwoot config for mirroring bot replies into the conversation view
+_CHATWOOT_BASE = os.getenv("CHATWOOT_BASE_URL", "http://127.0.0.1:3000")
+_CHATWOOT_TOKEN = os.getenv("CHATWOOT_API_TOKEN", "fpTVP7S7m5ABJhrhKuGgNceF")
+_CHATWOOT_ACCOUNT = os.getenv("CHATWOOT_ACCOUNT_ID", "2")
+
+# Holds the current Chatwoot conversation ID for the active request context
+_chatwoot_conv_id: ContextVar[Optional[int]] = ContextVar("chatwoot_conv_id", default=None)
 from services.baserow import BaserowClient
 from services.admin_order import (
     is_admin_number,
@@ -51,6 +61,23 @@ def _format_phone(phone: str) -> str:
     return phone
 
 
+async def _mirror_to_chatwoot(text: str) -> None:
+    """Post bot reply as outgoing message into the Chatwoot conversation."""
+    conv_id = _chatwoot_conv_id.get()
+    if not conv_id:
+        return
+    url = f"{_CHATWOOT_BASE}/api/v1/accounts/{_CHATWOOT_ACCOUNT}/conversations/{conv_id}/messages"
+    headers = {"api_access_token": _CHATWOOT_TOKEN, "Content-Type": "application/json"}
+    payload = {"content": text, "message_type": "outgoing", "private": False}
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(url, headers=headers, json=payload)
+            if resp.status_code not in (200, 201):
+                logger.warning(f"[ChatwootMirror] Failed {resp.status_code}: {resp.text[:120]}")
+    except Exception as exc:
+        logger.warning(f"[ChatwootMirror] Error: {exc}")
+
+
 async def send_text_message(phone: str, text: str) -> bool:
     """Send direct text reply to user using Meta Graph API."""
     if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
@@ -76,6 +103,7 @@ async def send_text_message(phone: str, text: str) -> bool:
             resp = await client.post(_GRAPH_URL, headers=_HEADERS, json=payload)
             if resp.status_code == 200:
                 logger.info(f"[WhatsApp Chat] ✓ Text message sent to {formatted}")
+                await _mirror_to_chatwoot(text)
                 return True
             else:
                 logger.error(f"[WhatsApp Chat] ✗ Failed HTTP {resp.status_code}: {resp.text}")
@@ -205,8 +233,10 @@ def get_bulk_order_message() -> str:
 
 # --- MAIN WORKFLOW HANDLER ---
 
-async def handle_incoming_message(from_phone: str, message_text: str, msg_id: str = "") -> None:
+async def handle_incoming_message(from_phone: str, message_text: str, msg_id: str = "", chatwoot_conversation_id: Optional[int] = None) -> None:
     """Main entry point for processing incoming WhatsApp messages against AiSensy flow rules."""
+    if chatwoot_conversation_id:
+        _chatwoot_conv_id.set(chatwoot_conversation_id)
     clean_text = (message_text or "").strip()
     logger.info(f"[WhatsApp Chat] Received message from {from_phone}: '{clean_text[:80]}'")
 
