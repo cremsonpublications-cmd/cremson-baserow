@@ -9,9 +9,64 @@ import os
 import logging
 from typing import Dict, Any
 
+import httpx
 from fastapi import APIRouter, BackgroundTasks, Request, Response, HTTPException, Query
 
 from services.whatsapp_chat import handle_incoming_message
+
+# ── Chatwoot forwarder ─────────────────────────────────────────────────────────
+CHATWOOT_BASE_URL = os.getenv("CHATWOOT_BASE_URL", "http://127.0.0.1:3000")
+CHATWOOT_API_TOKEN = os.getenv("CHATWOOT_API_TOKEN", "fpTVP7S7m5ABJhrhKuGgNceF")
+CHATWOOT_ACCOUNT_ID = os.getenv("CHATWOOT_ACCOUNT_ID", "2")
+CHATWOOT_INBOX_ID = os.getenv("CHATWOOT_INBOX_ID", "1")
+
+async def _forward_to_chatwoot(payload: Dict[str, Any]) -> None:
+    """Forward incoming WhatsApp message to Chatwoot so agents can see it."""
+    try:
+        entry_list = payload.get("entry", [])
+        for entry in entry_list:
+            for change in entry.get("changes", []):
+                value = change.get("value", {})
+                contacts = value.get("contacts", [])
+                messages = value.get("messages", [])
+                for msg in messages:
+                    if msg.get("type") != "text":
+                        continue
+                    from_phone = msg.get("from", "")
+                    text_body = (msg.get("text") or {}).get("body", "")
+                    contact_name = contacts[0].get("profile", {}).get("name", from_phone) if contacts else from_phone
+
+                    headers = {
+                        "api_access_token": CHATWOOT_API_TOKEN,
+                        "Content-Type": "application/json",
+                    }
+                    # Create or find conversation via Chatwoot API
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        resp = await client.post(
+                            f"{CHATWOOT_BASE_URL}/api/v1/accounts/{CHATWOOT_ACCOUNT_ID}/conversations",
+                            headers=headers,
+                            json={
+                                "inbox_id": int(CHATWOOT_INBOX_ID),
+                                "contact_inbox": {
+                                    "phone_number": f"+{from_phone}",
+                                },
+                                "additional_attributes": {"mail_subject": f"WhatsApp from {contact_name}"},
+                            },
+                        )
+                        if resp.status_code in (200, 201):
+                            conv_id = resp.json().get("id")
+                            if conv_id:
+                                await client.post(
+                                    f"{CHATWOOT_BASE_URL}/api/v1/accounts/{CHATWOOT_ACCOUNT_ID}/conversations/{conv_id}/messages",
+                                    headers=headers,
+                                    json={
+                                        "content": text_body,
+                                        "message_type": "incoming",
+                                        "private": False,
+                                    },
+                                )
+    except Exception as exc:
+        logger.warning(f"[Chatwoot Forward] Failed: {exc}")
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -75,6 +130,9 @@ async def receive_whatsapp_webhook(request: Request, background_tasks: Backgroun
     except Exception as parse_err:
         logger.error(f"[WhatsApp Webhook] JSON parse error: {parse_err}")
         return {"status": "error", "message": "Invalid JSON"}
+
+    # Forward to Chatwoot so agents can see all incoming WhatsApp messages
+    background_tasks.add_task(_forward_to_chatwoot, payload)
 
     # Extract incoming message details from standard Meta payload
     # Payload structure: entry -> changes -> value -> messages / statuses
