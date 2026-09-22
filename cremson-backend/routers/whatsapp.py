@@ -7,7 +7,7 @@ import hmac
 import hashlib
 import os
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Request, Response, HTTPException, Query
@@ -19,6 +19,53 @@ CHATWOOT_BASE_URL = os.getenv("CHATWOOT_BASE_URL", "http://127.0.0.1:3000")
 CHATWOOT_API_TOKEN = os.getenv("CHATWOOT_API_TOKEN", "fpTVP7S7m5ABJhrhKuGgNceF")
 CHATWOOT_ACCOUNT_ID = os.getenv("CHATWOOT_ACCOUNT_ID", "2")
 CHATWOOT_INBOX_ID = os.getenv("CHATWOOT_INBOX_ID", "1")
+
+async def _get_or_create_chatwoot_contact(client: httpx.AsyncClient, headers: dict, phone: str, name: str) -> Optional[int]:
+    """Find existing Chatwoot contact by phone or create a new one. Returns contact_id or None."""
+    # Search for existing contact
+    search_resp = await client.get(
+        f"{CHATWOOT_BASE_URL}/api/v1/accounts/{CHATWOOT_ACCOUNT_ID}/contacts/search",
+        headers=headers,
+        params={"q": phone, "include_contacts": "true"},
+    )
+    if search_resp.status_code == 200:
+        results = search_resp.json().get("payload", {}).get("contacts", [])
+        if results:
+            return results[0]["id"]
+
+    # Create new contact
+    create_resp = await client.post(
+        f"{CHATWOOT_BASE_URL}/api/v1/accounts/{CHATWOOT_ACCOUNT_ID}/contacts",
+        headers=headers,
+        json={"name": name, "phone_number": f"+{phone}"},
+    )
+    if create_resp.status_code in (200, 201):
+        return create_resp.json().get("id")
+    return None
+
+
+async def _get_or_create_chatwoot_conversation(client: httpx.AsyncClient, headers: dict, contact_id: int) -> Optional[int]:
+    """Find an open conversation for the contact in the WhatsApp inbox, or create one."""
+    conv_resp = await client.get(
+        f"{CHATWOOT_BASE_URL}/api/v1/accounts/{CHATWOOT_ACCOUNT_ID}/contacts/{contact_id}/conversations",
+        headers=headers,
+    )
+    if conv_resp.status_code == 200:
+        convs = conv_resp.json().get("payload", [])
+        for conv in convs:
+            if conv.get("inbox_id") == int(CHATWOOT_INBOX_ID) and conv.get("status") == "open":
+                return conv["id"]
+
+    # Create new conversation
+    new_conv_resp = await client.post(
+        f"{CHATWOOT_BASE_URL}/api/v1/accounts/{CHATWOOT_ACCOUNT_ID}/conversations",
+        headers=headers,
+        json={"inbox_id": int(CHATWOOT_INBOX_ID), "contact_id": contact_id},
+    )
+    if new_conv_resp.status_code in (200, 201):
+        return new_conv_resp.json().get("id")
+    return None
+
 
 async def _forward_to_chatwoot(payload: Dict[str, Any]) -> None:
     """Forward incoming WhatsApp message to Chatwoot so agents can see it."""
@@ -40,31 +87,26 @@ async def _forward_to_chatwoot(payload: Dict[str, Any]) -> None:
                         "api_access_token": CHATWOOT_API_TOKEN,
                         "Content-Type": "application/json",
                     }
-                    # Create or find conversation via Chatwoot API
                     async with httpx.AsyncClient(timeout=10.0) as client:
-                        resp = await client.post(
-                            f"{CHATWOOT_BASE_URL}/api/v1/accounts/{CHATWOOT_ACCOUNT_ID}/conversations",
+                        contact_id = await _get_or_create_chatwoot_contact(client, headers, from_phone, contact_name)
+                        if not contact_id:
+                            logger.warning(f"[Chatwoot Forward] Could not find/create contact for {from_phone}")
+                            continue
+
+                        conv_id = await _get_or_create_chatwoot_conversation(client, headers, contact_id)
+                        if not conv_id:
+                            logger.warning(f"[Chatwoot Forward] Could not find/create conversation for contact {contact_id}")
+                            continue
+
+                        msg_resp = await client.post(
+                            f"{CHATWOOT_BASE_URL}/api/v1/accounts/{CHATWOOT_ACCOUNT_ID}/conversations/{conv_id}/messages",
                             headers=headers,
-                            json={
-                                "inbox_id": int(CHATWOOT_INBOX_ID),
-                                "contact_inbox": {
-                                    "phone_number": f"+{from_phone}",
-                                },
-                                "additional_attributes": {"mail_subject": f"WhatsApp from {contact_name}"},
-                            },
+                            json={"content": text_body, "message_type": "incoming", "private": False},
                         )
-                        if resp.status_code in (200, 201):
-                            conv_id = resp.json().get("id")
-                            if conv_id:
-                                await client.post(
-                                    f"{CHATWOOT_BASE_URL}/api/v1/accounts/{CHATWOOT_ACCOUNT_ID}/conversations/{conv_id}/messages",
-                                    headers=headers,
-                                    json={
-                                        "content": text_body,
-                                        "message_type": "incoming",
-                                        "private": False,
-                                    },
-                                )
+                        if msg_resp.status_code in (200, 201):
+                            logger.info(f"[Chatwoot Forward] Message from {from_phone} forwarded to conversation {conv_id}")
+                        else:
+                            logger.warning(f"[Chatwoot Forward] Message post failed: {msg_resp.status_code} {msg_resp.text[:100]}")
     except Exception as exc:
         logger.warning(f"[Chatwoot Forward] Failed: {exc}")
 
