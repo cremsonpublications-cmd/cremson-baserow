@@ -1647,7 +1647,7 @@ export default function AdminOrders() {
         <h2 className="text-2xl font-semibold text-gray-900 m-0">Orders</h2>
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={() => router.push("/admin/orders/create")}
+            onClick={() => router.push("/staff/createorder")}
             className="flex items-center gap-1.5 px-4 py-2 text-xs md:text-sm font-bold text-white bg-purple-700 hover:bg-purple-800 active:bg-purple-900 rounded-xl shadow-sm hover:shadow transition-all cursor-pointer"
             title="Create a new manual or WhatsApp order"
           >

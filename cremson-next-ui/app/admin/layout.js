@@ -298,9 +298,7 @@ export default function AdminLayout({ children }) {
     }));
   const visibleUploadLinks = uploadLinks.filter(({ href }) => hasPermissionForLink(href));
 
-  const isFullscreenPage = isLoginPage || pathname === "/admin/orders/create";
-
-  if (isFullscreenPage) return <>{children}</>;
+  if (isLoginPage) return <>{children}</>;
 
   if (!checked || (currentUserLoading && !isLoginPage)) {
     return (
