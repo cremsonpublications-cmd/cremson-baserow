@@ -298,22 +298,17 @@ export default function AdminLayout({ children }) {
     }));
   const visibleUploadLinks = uploadLinks.filter(({ href }) => hasPermissionForLink(href));
 
-  const isFullscreenPage = pathname === "/admin/orders/create";
+  const isFullscreenPage = isLoginPage || pathname === "/admin/orders/create";
 
-  // Login page is always accessible — no auth needed
-  if (isLoginPage) return <>{children}</>;
+  if (isFullscreenPage) return <>{children}</>;
 
-  // Wait for auth check before rendering anything (effect will redirect to /admin/login if no token)
-  if (!checked || currentUserLoading) {
+  if (!checked || (currentUserLoading && !isLoginPage)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-red-700 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
-
-  // Fullscreen pages (auth already verified above)
-  if (isFullscreenPage) return <>{children}</>;
 
   const isAllowed = hasPermissionForLink(pathname);
 
