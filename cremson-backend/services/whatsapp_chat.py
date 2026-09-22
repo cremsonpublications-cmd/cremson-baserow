@@ -68,7 +68,7 @@ async def _mirror_to_chatwoot(text: str) -> None:
         return
     url = f"{_CHATWOOT_BASE}/api/v1/accounts/{_CHATWOOT_ACCOUNT}/conversations/{conv_id}/messages"
     headers = {"api_access_token": _CHATWOOT_TOKEN, "Content-Type": "application/json"}
-    payload = {"content": text, "message_type": "outgoing", "private": False}
+    payload = {"content": text, "message_type": "outgoing", "private": True}
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(url, headers=headers, json=payload)
