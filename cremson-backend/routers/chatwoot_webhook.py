@@ -36,7 +36,9 @@ async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks):
         return {"status": "ignored", "message_type": message_type}
 
     # Only act on messages from WhatsApp inboxes
-    channel = payload.get("channel")
+    # channel is nested inside conversation in the webhook payload
+    conversation = payload.get("conversation") or {}
+    channel = conversation.get("channel") or payload.get("channel")
     if channel not in ("Channel::Whatsapp", "Channel::Api"):
         return {"status": "ignored", "channel": channel}
 
@@ -44,10 +46,9 @@ async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks):
     if not content:
         return {"status": "ignored", "reason": "empty content"}
 
-    # Extract sender phone from conversation meta
-    conversation = payload.get("conversation") or {}
+    # Extract sender phone — try conversation.meta.sender first, then top-level sender
     meta = conversation.get("meta") or {}
-    sender = meta.get("sender") or {}
+    sender = meta.get("sender") or payload.get("sender") or {}
     phone_raw = sender.get("phone_number", "")
 
     # Normalise phone: strip leading + so it matches internal format (91XXXXXXXXXX)
