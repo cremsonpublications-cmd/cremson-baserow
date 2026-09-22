@@ -29,7 +29,8 @@ async def _get_or_create_chatwoot_contact(client: httpx.AsyncClient, headers: di
         params={"q": phone, "include_contacts": "true"},
     )
     if search_resp.status_code == 200:
-        results = search_resp.json().get("payload", {}).get("contacts", [])
+        payload = search_resp.json().get("payload", [])
+        results = payload if isinstance(payload, list) else payload.get("contacts", [])
         if results:
             return results[0]["id"]
 
