@@ -202,18 +202,19 @@ export default function AdminLayout({ children }) {
     async function fetchBadgeCounts() {
       try {
         const [ordersRes, bulkRes, specimenRes, remindersRes] = await Promise.allSettled([
-          api.get("/api/orders/?size=200"),
-          api.get("/api/bulk-orders/?size=200"),
-          api.get("/api/specimen-requests/?size=200"),
+          // Fetch only 1 row — use the `count` field for the badge number
+          api.get("/api/orders/?size=1&order_status=ready_to_pack"),
+          // Bulk orders need multi-status filter so fetch a small page
+          api.get("/api/bulk-orders/?size=100"),
+          // Fetch 1 row with DeliveryStatus=Pending — use Baserow's count field for badge
+          api.get("/api/specimen-requests/?size=1&DeliveryStatus=Pending"),
           api.get("/api/reminders/?status=pending"),
         ]);
 
         let ordersCount = 0;
         if (ordersRes.status === "fulfilled" && ordersRes.value.data) {
-          const items = ordersRes.value.data.results || ordersRes.value.data.items || ordersRes.value.data || [];
-          ordersCount = items.filter(
-            (o) => (o.order_status || o.status || "").toLowerCase() === "ready_to_pack"
-          ).length;
+          // Use the total count from Baserow directly — no need to filter client-side
+          ordersCount = ordersRes.value.data.count ?? 0;
         }
 
         let bulkCount = 0;
@@ -231,12 +232,8 @@ export default function AdminLayout({ children }) {
 
         let specimenCount = 0;
         if (specimenRes.status === "fulfilled" && specimenRes.value.data) {
-          const items = Array.isArray(specimenRes.value.data)
-            ? specimenRes.value.data
-            : specimenRes.value.data.results || specimenRes.value.data.items || [];
-          specimenCount = items.filter(
-            (s) => (s.status || "").toLowerCase() === "pending"
-          ).length;
+          // Use Baserow's total count directly — DeliveryStatus=Pending filter already applied
+          specimenCount = specimenRes.value.data.count ?? 0;
         }
 
         let remindersCount = 0;
@@ -261,7 +258,7 @@ export default function AdminLayout({ children }) {
     }
 
     fetchBadgeCounts();
-    const interval = setInterval(fetchBadgeCounts, 15000);
+    const interval = setInterval(fetchBadgeCounts, 60000);
     return () => {
       mounted = false;
       clearInterval(interval);

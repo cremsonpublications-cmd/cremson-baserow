@@ -99,6 +99,14 @@ export function AppProvider({ children }) {
   const backendLoaded = useRef(false);
 
   useEffect(() => {
+    // Skip fetching products on pages that never use the product catalog
+    const path = typeof window !== "undefined" ? window.location.pathname : "";
+    const skipPaths = ["/admin", "/auth", "/signin", "/signup", "/blogs", "/forgot-password"];
+    const shouldSkip = skipPaths.some((p) => path === p || path.startsWith(p + "/") || path.startsWith(p + "?"));
+    if (shouldSkip) {
+      setProductsLoading(false);
+      return;
+    }
     fetchAllProducts()
       .then(setAllProducts)
       .catch(console.error)

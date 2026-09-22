@@ -79,10 +79,15 @@ export default function Header() {
       }
     };
 
-    loadMaterials();
-    loadTeachingResources();
+    // Delay nav dropdown data — not needed until user hovers the menu
+    const materialsTimer = setTimeout(() => loadMaterials(), 2000);
+    const teachingTimer = setTimeout(() => loadTeachingResources(), 2000);
 
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      clearTimeout(materialsTimer);
+      clearTimeout(teachingTimer);
+    };
   }, []);
 
   const {

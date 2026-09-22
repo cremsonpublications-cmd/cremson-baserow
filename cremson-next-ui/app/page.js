@@ -3,15 +3,15 @@
 import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Star, Heart, MapPin, Phone, Smartphone, Mail, Clock } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { useProducts } from "../lib/api/hooks";
 import api from "../lib/api/axios";
 import Link from "next/link";
 
 export default function Home() {
-  const { addToCart, toggleWishlist, wishlist, setSearchQuery, cart, updateQuantity, removeFromCart } = useApp();
+  const { addToCart, toggleWishlist, wishlist, setSearchQuery, cart, updateQuantity, removeFromCart, allProducts, productsLoading } = useApp();
+  const books = allProducts;
+  const booksLoading = productsLoading;
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slides, setSlides] = useState([]);
-  const { data: books = [], isLoading: booksLoading } = useProducts();
 
   // Fetch banners from API
   useEffect(() => {
@@ -30,21 +30,24 @@ export default function Home() {
   const [blogs, setBlogs] = useState([]);
   const [blogsLoading, setBlogsLoading] = useState(true);
 
-  // Fetch published blogs for the homepage
+  // Fetch published blogs for the homepage — delayed so products/banners load first
   useEffect(() => {
-    api.get("/api/blogs/?status=Published")
-      .then((res) => {
-        if (Array.isArray(res.data)) {
-          // Limit to latest 4 blogs matching the 4-column layout
-          setBlogs(res.data.slice(0, 4));
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to load blogs on homepage:", err);
-      })
-      .finally(() => {
-        setBlogsLoading(false);
-      });
+    const timer = setTimeout(() => {
+      api.get("/api/blogs/?status=Published")
+        .then((res) => {
+          if (Array.isArray(res.data)) {
+            // Limit to latest 4 blogs matching the 4-column layout
+            setBlogs(res.data.slice(0, 4));
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load blogs on homepage:", err);
+        })
+        .finally(() => {
+          setBlogsLoading(false);
+        });
+    }, 1500);
+    return () => clearTimeout(timer);
   }, []);
 
   // Auto transition for banner carousel

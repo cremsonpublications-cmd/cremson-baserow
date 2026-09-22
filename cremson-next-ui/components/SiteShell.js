@@ -11,7 +11,7 @@ import MobileMenuDrawer from "./MobileMenuDrawer";
 import WhatsAppChatWidget from "./WhatsAppChatWidget";
 
 // Routes that should render without the site Header/Footer/drawers
-const STANDALONE_PREFIXES = ["/campaign"];
+const STANDALONE_PREFIXES = ["/campaign", "/admin"];
 
 export default function SiteShell({ children }) {
   const pathname = usePathname();

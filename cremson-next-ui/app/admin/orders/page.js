@@ -2059,7 +2059,7 @@ export default function AdminOrders() {
               {/* Pagination Bar */}
               <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white flex-shrink-0">
                 <div className="text-sm text-gray-600">
-                  Showing {orders.length > 0 ? (page - 1) * PAGE_SIZE + 1 : 0} to {Math.min(page * PAGE_SIZE, count)} of {count} orders
+                  Showing {orders.length > 0 ? (page - 1) * PAGE_SIZE + 1 : 0} to {(page - 1) * PAGE_SIZE + orders.length} of {count} orders
                 </div>
                 <div className="flex items-center gap-1">
                   <button
