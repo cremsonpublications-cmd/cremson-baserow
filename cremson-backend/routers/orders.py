@@ -868,6 +868,58 @@ class UpdateOrderNotesPayload(BaseModel):
     admin_notes: str
 
 
+class UpdateOrderPaymentPayload(BaseModel):
+    payment_screenshot_url: Optional[str] = None
+    payment_status: Optional[str] = None
+
+
+@router.patch("/{order_id}/update-payment", summary="Update payment screenshot and/or mark as paid")
+async def update_order_payment(order_id: str, payload: UpdateOrderPaymentPayload):
+    """Update payment screenshot URL and/or payment status for an order."""
+    client = BaserowClient()
+    row_id = None
+    if order_id.isdigit():
+        row_id = int(order_id)
+    else:
+        orders_res = await client.get_rows(TABLE_IDS["orders"], search=order_id, size=1)
+        results = orders_res.get("results", [])
+        if results:
+            row_id = results[0].get("id")
+
+    if not row_id:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    order_row = await client.get_row(TABLE_IDS["orders"], row_id)
+    if not order_row:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    update_data = {}
+
+    if payload.payment_screenshot_url is not None:
+        delivery_raw = order_row.get("delivery") or "{}"
+        try:
+            delivery = json.loads(delivery_raw) if isinstance(delivery_raw, str) else (delivery_raw or {})
+        except Exception:
+            delivery = {}
+        delivery["payment_screenshot_url"] = payload.payment_screenshot_url
+        update_data["delivery"] = json.dumps(delivery)
+
+    if payload.payment_status is not None:
+        update_data["payment_status"] = payload.payment_status
+        payment_raw = order_row.get("payment") or "{}"
+        try:
+            payment = json.loads(payment_raw) if isinstance(payment_raw, str) else (payment_raw or {})
+        except Exception:
+            payment = {}
+        payment["status"] = payload.payment_status
+        update_data["payment"] = json.dumps(payment)
+
+    if update_data:
+        await client.update_row(TABLE_IDS["orders"], row_id, update_data)
+
+    return {"status": "success", "message": "Payment information updated successfully"}
+
+
 @router.patch("/{order_id}/update-notes", summary="Update admin notes for an order")
 async def update_order_notes(order_id: str, payload: UpdateOrderNotesPayload):
     """Update admin notes / description for an order."""

@@ -613,6 +613,53 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal, onOpen
   const [savingNotes, setSavingNotes] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
 
+  const [screenshotUrl, setScreenshotUrl] = useState(paymentScreenshot);
+  const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+  const [currentPaymentStatus, setCurrentPaymentStatus] = useState(
+    order.payment_status || payment.status || ""
+  );
+  const [markingPaid, setMarkingPaid] = useState(false);
+
+  const isPayLater =
+    (payment.method || "").toLowerCase().includes("pay later") ||
+    ["pending", "pay later", "paylater"].includes((currentPaymentStatus || "").toLowerCase());
+
+  async function handleUploadScreenshot(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingScreenshot(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await api.post("/api/upload/image", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const url = res.data?.url || res.data?.file_url;
+      if (!url) throw new Error("No URL returned from upload");
+      await api.patch(`/api/orders/${order.id}/update-payment`, { payment_screenshot_url: url });
+      setScreenshotUrl(url);
+      toast.success("Payment screenshot uploaded!");
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Screenshot upload failed.");
+    } finally {
+      setUploadingScreenshot(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleMarkAsPaid() {
+    setMarkingPaid(true);
+    try {
+      await api.patch(`/api/orders/${order.id}/update-payment`, { payment_status: "Paid" });
+      setCurrentPaymentStatus("Paid");
+      toast.success("Order marked as Paid!");
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Failed to mark as paid.");
+    } finally {
+      setMarkingPaid(false);
+    }
+  }
+
   async function handleSaveNotes() {
     setSavingNotes(true);
     try {
@@ -899,19 +946,31 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal, onOpen
                   )}
                 </div>
 
-                {/* Payment Screenshot (if available) */}
-                {paymentScreenshot && (
-                  <div className="space-y-2 text-left pt-2 border-t border-slate-100">
+                {/* Payment Screenshot — upload or view */}
+                <div className="space-y-2 text-left pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Payment Proof Screenshot</p>
+                    <label className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg cursor-pointer transition-colors ${uploadingScreenshot ? "opacity-50 cursor-not-allowed" : "text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100"}`}>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg"
+                        className="hidden"
+                        onChange={handleUploadScreenshot}
+                        disabled={uploadingScreenshot}
+                      />
+                      {uploadingScreenshot ? "Uploading..." : screenshotUrl ? "Change" : "Upload"}
+                    </label>
+                  </div>
+                  {screenshotUrl ? (
                     <div className="relative group inline-block">
                       <a
-                        href={paymentScreenshot}
+                        href={screenshotUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="block border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all max-w-xs group"
                       >
                         <img
-                          src={paymentScreenshot}
+                          src={screenshotUrl}
                           alt="Payment Screenshot"
                           className="w-full h-auto max-h-56 object-contain bg-slate-50 p-1"
                         />
@@ -921,6 +980,24 @@ function OrderModal({ order, onClose, onStatusUpdated, onOpenReturnModal, onOpen
                         </div>
                       </a>
                     </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">No screenshot uploaded yet.</p>
+                  )}
+                </div>
+
+                {/* Mark as Paid — only shown for Pay Later orders */}
+                {isPayLater && (
+                  <div className="pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={handleMarkAsPaid}
+                      disabled={markingPaid}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      {markingPaid ? "Updating..." : "Mark as Paid"}
+                    </button>
+                    <p className="text-[10px] text-slate-400 text-center mt-1">Changes payment status from Pay Later → Paid</p>
                   </div>
                 )}
               </div>
