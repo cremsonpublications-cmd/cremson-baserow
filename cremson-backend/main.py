@@ -21,6 +21,7 @@ from routers import cart as cart_router
 from routers import wishlist as wishlist_router
 from routers import webhooks as webhooks_router
 from routers import whatsapp as whatsapp_router
+from routers import chatwoot_webhook as chatwoot_webhook_router
 from routers import crm as crm_router
 from routers import blogs as blogs_router
 from routers import study_materials as study_materials_router
@@ -91,6 +92,7 @@ app.include_router(wishlist_router.router, prefix="/api/wishlist", tags=["Wishli
 app.include_router(webhooks_router.router, prefix="/api/webhooks", tags=["Webhooks"])
 app.include_router(whatsapp_router.router, prefix="/api/webhooks", tags=["WhatsApp Chat Webhook"])
 app.include_router(whatsapp_router.router, prefix="/api", tags=["WhatsApp Chat Webhook Alt"])
+app.include_router(chatwoot_webhook_router.router, prefix="/api", tags=["Chatwoot Webhook"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
