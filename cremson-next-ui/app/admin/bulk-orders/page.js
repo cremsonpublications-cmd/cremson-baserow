@@ -10,7 +10,6 @@ export default function AdminBulkOrdersPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [monthFilter, setMonthFilter] = useState("");
 
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [approveModalOpen, setApproveModalOpen] = useState(false);
@@ -42,13 +41,8 @@ export default function AdminBulkOrdersPage() {
   const orders = [...rawOrders].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
   const filteredOrders = orders.filter((o) => {
-    if (statusFilter !== "all" && o.status !== statusFilter) return false;
-    if (monthFilter && o.order_date) {
-      const d = new Date(o.order_date);
-      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      if (ym !== monthFilter) return false;
-    }
-    return true;
+    if (statusFilter === "all") return true;
+    return o.status === statusFilter;
   });
 
   const handleOpenApprove = (order) => {
@@ -199,24 +193,6 @@ export default function AdminBulkOrdersPage() {
                 {tab.label}
               </button>
             ))}
-          </div>
-
-          {/* Month Filter */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <input
-              type="month"
-              value={monthFilter}
-              onChange={(e) => setMonthFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none text-slate-600"
-            />
-            {monthFilter && (
-              <button
-                onClick={() => setMonthFilter("")}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
           </div>
 
           {/* Search Box */}
