@@ -1,6 +1,5 @@
 import React, { Suspense } from "react";
 
-export const runtime = 'edge';
 
 export default function PrivacyPolicy() {
   return (
