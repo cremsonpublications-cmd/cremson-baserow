@@ -272,7 +272,7 @@ async def handle_incoming_message(from_phone: str, message_text: str, msg_id: st
     # ── END ADMIN ORDER FLOW ───────────────────────────────────────────────────
 
     # Global reset triggers
-    if clean_text.lower() in ["hi", "hello", "start", "menu", "main", "main menu"]:
+    if clean_text.lower() in ["hi", "hey", "hello", "helo", "hii", "hiii", "help", "i need help", "need help", "hlo", "hola", "start", "menu", "main", "main menu"]:
         set_conversation_state(from_phone, "MAIN_MENU")
         await send_text_message(from_phone, get_welcome_menu())
         return
@@ -446,7 +446,7 @@ async def handle_incoming_message(from_phone: str, message_text: str, msg_id: st
         if clean_upper.startswith("BOOK") or clean_upper.startswith("CR") or clean_upper.startswith("SPEC") or clean_upper.isdigit():
             await _process_track_order_id_input(from_phone, clean_text)
         else:
-            await send_text_message(from_phone, get_fallback_menu())
+            await send_text_message(from_phone, get_welcome_menu())
 
 
 # --- BASEROW LOOKUP HELPERS ---
