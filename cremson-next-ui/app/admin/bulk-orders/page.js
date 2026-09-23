@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Package, Search, Clock, CheckCircle2, Truck, Eye, ArrowRight, X, Percent, DollarSign, ShieldCheck, Users, ExternalLink } from "lucide-react";
+import { Package, Search, Clock, CheckCircle2, Truck, Eye, ArrowRight, X, Percent, DollarSign, ShieldCheck, Users, ExternalLink, Plus, Trash2 } from "lucide-react";
 import api from "@/lib/api/axios";
 
 export default function AdminBulkOrdersPage() {
@@ -14,6 +14,13 @@ export default function AdminBulkOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    contact_name: "", school_name: "", phone: "", email: "",
+    address: "", city: "", state: "", pincode: "",
+  });
+  const [createItems, setCreateItems] = useState([{ product_id: "", title: "", qty: 1, price: "" }]);
+  const [createLoading, setCreateLoading] = useState(false);
 
   const [discountType, setDiscountType] = useState("percentage");
   const [discountValue, setDiscountValue] = useState(10);
@@ -102,6 +109,38 @@ export default function AdminBulkOrdersPage() {
     }
   };
 
+  const handleCreateSubmit = async (e) => {
+    e.preventDefault();
+    const validItems = createItems.filter((i) => i.title.trim() && Number(i.qty) > 0 && Number(i.price) > 0);
+    if (validItems.length === 0) { alert("Add at least one item with title, qty and price."); return; }
+    setCreateLoading(true);
+    try {
+      await api.post("/api/bulk-orders/", {
+        ...createForm,
+        items: validItems.map((i) => ({
+          product_id: Number(i.product_id) || 0,
+          title: i.title.trim(),
+          qty: Number(i.qty),
+          price: Number(i.price),
+        })),
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-bulk-orders"] });
+      setCreateModalOpen(false);
+      setCreateForm({ contact_name: "", school_name: "", phone: "", email: "", address: "", city: "", state: "", pincode: "" });
+      setCreateItems([{ product_id: "", title: "", qty: 1, price: "" }]);
+    } catch (err) {
+      alert(err?.response?.data?.detail || "Failed to create bulk order.");
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  const updateItem = (idx, field, val) =>
+    setCreateItems((prev) => prev.map((it, i) => (i === idx ? { ...it, [field]: val } : it)));
+
+  const addItem = () => setCreateItems((prev) => [...prev, { product_id: "", title: "", qty: 1, price: "" }]);
+  const removeItem = (idx) => setCreateItems((prev) => prev.filter((_, i) => i !== idx));
+
   const calcFinal = (subtotal) => {
     const sub = Number(subtotal || 0);
     const disc = Number(discountValue || 0);
@@ -121,6 +160,12 @@ export default function AdminBulkOrdersPage() {
           </h1>
           <p className="text-xs text-slate-500 mt-1">Review school bulk order requests, approve discounts, track student split payments & initiate shipping</p>
         </div>
+        <button
+          onClick={() => setCreateModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg text-sm transition-colors cursor-pointer shadow-sm"
+        >
+          <Plus className="w-4 h-4" /> Create Bulk Order
+        </button>
       </div>
 
       {/* Filter Tabs & Search */}
@@ -381,6 +426,131 @@ export default function AdminBulkOrdersPage() {
                 className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow transition-all cursor-pointer"
               >
                 {actionLoading ? "Saving..." : "Approve & Send WhatsApp Notification"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create Bulk Order Modal */}
+      {createModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+              <h3 className="text-lg font-bold text-slate-900">Create Bulk Order</h3>
+              <button onClick={() => setCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSubmit} className="space-y-5">
+              {/* Contact & School */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { label: "Contact Name", key: "contact_name", required: true },
+                  { label: "School Name", key: "school_name", required: true },
+                  { label: "Phone", key: "phone", required: true },
+                  { label: "Email (optional)", key: "email", required: false },
+                ].map(({ label, key, required }) => (
+                  <div key={key}>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">{label}</label>
+                    <input
+                      type="text"
+                      required={required}
+                      value={createForm[key]}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, [key]: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-400"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Address */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Street Address</label>
+                <input
+                  type="text"
+                  required
+                  value={createForm.address}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, address: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-400"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: "City", key: "city" },
+                  { label: "State", key: "state" },
+                  { label: "Pincode", key: "pincode" },
+                ].map(({ label, key }) => (
+                  <div key={key}>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">{label}</label>
+                    <input
+                      type="text"
+                      required
+                      value={createForm[key]}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, [key]: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-400"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Items */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase">Order Items</label>
+                  <button type="button" onClick={addItem} className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-800 font-semibold cursor-pointer">
+                    <Plus className="w-3.5 h-3.5" /> Add Item
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {createItems.map((item, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                      <input
+                        type="text"
+                        placeholder="Book title"
+                        value={item.title}
+                        onChange={(e) => updateItem(idx, "title", e.target.value)}
+                        className="col-span-5 px-3 py-2 border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Qty"
+                        min="1"
+                        value={item.qty}
+                        onChange={(e) => updateItem(idx, "qty", e.target.value)}
+                        className="col-span-2 px-3 py-2 border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Price ₹"
+                        min="0"
+                        value={item.price}
+                        onChange={(e) => updateItem(idx, "price", e.target.value)}
+                        className="col-span-3 px-3 py-2 border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeItem(idx)}
+                        disabled={createItems.length === 1}
+                        className="col-span-2 flex justify-center text-red-400 hover:text-red-600 disabled:opacity-30 cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 text-right text-xs text-slate-500 font-mono">
+                  Subtotal: ₹{createItems.reduce((s, i) => s + (Number(i.qty) * Number(i.price) || 0), 0).toLocaleString()}
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={createLoading}
+                className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-sm shadow transition-all cursor-pointer disabled:opacity-60"
+              >
+                {createLoading ? "Creating..." : "Create Bulk Order"}
               </button>
             </form>
           </div>
