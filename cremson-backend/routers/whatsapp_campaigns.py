@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+WHATSAPP_APP_ID = os.getenv("WHATSAPP_APP_ID", "1344820256203732")
 META_API = "https://graph.facebook.com/v19.0"
 
 
@@ -40,27 +41,27 @@ async def upload_media_to_meta(file: UploadFile = File(...)):
     mime_type = file.content_type or "image/jpeg"
     file_size = len(content)
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         # Step 1: Create upload session
         session_res = await client.post(
-            f"{META_API}/app/uploads",
+            f"{META_API}/{WHATSAPP_APP_ID}/uploads",
             params={
                 "file_name": filename,
                 "file_length": file_size,
                 "file_type": mime_type,
-                "access_token": WHATSAPP_ACCESS_TOKEN,
             },
+            headers={"Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}"},
         )
         session_data = session_res.json()
         if "error" in session_data:
-            raise HTTPException(status_code=400, detail=session_data["error"]["message"])
+            raise HTTPException(status_code=400, detail=f"Session error: {session_data['error']['message']}")
         session_id = session_data["id"]
 
-        # Step 2: Upload the file binary
+        # Step 2: Upload file binary (Authorization: Bearer, file_offset: 0)
         upload_res = await client.post(
             f"{META_API}/{session_id}",
             headers={
-                "Authorization": f"OAuth {WHATSAPP_ACCESS_TOKEN}",
+                "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
                 "file_offset": "0",
                 "Content-Type": mime_type,
             },
@@ -68,7 +69,9 @@ async def upload_media_to_meta(file: UploadFile = File(...)):
         )
         upload_data = upload_res.json()
         if "error" in upload_data:
-            raise HTTPException(status_code=400, detail=upload_data["error"]["message"])
+            raise HTTPException(status_code=400, detail=f"Upload error: {upload_data['error']['message']}")
+        if "h" not in upload_data:
+            raise HTTPException(status_code=400, detail=f"No handle returned: {upload_data}")
 
         return {"handle": upload_data["h"]}
 
