@@ -1,5 +1,3 @@
-export const dynamicParams = false;
-
 import api from "../../../lib/api/axios";
 import BlogDetailClient from "./BlogDetailClient";
 
