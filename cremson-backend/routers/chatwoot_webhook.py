@@ -30,6 +30,10 @@ async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks):
     if event != "message_created":
         return {"status": "ignored", "event": event}
 
+    # Ignore private notes (bot mirrors its own replies as private notes — prevents loop)
+    if payload.get("private"):
+        return {"status": "ignored", "reason": "private note"}
+
     # Only process incoming messages (message_type 0 or "incoming" = from customer)
     message_type = payload.get("message_type")
     if message_type not in (0, "incoming"):
@@ -38,8 +42,8 @@ async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks):
     # Only act on messages from WhatsApp inboxes
     # channel is nested inside conversation in the webhook payload
     conversation = payload.get("conversation") or {}
-    channel = conversation.get("channel") or payload.get("channel")
-    if channel not in ("Channel::Whatsapp", "Channel::Api"):
+    channel = conversation.get("channel") or payload.get("channel") or ""
+    if channel and channel not in ("Channel::Whatsapp", "Channel::Api"):
         return {"status": "ignored", "channel": channel}
 
     content = payload.get("content", "").strip()
@@ -47,9 +51,10 @@ async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks):
         return {"status": "ignored", "reason": "empty content"}
 
     # Extract sender phone — try conversation.meta.sender first, then top-level sender
+    # Chatwoot native WA uses phone_number; some versions use identifier
     meta = conversation.get("meta") or {}
     sender = meta.get("sender") or payload.get("sender") or {}
-    phone_raw = sender.get("phone_number", "")
+    phone_raw = sender.get("phone_number") or sender.get("identifier") or ""
 
     # Normalise phone: strip leading + so it matches internal format (91XXXXXXXXXX)
     from_phone = phone_raw.lstrip("+")

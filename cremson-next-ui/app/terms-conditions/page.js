@@ -1,5 +1,7 @@
 import React, { Suspense } from "react";
 
+export const runtime = 'edge';
+
 export default function TermsConditions() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-white" />}>

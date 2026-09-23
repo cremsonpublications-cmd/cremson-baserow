@@ -2,6 +2,7 @@ import ProductDetailClient from "./ProductDetailClient";
 import { fetchProduct } from "../../../../lib/api/products";
 
 export const dynamic = "force-dynamic";
+export const runtime = "edge";
 
 export async function generateMetadata({ params }) {
   const resolvedParams = await params;
