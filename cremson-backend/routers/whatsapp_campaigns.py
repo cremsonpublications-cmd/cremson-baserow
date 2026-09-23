@@ -1,9 +1,11 @@
 import asyncio
 import logging
+import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Body, Depends
+import httpx
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Query, Body, Depends, UploadFile
 from pydantic import BaseModel
 
 from services.whatsapp_campaigns import (
@@ -25,6 +27,50 @@ from services.whatsapp_campaigns import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+META_API = "https://graph.facebook.com/v19.0"
+
+
+@router.post("/media-upload")
+async def upload_media_to_meta(file: UploadFile = File(...)):
+    """Upload an image to Meta's Resumable Upload API and return a media handle for template headers."""
+    content = await file.read()
+    filename = file.filename or "image.jpg"
+    mime_type = file.content_type or "image/jpeg"
+    file_size = len(content)
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        # Step 1: Create upload session
+        session_res = await client.post(
+            f"{META_API}/app/uploads",
+            params={
+                "file_name": filename,
+                "file_length": file_size,
+                "file_type": mime_type,
+                "access_token": WHATSAPP_ACCESS_TOKEN,
+            },
+        )
+        session_data = session_res.json()
+        if "error" in session_data:
+            raise HTTPException(status_code=400, detail=session_data["error"]["message"])
+        session_id = session_data["id"]
+
+        # Step 2: Upload the file binary
+        upload_res = await client.post(
+            f"{META_API}/{session_id}",
+            headers={
+                "Authorization": f"OAuth {WHATSAPP_ACCESS_TOKEN}",
+                "file_offset": "0",
+                "Content-Type": mime_type,
+            },
+            content=content,
+        )
+        upload_data = upload_res.json()
+        if "error" in upload_data:
+            raise HTTPException(status_code=400, detail=upload_data["error"]["message"])
+
+        return {"handle": upload_data["h"]}
 
 
 class TemplateRequest(BaseModel):
