@@ -1,6 +1,6 @@
 "use client";
 
-export const dynamic = 'force-static';
+export const runtime = 'edge';
 
 import { useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";

@@ -1,6 +1,6 @@
 "use client";
 
-export const dynamic = 'force-static';
+export const runtime = 'edge';
 
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";

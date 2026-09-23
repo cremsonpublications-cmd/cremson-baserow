@@ -1,6 +1,6 @@
 "use client";
 
-export const dynamic = 'force-static';
+export const runtime = 'edge';
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
