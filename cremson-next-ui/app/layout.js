@@ -2,6 +2,7 @@ import "./globals.css";
 import { AppProvider } from "../context/AppContext";
 import SiteShell from "../components/SiteShell";
 import QueryProvider from "../lib/providers/QueryProvider";
+import Script from "next/script";
 
 export const metadata = {
   title: {
@@ -76,12 +77,23 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased text-black bg-white flex flex-col min-h-screen" suppressHydrationWarning>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-X0S2F4TPJH"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-X0S2F4TPJH');
+          `}
+        </Script>
         <QueryProvider>
           <AppProvider>
             <SiteShell>{children}</SiteShell>
           </AppProvider>
         </QueryProvider>
-
       </body>
     </html>
   );
