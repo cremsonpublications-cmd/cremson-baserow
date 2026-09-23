@@ -1,3 +1,5 @@
+export const dynamicParams = false;
+
 import { fetchAllProducts } from "../../../../lib/api/products";
 import AuthorPageClient from "./AuthorPageClient";
 

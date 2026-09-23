@@ -1,3 +1,5 @@
+export const dynamicParams = false;
+
 import api from "../../../lib/api/axios";
 import TeachingResourceClient from "./TeachingResourceClient";
 

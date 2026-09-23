@@ -1,6 +1,4 @@
-export async function generateStaticParams() {
-  return Array.from({ length: 200 }, (_, i) => ({ id: String(i + 1) }));
-}
+export const runtime = 'edge';
 
 import AdminProductDetailClient from "./AdminProductDetailClient";
 
