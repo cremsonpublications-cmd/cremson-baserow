@@ -111,6 +111,25 @@ async def _forward_to_chatwoot(payload: Dict[str, Any]) -> None:
     except Exception as exc:
         logger.warning(f"[Chatwoot Forward] Failed: {exc}")
 
+
+async def _relay_raw_to_chatwoot(raw_body: bytes) -> None:
+    """
+    Relay the raw Meta webhook payload to Chatwoot's internal webhook endpoint.
+    This lets Chatwoot process all incoming messages, media, status updates, and
+    button replies natively — even when Meta is configured to send webhooks to the
+    Cremson backend rather than directly to Chatwoot.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{CHATWOOT_BASE_URL}/webhooks/whatsapp",
+                content=raw_body,
+                headers={"Content-Type": "application/json"},
+            )
+            logger.info(f"[Chatwoot Relay] Relayed raw Meta webhook → {resp.status_code}")
+    except Exception as exc:
+        logger.warning(f"[Chatwoot Relay] Failed to relay raw webhook: {exc}")
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -174,8 +193,8 @@ async def receive_whatsapp_webhook(request: Request, background_tasks: Backgroun
         logger.error(f"[WhatsApp Webhook] JSON parse error: {parse_err}")
         return {"status": "error", "message": "Invalid JSON"}
 
-    # Forward to Chatwoot so agents can see all incoming WhatsApp messages
-    background_tasks.add_task(_forward_to_chatwoot, payload)
+    # Relay raw Meta payload to Chatwoot so it can process all messages/media/status natively
+    background_tasks.add_task(_relay_raw_to_chatwoot, raw_body)
 
     # Extract incoming message details from standard Meta payload
     # Payload structure: entry -> changes -> value -> messages / statuses
