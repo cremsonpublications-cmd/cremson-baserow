@@ -1,6 +1,5 @@
 import React, { Suspense } from "react";
 
-
 export default function PrivacyPolicy() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-white" />}>
