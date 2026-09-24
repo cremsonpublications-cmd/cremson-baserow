@@ -2,8 +2,10 @@ import os
 import uuid
 import hashlib
 import time
+import urllib.parse
 import httpx
-from fastapi import APIRouter, File, HTTPException, UploadFile, Request
+from fastapi import APIRouter, File, HTTPException, UploadFile, Request, Query
+from fastapi.responses import StreamingResponse
 
 router = APIRouter()
 
@@ -115,3 +117,61 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF upload failed: {str(e)}")
+
+
+@router.get("/pdf-proxy")
+async def proxy_pdf(url: str = Query(..., description="Cloudinary raw PDF URL to proxy")):
+    """
+    Proxy a restricted Cloudinary raw PDF using signed Admin API download.
+    Extracts the public_id from the URL, generates a signed download link,
+    fetches the PDF, and streams it back with correct headers.
+    """
+    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "dkxxa3xt0").strip()
+    api_key = os.getenv("CLOUDINARY_API_KEY", "").strip()
+    api_secret = os.getenv("CLOUDINARY_API_SECRET", "").strip()
+
+    if not api_key or not api_secret:
+        raise HTTPException(status_code=500, detail="Cloudinary credentials not configured.")
+
+    # Extract public_id from URL
+    # URL format: https://res.cloudinary.com/{cloud}/raw/upload/v{ver}/{public_id}
+    try:
+        parsed = urllib.parse.urlparse(url)
+        path = parsed.path  # e.g. /dkxxa3xt0/raw/upload/v1790235368/study-material-pages/pdfs/file.pdf
+        parts = path.lstrip("/").split("/")
+        # Find "upload" and take everything after the version token
+        upload_idx = parts.index("upload")
+        after_upload = parts[upload_idx + 1:]
+        # Skip version token (starts with 'v' followed by digits)
+        if after_upload and after_upload[0].startswith("v") and after_upload[0][1:].isdigit():
+            after_upload = after_upload[1:]
+        public_id = "/".join(after_upload)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not extract public_id from URL.")
+
+    # Generate signed download URL via Cloudinary Admin API
+    ts = int(time.time())
+    to_sign = f"public_id={public_id}&timestamp={ts}{api_secret}"
+    signature = hashlib.sha1(to_sign.encode()).hexdigest()
+
+    download_url = (
+        f"https://api.cloudinary.com/v1_1/{cloud_name}/raw/download"
+        f"?public_id={urllib.parse.quote(public_id, safe='')}"
+        f"&api_key={api_key}&timestamp={ts}&signature={signature}"
+    )
+
+    filename = public_id.split("/")[-1] or "file.pdf"
+
+    async def stream():
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            async with client.stream("GET", download_url) as r:
+                if r.status_code != 200:
+                    raise HTTPException(status_code=r.status_code, detail="Failed to fetch PDF from Cloudinary.")
+                async for chunk in r.aiter_bytes(chunk_size=8192):
+                    yield chunk
+
+    return StreamingResponse(
+        stream(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useApp } from "../../../context/AppContext";
+import { getApiBaseUrl } from "../../../lib/api/axios";
 
 export default function TeachingResourceDetailPage() {
   const params = useParams();
@@ -175,7 +176,11 @@ export default function TeachingResourceDetailPage() {
                       </div>
                     </div>
                     <a
-                      href={file.url}
+                      href={
+                        file.url && file.url.includes("res.cloudinary.com") && file.url.includes("/raw/upload")
+                          ? `${getApiBaseUrl()}/api/upload/pdf-proxy?url=${encodeURIComponent(file.url)}`
+                          : file.url
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       download={file.name || "download.pdf"}
