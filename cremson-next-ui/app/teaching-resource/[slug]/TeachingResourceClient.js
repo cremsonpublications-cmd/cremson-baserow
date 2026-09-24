@@ -172,7 +172,6 @@ export default function TeachingResourceDetailPage() {
                       </div>
                       <div>
                         <h4 className="font-semibold text-gray-800 text-sm">{file.name}</h4>
-                        <span className="text-[10px] text-gray-400 font-mono truncate max-w-[200px] block sm:max-w-none">{file.url.split('/').pop()}</span>
                       </div>
                     </div>
                     <a
