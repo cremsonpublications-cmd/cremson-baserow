@@ -1,5 +1,7 @@
 import os
 import uuid
+import hashlib
+import time
 import httpx
 from fastapi import APIRouter, File, HTTPException, UploadFile, Request
 
@@ -65,3 +67,51 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image upload failed: {str(e)}")
+
+
+@router.post("/pdf")
+async def upload_pdf(request: Request, file: UploadFile = File(...)):
+    """Upload a PDF to Cloudinary as a signed upload with access_mode=public."""
+    if file.content_type != "application/pdf" and not (file.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
+
+    content = await file.read()
+    filename = file.filename or "upload.pdf"
+
+    # Allow caller to pass a folder field in the multipart form
+    form = await request.form()
+    folder = str(form.get("folder") or "study-material-pages/pdfs").strip()
+
+    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "dkxxa3xt0").strip()
+    api_key = os.getenv("CLOUDINARY_API_KEY", "").strip()
+    api_secret = os.getenv("CLOUDINARY_API_SECRET", "").strip()
+
+    if not api_key or not api_secret:
+        raise HTTPException(status_code=500, detail="Cloudinary API credentials not configured.")
+
+    ts = int(time.time())
+    params = {
+        "access_mode": "public",
+        "folder": folder,
+        "timestamp": ts,
+    }
+    sorted_str = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
+    signature = hashlib.sha1((sorted_str + api_secret).encode()).hexdigest()
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            res = await client.post(
+                f"https://api.cloudinary.com/v1_1/{cloud_name}/raw/upload",
+                data={**params, "api_key": api_key, "signature": signature},
+                files={"file": (filename, content, "application/pdf")},
+            )
+        if res.status_code == 200:
+            data = res.json()
+            url = data.get("secure_url") or data.get("url") or ""
+            if url:
+                return {"status": "success", "url": url, "file_url": url, "secure_url": url, "filename": filename}
+        raise HTTPException(status_code=500, detail=f"Cloudinary upload failed: {res.text}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF upload failed: {str(e)}")

@@ -135,12 +135,10 @@ export default function AddStudyMaterialPostPage() {
       }
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("upload_preset", "unsigned_preset");
-      formData.append("folder", "study-material-pages/pdfs");
-      const res = await fetch("https://api.cloudinary.com/v1_1/dkxxa3xt0/raw/upload", { method: "POST", body: formData });
-      if (!res.ok) throw new Error("PDF upload failed");
-      const data = await res.json();
-      setCurrentPdfUrl(data.secure_url);
+      const res = await api.post("/api/upload/pdf", formData, { headers: { "Content-Type": "multipart/form-data" } });
+      const data = res.data;
+      if (!data?.url) throw new Error("PDF upload failed");
+      setCurrentPdfUrl(data.url);
       setCurrentPdfName(file.name.replace(/\.[^/.]+$/, ""));
       toast.success("PDF uploaded successfully!");
     } catch (err) {
