@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import CPLogo from "../../../components/CPLogo";
 import api from "../../../lib/api/axios";
 
 export default function StudyMaterialDetailPage() {
@@ -148,40 +147,6 @@ export default function StudyMaterialDetailPage() {
           `}</style>
 
           <hr className="my-12 border-gray-150 max-w-3xl mx-auto" />
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 md:px-16 lg:px-24 xl:px-32 bg-primary/[0.02] border-t border-gray-100 mt-20">
-          <div className="flex flex-col md:flex-row items-start justify-between gap-10 py-10 border-b border-gray-500/10 text-gray-500">
-            <div className="space-y-4">
-              <CPLogo className="w-24 sm:w-32" />
-              <p className="max-w-[410px] text-sm text-gray-500 leading-relaxed">
-                Quality study materials and educational resources from Cremson Publications.
-              </p>
-            </div>
-            <div className="flex flex-wrap justify-between w-full md:w-[60%] gap-8">
-              <div>
-                <h3 className="font-semibold text-sm text-gray-900 md:mb-5 mb-2 uppercase tracking-wider">Quick Links</h3>
-                <ul className="text-sm space-y-2">
-                  <li><a href="/" className="hover:text-primary transition">Home</a></li>
-                  <li><a href="/shop" className="hover:text-primary transition">Buy Books</a></li>
-                  <li><a href="/about-us" className="hover:text-primary transition">About Us</a></li>
-                  <li><a href="/contact-us" className="hover:text-primary transition">Contact Us</a></li>
-                </ul>
-              </div>
-              <div>
-                <h3 className="font-semibold text-sm text-gray-900 md:mb-5 mb-2 uppercase tracking-wider">Need Help?</h3>
-                <ul className="text-sm space-y-2">
-                  <li><a href="/contact-us" className="hover:text-primary transition">Customer Support</a></li>
-                  <li><a href="/terms-conditions" className="hover:text-primary transition">Terms of Service</a></li>
-                  <li><a href="/privacy-policy" className="hover:text-primary transition">Privacy Policy</a></li>
-                </ul>
-              </div>
-            </div>
-          </div>
-          <p className="py-6 text-center text-xs md:text-sm text-gray-400">
-            Copyright 2026 © Cremson Publications - All Rights Reserved.
-          </p>
         </div>
       </div>
     </div>

@@ -1,6 +1,8 @@
 import api from "../../../lib/api/axios";
 import TeachingResourceClient from "./TeachingResourceClient";
 
+export const dynamicParams = true;
+
 export async function generateStaticParams() {
   try {
     const { data } = await api.get("/api/teaching-resource-posts/");

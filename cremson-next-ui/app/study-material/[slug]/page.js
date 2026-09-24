@@ -1,6 +1,8 @@
 import api from "../../../lib/api/axios";
 import StudyMaterialClient from "./StudyMaterialClient";
 
+export const dynamicParams = true;
+
 export async function generateStaticParams() {
   try {
     const { data } = await api.get("/api/study-material-posts/");
