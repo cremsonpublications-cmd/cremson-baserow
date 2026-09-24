@@ -57,10 +57,8 @@ export default function CreateOrderPage() {
   const [pincodeResolved, setPincodeResolved] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("PAID");
   const [description, setDescription] = useState("");
-  const [screenshotFile, setScreenshotFile] = useState(null);
-  const [screenshotPreview, setScreenshotPreview] = useState(null);
+  const [screenshotFiles, setScreenshotFiles] = useState([]); // [{file, preview, url}]
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
-  const [screenshotUrl, setScreenshotUrl] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -138,28 +136,43 @@ export default function CreateOrderPage() {
   };
 
   const handleScreenshotChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) { toast.error("Please select an image file."); return; }
-    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be smaller than 5MB."); return; }
-    setScreenshotFile(file);
-    setScreenshotPreview(URL.createObjectURL(file));
-    setScreenshotUrl("");
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const valid = files.filter((f) => {
+      if (!f.type.startsWith("image/")) { toast.error(`${f.name} is not an image.`); return false; }
+      if (f.size > 5 * 1024 * 1024) { toast.error(`${f.name} exceeds 5MB.`); return false; }
+      return true;
+    });
+    if (!valid.length) return;
+    setScreenshotFiles((prev) => [
+      ...prev,
+      ...valid.map((file) => ({ file, preview: URL.createObjectURL(file), url: "" })),
+    ]);
+    if (fileRef.current) fileRef.current.value = "";
   };
 
-  const uploadScreenshot = async () => {
-    if (!screenshotFile) return "";
+  const removeScreenshot = (index) => {
+    setScreenshotFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadAllScreenshots = async () => {
+    const pending = screenshotFiles.filter((s) => !s.url);
+    if (!pending.length) return screenshotFiles.map((s) => s.url).filter(Boolean);
     setUploadingScreenshot(true);
     try {
-      const formData = new FormData();
-      formData.append("file", screenshotFile);
-      const { data } = await api.post("/api/upload/image", formData, { headers: { "Content-Type": "multipart/form-data" } });
-      const url = data?.url || data?.file_url || data?.secure_url || "";
-      if (!url) {
-        throw new Error("Upload endpoint did not return a valid image URL.");
-      }
-      setScreenshotUrl(url);
-      return url;
+      const results = await Promise.all(
+        screenshotFiles.map(async (s, i) => {
+          if (s.url) return s.url;
+          const formData = new FormData();
+          formData.append("file", s.file);
+          const { data } = await api.post("/api/upload/image", formData, { headers: { "Content-Type": "multipart/form-data" } });
+          const url = data?.url || data?.file_url || data?.secure_url || "";
+          if (!url) throw new Error("Upload failed for image " + (i + 1));
+          setScreenshotFiles((prev) => prev.map((x, xi) => xi === i ? { ...x, url } : x));
+          return url;
+        })
+      );
+      return results.filter(Boolean);
     } catch (err) {
       console.error("Screenshot upload failed:", err);
       throw err;
@@ -180,16 +193,17 @@ export default function CreateOrderPage() {
     if (!street.trim() || !city.trim() || !stateVal.trim() || !pincode.trim()) { toast.error("Complete shipping address is required."); setLoading(false); return; }
     if (pincode.length !== 6) { toast.error("Pincode must be exactly 6 digits."); setLoading(false); return; }
 
-    // Upload screenshot if selected — abort order creation if upload fails
-    let finalScreenshotUrl = screenshotUrl;
-    if (screenshotFile && !screenshotUrl) {
+    // Upload screenshots if selected — abort order creation if upload fails
+    let finalScreenshotUrl = "";
+    if (screenshotFiles.length > 0) {
       try {
-        finalScreenshotUrl = await uploadScreenshot();
-        if (!finalScreenshotUrl) {
+        const urls = await uploadAllScreenshots();
+        if (!urls.length) {
           toast.error("Image upload failed. Order was not created.");
           setLoading(false);
           return;
         }
+        finalScreenshotUrl = urls.length === 1 ? urls[0] : JSON.stringify(urls);
       } catch (uploadErr) {
         const msg = uploadErr?.response?.data?.detail || uploadErr?.message || "Image upload failed";
         toast.error(`Image upload failed (${msg}). Order was not created.`);
@@ -342,9 +356,7 @@ export default function CreateOrderPage() {
                 setCity("");
                 setStateVal("");
                 setDescription("");
-                setScreenshotFile(null);
-                setScreenshotPreview(null);
-                setScreenshotUrl("");
+                setScreenshotFiles([]);
               }}
               className="w-full py-3.5 bg-purple-700 hover:bg-purple-800 text-white font-bold text-sm rounded-xl transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
             >
@@ -559,34 +571,41 @@ export default function CreateOrderPage() {
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                   <Upload className="w-3.5 h-3.5 text-purple-600" /> Payment Screenshot <span className="text-slate-400 text-[10px] font-normal normal-case tracking-normal">(optional)</span>
                 </p>
-                <input type="file" accept="image/*" ref={fileRef} onChange={handleScreenshotChange} className="hidden" />
-                {screenshotPreview ? (
-                  <div className="relative inline-block">
-                    <img src={screenshotPreview} alt="Payment screenshot" className="h-40 rounded-2xl border border-slate-200 object-cover shadow-sm" />
-                    <button
-                      type="button"
-                      onClick={() => { setScreenshotFile(null); setScreenshotPreview(null); setScreenshotUrl(""); if (fileRef.current) fileRef.current.value = ""; }}
-                      className="absolute -top-2 -right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-sm cursor-pointer transition-colors"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                    {uploadingScreenshot && (
-                      <div className="absolute inset-0 bg-white/60 rounded-2xl flex items-center justify-center">
-                        <Loader2 className="w-5 h-5 animate-spin text-purple-600" />
-                      </div>
-                    )}
-                  </div>
-                ) : (
+                <input type="file" accept="image/*" multiple ref={fileRef} onChange={handleScreenshotChange} className="hidden" />
+                <div className="flex flex-wrap gap-3">
+                  {screenshotFiles.map((s, i) => (
+                    <div key={i} className="relative w-20 h-20 shrink-0">
+                      <img src={s.preview} alt={`screenshot ${i + 1}`} className="w-full h-full object-cover rounded-xl border border-slate-200 shadow-sm" />
+                      <button
+                        type="button"
+                        onClick={() => removeScreenshot(i)}
+                        className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-sm cursor-pointer transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                      {uploadingScreenshot && !s.url && (
+                        <div className="absolute inset-0 bg-white/60 rounded-xl flex items-center justify-center">
+                          <Loader2 className="w-4 h-4 animate-spin text-purple-600" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
                   <button
                     type="button"
                     onClick={() => fileRef.current?.click()}
-                    className="w-full border-2 border-dashed border-slate-200 hover:border-purple-400 rounded-2xl py-8 flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 transition-all cursor-pointer group"
+                    className={`w-20 h-20 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer group ${screenshotFiles.length === 0 ? "border-slate-200 hover:border-purple-400 text-slate-400 hover:text-purple-600 w-full py-8 h-auto" : "border-slate-200 hover:border-purple-400 text-slate-400 hover:text-purple-500"}`}
                   >
-                    <ImageIcon className="w-8 h-8 group-hover:scale-110 transition-transform" />
-                    <span className="text-sm font-semibold">Click to upload payment screenshot</span>
-                    <span className="text-xs">PNG, JPG up to 5MB</span>
+                    <ImageIcon className={`group-hover:scale-110 transition-transform ${screenshotFiles.length === 0 ? "w-8 h-8" : "w-5 h-5"}`} />
+                    {screenshotFiles.length === 0 ? (
+                      <>
+                        <span className="text-sm font-semibold">Click to upload payment screenshot</span>
+                        <span className="text-xs">PNG, JPG up to 5MB</span>
+                      </>
+                    ) : (
+                      <span className="text-[10px] font-semibold">Add more</span>
+                    )}
                   </button>
-                )}
+                </div>
               </div>
 
               {/* Description */}
