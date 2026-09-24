@@ -151,13 +151,13 @@ async def proxy_pdf(url: str = Query(..., description="Cloudinary raw PDF URL to
 
     # Generate signed download URL via Cloudinary Admin API
     ts = int(time.time())
-    to_sign = f"public_id={public_id}&timestamp={ts}{api_secret}"
+    to_sign = f"public_id={public_id}&timestamp={ts}&type=upload{api_secret}"
     signature = hashlib.sha1(to_sign.encode()).hexdigest()
 
     download_url = (
         f"https://api.cloudinary.com/v1_1/{cloud_name}/raw/download"
         f"?public_id={urllib.parse.quote(public_id, safe='')}"
-        f"&api_key={api_key}&timestamp={ts}&signature={signature}"
+        f"&api_key={api_key}&timestamp={ts}&signature={signature}&type=upload"
     )
 
     filename = public_id.split("/")[-1] or "file.pdf"
