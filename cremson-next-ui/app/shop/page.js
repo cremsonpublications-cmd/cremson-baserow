@@ -212,6 +212,30 @@ function Shop() {
     }, 300);
   };
 
+  const hasActiveFilters = useMemo(() => {
+    return Boolean(
+      searchVal ||
+      selectedCategories.length > 0 ||
+      selectedSubCategories.length > 0 ||
+      selectedAuthors.length > 0 ||
+      selectedClasses.length > 0 ||
+      selectedEditions.length > 0 ||
+      selectedStatuses.length > 0 ||
+      maxPrice !== null ||
+      sortBy !== "default"
+    );
+  }, [searchVal, selectedCategories, selectedSubCategories, selectedAuthors, selectedClasses, selectedEditions, selectedStatuses, maxPrice, sortBy]);
+
+  const handleClearAllFilters = useCallback(() => {
+    clearTimeout(searchDebounceRef.current);
+    isTypingRef.current = false;
+    setSearchInput("");
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", "/shop");
+    }
+    router.replace("/shop");
+  }, [router]);
+
   // Sync searchInput from URL only when the change comes externally (e.g. header search)
   useEffect(() => {
     if (!isTypingRef.current) {
@@ -714,28 +738,15 @@ function Shop() {
           <div className="hidden md:block min-w-[295px] max-w-[295px] border border-black/10 rounded-[20px] px-5 md:px-6 py-5 space-y-5 md:space-y-6">
             <div className="flex items-center justify-between">
               <span className="font-bold text-black text-xl">Filters</span>
-              <svg
-                stroke="currentColor"
-                fill="none"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-2xl text-black/40"
-                height="1em"
-                width="1em"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <line x1="4" y1="21" x2="4" y2="14" />
-                <line x1="4" y1="10" x2="4" y2="3" />
-                <line x1="12" y1="21" x2="12" y2="12" />
-                <line x1="12" y1="8" x2="12" y2="3" />
-                <line x1="20" y1="21" x2="20" y2="16" />
-                <line x1="20" y1="12" x2="20" y2="3" />
-                <line x1="1" y1="14" x2="7" y2="14" />
-                <line x1="9" y1="8" x2="15" y2="8" />
-                <line x1="17" y1="16" x2="23" y2="16" />
-              </svg>
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={handleClearAllFilters}
+                  className="text-xs text-red-600 hover:text-red-700 font-semibold cursor-pointer underline"
+                >
+                  Clear All
+                </button>
+              )}
             </div>
             <hr className="border-t-black/10" />
             {renderFiltersList()}
@@ -747,12 +758,26 @@ function Shop() {
               <div className="w-[320px] bg-white h-full p-6 overflow-y-auto shadow-2xl relative flex flex-col">
                 <div className="flex items-center justify-between mb-6">
                   <span className="font-bold text-black text-xl">Filters</span>
-                  <button
-                    onClick={() => setShowMobileFilters(false)}
-                    className="text-black/60 hover:text-black font-semibold text-xl p-2"
-                  >
-                    ✕
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {hasActiveFilters && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleClearAllFilters();
+                          setShowMobileFilters(false);
+                        }}
+                        className="text-xs text-red-600 hover:text-red-700 font-semibold cursor-pointer underline"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowMobileFilters(false)}
+                      className="text-black/60 hover:text-black font-semibold text-xl p-2"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
                 <div className="flex-1 space-y-6">
                   {renderFiltersList()}
@@ -867,10 +892,8 @@ function Shop() {
               <div className="flex flex-col items-center justify-center py-16 border border-dashed border-gray-200 rounded-3xl">
                 <p className="text-gray-500 font-medium text-lg">No books found matching the selected filters.</p>
                 <button
-                  onClick={() => {
-                    setSearchInput("");
-                    router.replace("/shop", { scroll: false });
-                  }}
+                  type="button"
+                  onClick={handleClearAllFilters}
                   className="mt-4 px-5 py-2.5 bg-black text-white rounded-full font-semibold text-sm transition-all hover:bg-black/80 cursor-pointer"
                 >
                   Clear All Filters
