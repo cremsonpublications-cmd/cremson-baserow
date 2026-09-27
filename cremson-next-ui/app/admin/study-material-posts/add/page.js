@@ -271,7 +271,7 @@ export default function AddStudyMaterialPostPage() {
                   <p className="text-xs text-gray-500">Uploading banner image...</p>
                 </div>
               ) : imagePreview ? (
-                <img alt="Preview" className="object-cover w-full h-full" src={imagePreview} />
+                <img alt="Preview" className="object-contain w-full h-auto max-h-[300px] rounded-lg" src={imagePreview} />
               ) : (
                 <div className="text-center p-4">
                   <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">

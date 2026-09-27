@@ -87,11 +87,13 @@ export default function StudyMaterialDetailPage() {
         </div>
 
         {/* Hero image */}
-        <div className="mx-5 max-w-4xl md:mx-auto my-10 mt-6">
-          <div className="relative aspect-video w-full rounded-3xl overflow-hidden shadow-md bg-gray-50 border border-gray-100">
-            <img alt={post.title} className="object-cover w-full h-full" src={post.image || null} />
+        {post.image && (
+          <div className="mx-5 max-w-4xl md:mx-auto my-10 mt-6">
+            <div className="relative w-full rounded-3xl overflow-hidden shadow-md bg-gray-50 border border-gray-100 flex items-center justify-center p-1 sm:p-2">
+              <img alt={post.title || ""} className="w-full h-auto max-h-[600px] object-contain rounded-2xl" src={post.image} />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Content body */}
         <div className="mx-5 max-w-4xl md:mx-auto">
