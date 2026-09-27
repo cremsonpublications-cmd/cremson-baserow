@@ -268,7 +268,11 @@ export default function BlogDetailPage() {
                     </div>
                     
                     <a
-                      href={file.url}
+                      href={
+                        file.url && file.url.includes("res.cloudinary.com") && file.url.includes("/raw/upload")
+                          ? `${getApiBaseUrl()}/api/upload/pdf-proxy?url=${encodeURIComponent(file.url)}&filename=${encodeURIComponent(file.name || "download.pdf")}`
+                          : file.url
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       download={file.name || "download.pdf"}

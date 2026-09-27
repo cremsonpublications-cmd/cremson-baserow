@@ -120,11 +120,14 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
 
 
 @router.get("/pdf-proxy")
-async def proxy_pdf(url: str = Query(..., description="Cloudinary raw PDF URL to proxy")):
+async def proxy_pdf(
+    url: str = Query(..., description="Cloudinary raw PDF URL to proxy"),
+    filename: Optional[str] = Query(None, description="Custom download filename"),
+):
     """
     Proxy a restricted Cloudinary raw PDF using signed Admin API download.
     Extracts the public_id from the URL, generates a signed download link,
-    fetches the PDF, and streams it back with correct headers.
+    fetches the PDF, and streams it back with correct headers and user-friendly filename.
     """
     cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "dkxxa3xt0").strip()
     api_key = os.getenv("CLOUDINARY_API_KEY", "").strip()
@@ -160,7 +163,13 @@ async def proxy_pdf(url: str = Query(..., description="Cloudinary raw PDF URL to
         f"&api_key={api_key}&timestamp={ts}&signature={signature}&type=upload"
     )
 
-    filename = public_id.split("/")[-1] or "file.pdf"
+    if filename and isinstance(filename, str) and filename.strip():
+        fn = filename.strip()
+        if not fn.lower().endswith(".pdf"):
+            fn += ".pdf"
+        clean_fn = re.sub(r'[^\w\s\.\-\(\)]', '_', fn)
+    else:
+        clean_fn = public_id.split("/")[-1] or "file.pdf"
 
     async def stream():
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -173,5 +182,5 @@ async def proxy_pdf(url: str = Query(..., description="Cloudinary raw PDF URL to
     return StreamingResponse(
         stream(),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{clean_fn}"'},
     )

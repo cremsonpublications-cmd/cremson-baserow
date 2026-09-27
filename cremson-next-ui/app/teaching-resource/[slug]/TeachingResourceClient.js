@@ -179,7 +179,7 @@ export default function TeachingResourceDetailPage() {
                     <a
                       href={
                         file.url && file.url.includes("res.cloudinary.com") && file.url.includes("/raw/upload")
-                          ? `${getApiBaseUrl()}/api/upload/pdf-proxy?url=${encodeURIComponent(file.url)}`
+                          ? `${getApiBaseUrl()}/api/upload/pdf-proxy?url=${encodeURIComponent(file.url)}&filename=${encodeURIComponent(file.name || "download.pdf")}`
                           : file.url
                       }
                       target="_blank"
