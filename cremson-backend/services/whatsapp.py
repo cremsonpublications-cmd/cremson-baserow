@@ -287,6 +287,8 @@ async def send_return_initiated(
     label_url: str
 ):
     """WhatsApp notification for return initiated with AWB label download link"""
+    from services.shipway import clean_courier_name
+    courier_name = clean_courier_name(courier_name)
     await _send_template(
         phone,
         "return_initiated_v1",
@@ -430,6 +432,8 @@ async def send_shipment_created(
     Body vars: {{1}}=name  {{2}}=order_id  {{3}}=awb  {{4}}=courier  {{5}}=tracking_url
     Button 0 (Track your Order): tracking_url
     """
+    from services.shipway import clean_courier_name
+    courier_name = clean_courier_name(courier_name)
     components = [
         {
             "type": "body",

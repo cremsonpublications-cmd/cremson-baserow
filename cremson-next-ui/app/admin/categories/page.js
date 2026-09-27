@@ -421,10 +421,16 @@ export default function AdminCategories() {
   // Derive flat sub-categories list
   const subCategoriesList = [];
   categories.forEach((cat) => {
-    const subsStr = cat.sub_categories || cat.Notes || "";
+    let subsStr = cat.sub_categories || cat.Notes || "";
     if (subsStr) {
+      while (subsStr.toLowerCase().startsWith("sub_categories:")) {
+        subsStr = subsStr.slice("sub_categories:".length).trim();
+      }
       subsStr.split(",").forEach((subName, i) => {
-        const trimmed = subName.trim();
+        let trimmed = subName.trim();
+        while (trimmed.toLowerCase().startsWith("sub_categories:")) {
+          trimmed = trimmed.slice("sub_categories:".length).trim();
+        }
         if (trimmed) {
           subCategoriesList.push({
             id: `${cat.id}-${i}`,

@@ -82,6 +82,85 @@ def clean_city_for_shipway(pincode: str, current_city: str) -> str:
     return current_city
 
 
+KNOWN_CARRIER_MAP: Dict[str, str] = {
+    "80622": "Delhivery",
+    "80734": "Delhivery",
+    "80977": "Delhivery",
+    "80623": "Delhivery",
+    "80624": "Delhivery",
+    "80735": "Delhivery",
+    "81769": "Blue Dart",
+    "7377": "Blue Dart",
+    "81770": "Blue Dart",
+    "19339": "Amazon Shipping",
+    "9157": "Amazon Shipping",
+    "80880": "DTDC",
+    "80881": "DTDC",
+    "80990": "Xpressbees",
+    "80991": "Xpressbees",
+    "81000": "Shadowfax",
+    "81001": "Ecom Express",
+}
+
+
+def _sanitize_courier_label(name: str) -> str:
+    """Sanitize names like 'Delhivery 0.5kg' or 'Bluedart Express 0.5kg' into clean brand names."""
+    if not name:
+        return "Shipway Express"
+    lower = name.lower()
+    if "delhivery" in lower:
+        return "Delhivery"
+    if "blue" in lower or "bluedart" in lower:
+        return "Blue Dart"
+    if "amazon" in lower:
+        return "Amazon Shipping"
+    if "dtdc" in lower:
+        return "DTDC"
+    if "xpressbees" in lower:
+        return "Xpressbees"
+    if "shadowfax" in lower:
+        return "Shadowfax"
+    if "ecom" in lower:
+        return "Ecom Express"
+    if "ekart" in lower:
+        return "Ekart"
+    if "fedex" in lower:
+        return "FedEx"
+    if "dhl" in lower:
+        return "DHL"
+
+    cleaned = re.sub(r"\s*\d+(\.\d+)?\s*(kg|g|gm|grams)\b", "", name, flags=re.IGNORECASE).strip()
+    return cleaned if cleaned else name
+
+
+def clean_courier_name(
+    raw_courier: Any = None,
+    carrier_id: Any = None,
+    attempt_name: Any = None,
+) -> str:
+    """
+    Resolve a clean, human-readable courier name (e.g. 'Delhivery', 'Blue Dart')
+    from Shipway response data, carrier IDs, or carrier option names.
+    """
+    cand_str = str(raw_courier or "").strip()
+    if cand_str and not cand_str.isdigit() and cand_str.lower() != "none":
+        return _sanitize_courier_label(cand_str)
+
+    attempt_str = str(attempt_name or "").strip()
+    if attempt_str and not attempt_str.isdigit() and attempt_str.lower() != "none":
+        return _sanitize_courier_label(attempt_str)
+
+    cid_str = str(carrier_id or raw_courier or "").strip()
+    if cid_str in KNOWN_CARRIER_MAP:
+        return KNOWN_CARRIER_MAP[cid_str]
+
+    if cid_str.isdigit():
+        return KNOWN_CARRIER_MAP.get(cid_str, "Shipway Express")
+
+    return _sanitize_courier_label(cand_str) if cand_str else "Shipway Express"
+
+
+
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
 
@@ -502,7 +581,19 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
                     logger.warning(f"[Shipway] Carrier {carrier_attempt_id} failed: {last_error}")
                     continue  # Try next carrier
 
-                carrier = str(awb_resp.get("carrier_id") or awb_resp.get("courier_name") or carrier_attempt_id)
+                raw_courier = (
+                    awb_resp.get("courier_name")
+                    or awb_resp.get("carrier_name")
+                    or awb_resp.get("carrier_title")
+                    or awb_resp.get("courier")
+                    or data.get("courier_name")
+                )
+                resolved_carrier_id = str(awb_resp.get("carrier_id") or carrier_attempt_id or "")
+                carrier = clean_courier_name(
+                    raw_courier=raw_courier,
+                    carrier_id=resolved_carrier_id,
+                    attempt_name=carrier_opt.get("name"),
+                )
                 label_url = awb_resp.get("shipping_url") or awb_resp.get("label") or ""
                 tracking_url = f"https://cremsonpublications.shipway.com/tracking/forward/{awb}/" if awb else "https://cremsonpublications.shipway.com/"
                 shipment_id = str(
@@ -655,7 +746,17 @@ async def create_reverse_shipment(order: Dict[str, Any], reason: str = "") -> Di
                     continue
 
                 awb = awb_resp.get("AWB") or awb_resp.get("awb") or data.get("awb") or ""
-                carrier = str(awb_resp.get("courier_name") or awb_resp.get("carrier_id") or "Shipway")
+                raw_courier = (
+                    awb_resp.get("courier_name")
+                    or awb_resp.get("carrier_name")
+                    or awb_resp.get("courier")
+                    or data.get("courier_name")
+                )
+                carrier = clean_courier_name(
+                    raw_courier=raw_courier,
+                    carrier_id=awb_resp.get("carrier_id") or carrier_opt.get("id"),
+                    attempt_name=carrier_opt.get("name"),
+                )
                 tracking_url = f"https://cremsonpublications.shipway.com/tracking/forward/{awb}/" if awb else "https://cremsonpublications.shipway.com/"
                 shipment_id = str(data.get("shipment_id") or awb_resp.get("shipment_id") or awb or ret_order_id)
                 label_url = awb_resp.get("shipping_url") or awb_resp.get("label") or data.get("shipping_url") or data.get("label") or ""

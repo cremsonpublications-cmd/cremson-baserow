@@ -312,6 +312,8 @@ async def send_shipment_created_email(
 ):
     if not to_email:
         return
+    from services.shipway import clean_courier_name
+    courier_name = clean_courier_name(courier_name)
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
       <div style="background:#dc2626;padding:28px 32px;">

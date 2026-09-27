@@ -2274,17 +2274,7 @@ function ComboBreakdownModal({ comboProduct, onClose }) {
                   className="flex items-center justify-between p-3.5 bg-gray-50 hover:bg-purple-50/40 rounded-xl border border-gray-200 transition-colors"
                 >
                   <div className="flex items-center gap-3.5">
-                    {book.main_image ? (
-                      <img
-                        src={book.main_image}
-                        alt={book.name}
-                        className="w-12 h-14 object-cover rounded-lg border bg-white flex-shrink-0"
-                      />
-                    ) : (
-                      <div className="w-12 h-14 bg-gray-200 rounded-lg border flex items-center justify-center text-gray-400 flex-shrink-0">
-                        <BookOpen className="w-5 h-5" />
-                      </div>
-                    )}
+                    <ProductImg src={book.main_image} alt={book.name} className="w-12 h-14 object-cover rounded-lg border bg-white flex-shrink-0" />
                     <div>
                       <h5 className="text-sm font-semibold text-gray-900 line-clamp-1">{book.name}</h5>
                       {book.author && <p className="text-xs text-gray-500">by {book.author}</p>}
@@ -2322,6 +2312,25 @@ function ComboBreakdownModal({ comboProduct, onClose }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function ProductImg({ src, alt, className = "w-12 h-12 object-cover rounded-lg border flex-shrink-0" }) {
+  const [imgError, setImgError] = useState(false);
+  if (!src || imgError) {
+    return (
+      <div className={`${className} bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400`}>
+        <BookOpen className="w-5 h-5" />
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={alt || ""}
+      className={className}
+      onError={() => setImgError(true)}
+    />
   );
 }
 
@@ -2902,17 +2911,7 @@ function AdminProductsContent() {
                             {/* Product Details */}
                             <td className="px-6 py-4">
                               <div className="flex items-center space-x-3">
-                                {product.main_image ? (
-                                  <img
-                                    src={product.main_image}
-                                    alt={product.name}
-                                    className="w-12 h-12 object-cover rounded-lg border"
-                                  />
-                                ) : (
-                                  <div className="w-12 h-12 bg-gray-100 rounded-lg border flex items-center justify-center text-gray-400">
-                                    <BookOpen className="w-5 h-5" />
-                                  </div>
-                                )}
+                                <ProductImg src={product.main_image} alt={product.name} className="w-12 h-12 object-cover rounded-lg border flex-shrink-0" />
                                  <div>
                                    <div className="relative group/title max-w-[200px]">
                                      <h3
@@ -3079,13 +3078,7 @@ function AdminProductsContent() {
                     className="p-4 hover:bg-gray-50 transition-colors cursor-pointer"
                   >
                     <div className="flex items-start gap-3 mb-2">
-                      {product.main_image ? (
-                        <img src={product.main_image} alt={product.name} className="w-12 h-12 object-cover rounded-lg border flex-shrink-0" />
-                      ) : (
-                        <div className="w-12 h-12 bg-gray-100 rounded-lg border flex items-center justify-center text-gray-400 flex-shrink-0">
-                          <BookOpen className="w-5 h-5" />
-                        </div>
-                      )}
+                      <ProductImg src={product.main_image} alt={product.name} className="w-12 h-12 object-cover rounded-lg border flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-gray-900 truncate">{product.name || "—"}</p>
                         {product.author && <p className="text-xs text-gray-500">by {product.author}</p>}

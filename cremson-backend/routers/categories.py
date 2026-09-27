@@ -26,15 +26,25 @@ class CategoryUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
+def _sanitize_sub_categories(val) -> str:
+    if not val:
+        return ""
+    s = str(val).strip()
+    while s.lower().startswith("sub_categories:"):
+        s = s[len("sub_categories:"):].strip()
+    return s
+
+
 def _clean_category(row: dict) -> dict:
     if not isinstance(row, dict):
         return row
     pct = row.get("offer_percentage")
     amt = row.get("offer_amount")
+    raw_subs = row.get("sub_categories") or row.get("Notes") or ""
     return {
         "id": row.get("id"),
         "name": row.get("Name") or row.get("name") or row.get("main_category_name") or "",
-        "sub_categories": row.get("sub_categories") or row.get("Notes") or "",
+        "sub_categories": _sanitize_sub_categories(raw_subs),
         "offer_type": row.get("offer_type") or "none",
         "offer_percentage": float(pct) if pct is not None else None,
         "offer_amount": float(amt) if amt is not None else None,
@@ -81,8 +91,9 @@ async def create_category(body: CategoryCreate):
         "is_active": data.get("is_active", True),
     }
     if "sub_categories" in data:
-        payload["Notes"] = data["sub_categories"]
-        payload["sub_categories"] = data["sub_categories"]
+        clean_subs = _sanitize_sub_categories(data["sub_categories"])
+        payload["Notes"] = clean_subs
+        payload["sub_categories"] = clean_subs
     val = data.get("discount_value")
     if data.get("offer_type") == "percentage" and val is not None:
         payload["offer_percentage"] = str(int(val)) if float(val).is_integer() else str(val)
@@ -100,8 +111,9 @@ async def update_category(row_id: int, body: CategoryUpdate):
     if "name" in data:
         payload["Name"] = data["name"]
     if "sub_categories" in data:
-        payload["Notes"] = data["sub_categories"]
-        payload["sub_categories"] = data["sub_categories"]
+        clean_subs = _sanitize_sub_categories(data["sub_categories"])
+        payload["Notes"] = clean_subs
+        payload["sub_categories"] = clean_subs
     if "is_active" in data:
         payload["is_active"] = data["is_active"]
     if "offer_type" in data:
