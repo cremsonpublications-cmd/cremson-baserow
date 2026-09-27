@@ -4,6 +4,7 @@ import hashlib
 import time
 import urllib.parse
 import httpx
+from typing import Optional
 from fastapi import APIRouter, File, HTTPException, UploadFile, Request, Query
 from fastapi.responses import StreamingResponse
 
