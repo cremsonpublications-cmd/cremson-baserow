@@ -263,7 +263,7 @@ export default function AdminDashboard() {
                             <td className="px-3 py-3 text-gray-600">{name}</td>
                             <td className="px-3 py-3 text-gray-500">{dateStr}</td>
                             <td className="px-3 py-3"><StatusPill status={o.order_status || o.status} /></td>
-                            <td className="px-5 py-3 text-right"><Link href="/admin/orders" className="text-[11px] font-bold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors">Open →</Link></td>
+                            <td className="px-5 py-3 text-right"><Link href="/admin/orders" className="inline-flex items-center gap-1 shrink-0 whitespace-nowrap text-[11px] font-bold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors">Open <ArrowRight className="w-3 h-3" /></Link></td>
                           </tr>
                         );
                       })}
@@ -289,7 +289,7 @@ export default function AdminDashboard() {
                             <td className="px-5 py-3 font-bold text-gray-800">{name}</td>
                             <td className="px-3 py-3 text-gray-600 max-w-[140px] truncate">{school}</td>
                             <td className="px-3 py-3"><StatusPill status={st || "Pending"} /></td>
-                            <td className="px-5 py-3 text-right"><Link href="/admin/specimen-requests" className="text-[11px] font-bold text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors">Open →</Link></td>
+                            <td className="px-5 py-3 text-right"><Link href="/admin/specimen-requests" className="inline-flex items-center gap-1 shrink-0 whitespace-nowrap text-[11px] font-bold text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors">Open <ArrowRight className="w-3 h-3" /></Link></td>
                           </tr>
                         );
                       })}
@@ -311,7 +311,7 @@ export default function AdminDashboard() {
                           <td className="px-5 py-3 font-bold text-gray-800 max-w-[140px] truncate">{b.school_name || "—"}</td>
                           <td className="px-3 py-3 text-gray-600">{b.contact_name || b.full_name || "—"}</td>
                           <td className="px-3 py-3"><StatusPill status={b.status} /></td>
-                          <td className="px-5 py-3 text-right"><Link href="/admin/bulk-orders" className="text-[11px] font-bold text-purple-600 border border-purple-200 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg transition-colors">Open →</Link></td>
+                          <td className="px-5 py-3 text-right"><Link href="/admin/bulk-orders" className="inline-flex items-center gap-1 shrink-0 whitespace-nowrap text-[11px] font-bold text-purple-600 border border-purple-200 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg transition-colors">Open <ArrowRight className="w-3 h-3" /></Link></td>
                         </tr>
                       ))}
                     </tbody>
@@ -332,7 +332,7 @@ export default function AdminDashboard() {
                           <td className="px-5 py-3 font-bold text-gray-800 font-mono">{t.id}</td>
                           <td className="px-3 py-3 text-gray-600">{t.full_name || "—"}</td>
                           <td className="px-3 py-3 text-gray-500 max-w-[160px] truncate">{t.subject || "—"}</td>
-                          <td className="px-5 py-3 text-right"><Link href="/admin/support-tickets" className="text-[11px] font-bold text-purple-600 border border-purple-200 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg transition-colors">Open →</Link></td>
+                          <td className="px-5 py-3 text-right"><Link href="/admin/support-tickets" className="inline-flex items-center gap-1 shrink-0 whitespace-nowrap text-[11px] font-bold text-purple-600 border border-purple-200 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg transition-colors">Open <ArrowRight className="w-3 h-3" /></Link></td>
                         </tr>
                       ))}
                     </tbody>

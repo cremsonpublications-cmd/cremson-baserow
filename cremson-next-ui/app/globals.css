@@ -296,3 +296,31 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 700 !important;
   color: #0f172a !important;
 }
+
+/* Print Cleanups for Question Paper Generator & Document Output */
+@media print {
+  @page {
+    margin: 12mm 15mm 12mm 15mm;
+  }
+
+  header,
+  footer,
+  nav,
+  aside,
+  .print\:hidden,
+  [class*="WhatsAppChatWidget"],
+  [class*="CartDrawer"],
+  [class*="Toaster"] {
+    display: none !important;
+  }
+
+  body,
+  main {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+}
+

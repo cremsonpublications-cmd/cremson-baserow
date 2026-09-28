@@ -120,8 +120,10 @@ app.include_router(bulk_orders_router.router, prefix="/api/bulk-orders", tags=["
 app.include_router(banners_router.router, prefix="/api/banners", tags=["Banners"])
 app.include_router(reminders_router.router, prefix="/api/reminders", tags=["Reminders"])
 app.include_router(whatsapp_campaigns_router.router, prefix="/api/admin/whatsapp", tags=["WhatsApp Campaigns"])
-app.include_router(campaigns_router.router, prefix="/api/campaigns", tags=["Campaigns"])
-app.include_router(upload_router.router, prefix="/api/upload", tags=["Upload"])
+from routers import question_paper_generator as paper_generator_router
+
+app.include_router(paper_generator_router.router, prefix="/api/paper-builder", tags=["Question Paper Generator"])
+
 
 
 import os

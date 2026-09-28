@@ -1,0 +1,243 @@
+CREMSON PAPER BUILDER
+Final Developer Specification
+Teacher-facing question-paper creation system
+This document defines the required functionality, workflow, question-bank structure, generation rules and output format for the Cremson Paper Builder. The system should be built as a reusable question-paper engine. The first populated implementation will use CBSE Class XII Entrepreneurship, while the underlying structure must support additional classes, subjects and chapters later.
+1. Product Objective
+The Paper Builder should allow a teacher to select a paper pattern and generate a professional, printable question paper from Cremson's internally maintained and verified question bank. A teacher must be able to either generate questions automatically or select them manually, review individual questions, obtain an answer key and print/save the final paper.
+The system is a question-paper builder, not an AI question generator.
+The first implementation should be populated with Class XII Entrepreneurship.
+The database architecture must not be hard-coded only for Entrepreneurship.
+Only Approved + Active questions should normally be available for paper generation.
+2. Main User Flow
+Keep the teacher workflow simple and organised into three main screens:
+Screen 1 — Paper Setup
+Screen 2 — Blueprint + Question Selection
+Screen 3 — Review + Print
+3. Screen 1 — Paper Setup
+Paper information
+Paper Type: Chapter Test, Unit Test, Practice Worksheet, Custom Paper
+Class
+Subject
+Chapter(s) — multiple selection
+Test Title
+Duration
+Maximum Marks
+Examination Date — optional
+School Name — optional
+Teacher Name — optional
+Difficulty: Easy, Balanced, Challenging
+Do not require the teacher to select Board in the first version; the initial implementation is for CBSE. However, the database should remain extensible.
+4. Screen 2 — Blueprint + Question Selection
+Two creation modes
+Quick Generate — automatically select matching questions from the approved question bank.
+Select Manually — display matching questions and let the teacher add/remove them individually.
+Blueprint
+The teacher should be able to define the required quantity and marks by question type.
+Question Type
+Quantity
+Marks Each
+Total
+Objective
+5
+1
+5
+Very Short Answer
+3
+2
+6
+Short Answer
+3
+3
+9
+Long Answer
+1
+5
+5
+Case-Based
+1
+5
+5
+Total
+30
+The system must calculate the total automatically and clearly indicate whether it matches the selected Maximum Marks.
+Manual question list
+When selecting manually, show at minimum:
+Question text
+Chapter
+Marks
+Difficulty
+Competency label
+Add/Selected state
+At the top of the selection area, continuously display the current selection, for example: "Selected: 12 questions · 27/30 marks".
+Generation behaviour
+Generated questions remain fixed until the teacher deliberately regenerates or replaces a question.
+Regenerate Paper should create a new valid combination.
+Regenerate/Replace Individual Question should replace only that question.
+A replacement should preserve the original question's Chapter, main Question Type, Marks and approximately comparable Difficulty.
+The system must not silently fill missing requirements with unsuitable questions.
+5. Question Types
+Use five main database question types:
+Objective
+Very Short Answer
+Short Answer
+Long Answer
+Case-Based
+Objective subtypes
+Objective should have a subtype field rather than separate systems for every variant:
+Standard MCQ
+Assertion–Reason
+Statement I/II
+Fill in the Blank
+Match the Following
+6. Question Bank Data Structure
+Each question should be stored as a structured record with at least the following fields:
+Question ID — unique automatic ID
+Class
+Subject
+Chapter
+Topic — optional
+Main Question Type
+Objective Subtype — where applicable
+Question Text
+Option A
+Option B
+Option C
+Option D
+Correct Answer
+Model Answer
+Marking Scheme
+Marks
+Difficulty — Easy / Moderate / Difficult
+Competency Type — Remember / Understand / Apply / Analyse
+Source
+Author / Contributor
+Academic Session
+Verification Status — Draft / Reviewed / Approved
+Active Status — Active / Inactive
+Created Date
+Last Updated
+Store text using Unicode/UTF-8 so English and Hindi content can be supported later.
+7. Case-Based Question Structure
+A case-based item must be stored as a parent case with attached sub-questions:
+Case/Passage
+Sub-question 1 + marks + answer
+Sub-question 2 + marks + answer
+Sub-question 3 + marks + answer
+Total marks
+The passage must appear only once in the paper. The case passage and all its sub-questions must remain together during selection, replacement, numbering and printing.
+8. Internal Choice
+Support CBSE-style internal choices. An internal-choice pair should contain comparable questions with equal marks.
+Example: Question 10 OR alternative Question 10.
+The teacher should be able to add an internal choice where supported.
+The two questions must remain associated during numbering and printing.
+9. Duplicate Control and Validation
+The same question must not appear twice in one paper.
+The same case group must not appear twice in one paper.
+The system should detect identical duplicate question text during question creation/import and warn the administrator.
+Only Approved + Active questions should be available for generation.
+If insufficient matching questions exist, display a clear message rather than selecting unsuitable questions.
+Suggested message: "Not enough approved questions are available for this combination. Please reduce the requirement or change the filters."
+10. Admin Question Bank
+Required admin functions
+Add Question
+Edit Question
+Deactivate Question
+Preview Question
+Filter/Search Questions
+Approve Questions
+Import Questions through CSV
+Detect identical duplicate question text
+CSV import
+CSV import should provide a validation/preview step before final import. Suggested columns:
+question_id, class, subject, chapter, topic, question_type, objective_subtype, difficulty, marks, question_text, option_a, option_b, option_c, option_d, correct_answer, model_answer, marking_scheme, competency_type, source, academic_session, author, verification_status, active_status
+11. Screen 3 — Review and Print
+After generation/selection, show the complete paper.
+Each question should have simple actions:
+Replace
+Remove
+Add Internal Choice where applicable
+Top controls:
+Question Paper
+Answer Key
+Print / Save as PDF
+Back to Edit
+Question numbering and section numbering must be automatic. The teacher should never have to manually renumber the paper.
+12. Printed Question Paper
+The output should be a clean A4 portrait printable paper.
+School name centred at the top, if supplied
+Cremson branding small and unobtrusive
+Test title
+Class and Subject
+Date
+Duration
+Maximum Marks
+Student Name and Roll No. fields
+General Instructions
+Section headings
+Question numbers
+Marks
+Options for objective questions
+Internal choices
+Case passages and sub-questions
+Page numbers in footer
+Generated using Cremson Test Builder in footer
+The paper should remain suitable for black-and-white printing. Avoid unnecessary colour or visual decoration.
+Avoid awkward page breaks where reasonably possible. A case passage should not be separated from its sub-questions, and internal-choice content should remain logically together.
+13. Answer Key
+Provide a separate Answer Key view/print output using the exact same question numbering.
+Objective: correct option/answer.
+Very Short / Short / Long: model answer and marking scheme.
+Case-Based: answer and marks for each sub-question.
+Internal choices: include the corresponding answers/marking schemes.
+14. Generator Rules
+Generated paper must equal the selected Maximum Marks.
+No question may repeat in the same test.
+Only Approved + Active questions may be generated.
+Questions remain fixed until the teacher regenerates or replaces them.
+Individual replacement should preserve Chapter, Question Type, Marks and approximate Difficulty.
+Internal-choice questions must carry equal marks.
+Case passage and sub-questions must remain together.
+Question and section numbering must be automatic.
+Answer Key numbering must exactly match the question paper.
+Questions should be arranged section-wise, not randomly across sections.
+If sufficient matching questions are unavailable, clearly notify the teacher.
+15. What Is Required in the Initial Version
+The initial usable version should include:
+Three-screen workflow: Paper Setup → Blueprint/Question Selection → Review/Print
+Quick Generate
+Manual Selection
+Class / Subject / Chapter selection
+Question-type and difficulty filtering
+Blueprint with automatic marks calculation
+Question replacement
+Remove question
+Simple internal choice support
+Case-based question support
+Automatic numbering
+Duplicate prevention
+Answer Key
+Browser Print / Save as PDF
+Admin question management
+CSV question import with validation
+Approved / Active controls
+16. Future-Ready Architecture
+The first version should stay focused, but the underlying structure should allow later addition of features such as:
+Saved papers / My Papers
+Duplicate Paper / Set A, B, C
+More classes and subjects
+More advanced CBSE blueprints
+Editable Word export
+School logo/custom templates
+Online student examinations
+Automatic objective checking
+Student results and analytics
+Advanced competency/difficulty balancing
+AI-assisted generation using the verified Cremson question bank
+These are future extensions; they should not make the core Paper Builder workflow unnecessarily complex.
+17. First Content / Pilot
+The first populated question bank should be Class XII Entrepreneurship. The system should nevertheless use Class, Subject, Chapter and Topic as independent database fields so additional subjects can be added without rebuilding the engine.
+18. Final Product Principle
+The core product is not simply a random question generator. It is a structured paper-building system powered by Cremson's author-created, reviewed and verified question bank.
+The intended experience is: Select what you want → Generate or Select → Review → Print.
+The system should prioritise correctness, reliable question tagging, CBSE-style paper structure, easy teacher use and professional printable output.
+END OF DEVELOPER SPECIFICATION
