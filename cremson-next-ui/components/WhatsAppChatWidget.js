@@ -895,22 +895,29 @@ export default function WhatsAppChatWidget() {
         <button
           type="button"
           onClick={handleToggle}
-          className="relative flex items-center justify-center cursor-pointer transition-transform duration-200 hover:scale-105 active:scale-95"
+          className="relative flex items-center justify-center cursor-pointer transition-all duration-300 hover:scale-110 active:scale-95 animate-wa-fluid-float group"
           style={{ width: "56px", height: "56px" }}
           aria-label={isOpen ? "Close WhatsApp Chat" : "Open WhatsApp Support Chat"}
         >
+          {/* Fluid Glowing Outer Ring */}
+          {!isOpen && (
+            <span
+              className="absolute -inset-1.5 rounded-full bg-emerald-500/30 animate-pulse blur-sm group-hover:bg-emerald-400/50 transition-all duration-300"
+            />
+          )}
+
           {/* Pulse ring (unread, only when closed) */}
           {hasUnread && !isOpen && (
             <span
               className="absolute inset-0 rounded-full animate-ping"
-              style={{ backgroundColor: "rgba(37,211,102,0.3)" }}
+              style={{ backgroundColor: "rgba(37,211,102,0.4)" }}
             />
           )}
 
           {/* Unread badge (only when closed) */}
           {hasUnread && !isOpen && (
             <span
-              className="absolute top-0 right-0 flex items-center justify-center rounded-full text-white font-bold border-2 border-white"
+              className="absolute top-0 right-0 flex items-center justify-center rounded-full text-white font-bold border-2 border-white shadow-md animate-bounce"
               style={{
                 width: "20px",
                 height: "20px",
@@ -926,12 +933,12 @@ export default function WhatsAppChatWidget() {
           {/* ── When OPEN: show X close icon ── */}
           {isOpen ? (
             <span
-              className="flex items-center justify-center rounded-full"
+              className="flex items-center justify-center rounded-full shadow-lg transition-transform duration-300 rotate-0 hover:rotate-90"
               style={{
                 width: "56px",
                 height: "56px",
                 backgroundColor: "#25d366",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.28)",
+                boxShadow: "0 4px 20px rgba(37,211,102,0.4)",
               }}
             >
               {/* X icon (Lucide-style inline SVG) */}
@@ -954,19 +961,33 @@ export default function WhatsAppChatWidget() {
             <img
               src={whatsappIcon.src}
               alt="WhatsApp Support"
-              className="w-full h-full object-contain"
-              style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.25))" }}
+              className="w-full h-full object-contain relative z-10 transition-transform duration-300 group-hover:rotate-6 group-hover:scale-105"
+              style={{ filter: "drop-shadow(0 6px 16px rgba(37,211,102,0.45))" }}
             />
           )}
         </button>
       </div>
 
 
-      {/* Slide-up animation keyframes */}
+      {/* Slide-up & Fluid float animation keyframes */}
       <style>{`
         @keyframes wa-slide-up {
           from { opacity: 0; transform: translateY(16px) scale(0.97); }
           to   { opacity: 1; transform: translateY(0)   scale(1);    }
+        }
+        @keyframes wa-fluid-float {
+          0%, 100% {
+            transform: translateY(0px) rotate(0deg);
+          }
+          33% {
+            transform: translateY(-5px) rotate(-2deg);
+          }
+          66% {
+            transform: translateY(-2px) rotate(2deg);
+          }
+        }
+        .animate-wa-fluid-float {
+          animation: wa-fluid-float 3.5s ease-in-out infinite;
         }
       `}</style>
     </div>
