@@ -54,6 +54,7 @@ TABLE_IDS = {
     "whatsapp_campaigns": int(os.getenv("TABLE_WHATSAPP_CAMPAIGNS", "881")),
     "whatsapp_campaign_recipients": int(os.getenv("TABLE_WHATSAPP_CAMPAIGN_RECIPIENTS", "882")),
     "question_bank": int(os.getenv("TABLE_QUESTION_BANK", "884")),
+    "support_tickets": int(os.getenv("TABLE_SUPPORT_TICKETS", "885")),
 }
 
 # Campaign Queue & Rate Limiting Configuration

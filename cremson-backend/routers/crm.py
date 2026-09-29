@@ -624,25 +624,25 @@ async def delete_subject(row_id: int):
 
 # ------------------- SUPPORT TICKETS ROUTER -------------------
 import json
-import os
 import time
 from datetime import datetime
 
-_TICKETS_FILE = "uploads/support_tickets.json"
 
-def _load_tickets() -> list:
-    if not os.path.exists(_TICKETS_FILE):
-        return []
-    try:
-        with open(_TICKETS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return []
-
-def _save_tickets(tickets: list):
-    os.makedirs(os.path.dirname(_TICKETS_FILE), exist_ok=True)
-    with open(_TICKETS_FILE, "w", encoding="utf-8") as f:
-        json.dump(tickets, f, indent=2, ensure_ascii=False)
+def _map_ticket_row(row: dict) -> dict:
+    """Normalise a Baserow row into the ticket shape the frontend expects."""
+    return {
+        "id": row.get("ticket_id") or str(row.get("id", "")),
+        "baserow_id": row.get("id"),
+        "full_name": row.get("full_name") or "",
+        "phone": row.get("phone") or "",
+        "email": row.get("email") or "",
+        "subject": row.get("subject") or "Contact Us Enquiry",
+        "message": row.get("message") or "",
+        "status": row.get("status") or "Pending",
+        "notes": row.get("notes") or "",
+        "created_at": row.get("created_at") or "",
+        "updated_at": row.get("updated_at") or "",
+    }
 
 
 class CreateSupportTicketRequest(BaseModel):
@@ -663,8 +663,8 @@ async def create_support_ticket(body: CreateSupportTicketRequest):
     ticket_id = f"TKT-{int(time.time() * 1000) % 1000000:06d}"
     created_at = datetime.now().isoformat()
 
-    new_ticket = {
-        "id": ticket_id,
+    row_payload = {
+        "ticket_id": ticket_id,
         "full_name": body.full_name,
         "phone": body.phone,
         "email": body.email,
@@ -676,9 +676,12 @@ async def create_support_ticket(body: CreateSupportTicketRequest):
         "updated_at": created_at,
     }
 
-    tickets = _load_tickets()
-    tickets.insert(0, new_ticket)
-    _save_tickets(tickets)
+    # Save to Baserow
+    try:
+        await client.create_row(TABLE_IDS["support_tickets"], row_payload)
+    except Exception as e:
+        print(f"[Support Ticket] Baserow save error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save support ticket.")
 
     # 1. Send Email
     try:
@@ -719,20 +722,29 @@ async def list_support_tickets(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=200),
 ):
-    tickets = _load_tickets()
+    # Fetch all rows from Baserow (max 200 at a time; tickets rarely exceed this)
+    res = await client.get_rows(TABLE_IDS["support_tickets"], page=1, size=200)
+    raw = res.get("results", []) if isinstance(res, dict) else (res or [])
 
+    tickets = [_map_ticket_row(r) for r in raw]
+
+    # Sort newest first by created_at
+    tickets.sort(key=lambda t: t.get("created_at") or "", reverse=True)
+
+    # Filter by status
     if status and status.lower() != "all":
-        tickets = [t for t in tickets if str(t.get("status")).lower() == status.lower()]
+        tickets = [t for t in tickets if t.get("status", "").lower() == status.lower()]
 
+    # Search filter
     if search:
         s = search.lower()
         tickets = [
             t for t in tickets
-            if s in str(t.get("id")).lower()
-            or s in str(t.get("full_name")).lower()
-            or s in str(t.get("email")).lower()
-            or s in str(t.get("phone")).lower()
-            or s in str(t.get("message")).lower()
+            if s in t.get("id", "").lower()
+            or s in t.get("full_name", "").lower()
+            or s in t.get("email", "").lower()
+            or s in t.get("phone", "").lower()
+            or s in t.get("message", "").lower()
         ]
 
     total = len(tickets)
@@ -754,44 +766,53 @@ async def update_support_ticket(ticket_id: str, body: UpdateSupportTicketStatusR
     if body.status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
 
-    tickets = _load_tickets()
-    found = False
-    updated_ticket = None
+    # Find the Baserow row that matches this ticket_id
+    res = await client.get_rows(
+        TABLE_IDS["support_tickets"],
+        page=1, size=200,
+        filters={"ticket_id": ticket_id}
+    )
+    raw = res.get("results", []) if isinstance(res, dict) else (res or [])
 
-    for t in tickets:
-        if t["id"] == ticket_id:
-            old_status = t.get("status", "Pending")
-            t["status"] = body.status
-            if body.notes:
-                t["notes"] = body.notes
-            t["updated_at"] = datetime.now().isoformat()
-            updated_ticket = t
-            found = True
-            
-            # Send WhatsApp notification if status changed to Resolved or Cancelled
-            if body.status in ("Resolved", "Cancelled") and old_status != body.status:
-                try:
-                    from services.whatsapp import send_ticket_status_update_whatsapp
-                    cust_phone = t.get("phone") or ""
-                    cust_name = t.get("full_name") or "Customer"
-                    cust_subject = t.get("subject") or "Support Enquiry"
-                    
-                    if cust_phone:
-                        comment = body.notes or "Your support ticket has been closed."
-                        await send_ticket_status_update_whatsapp(
-                            phone=cust_phone,
-                            name=cust_name,
-                            ticket_id=ticket_id,
-                            subject=cust_subject,
-                            status=body.status,
-                            comment=comment
-                        )
-                except Exception as wa_err:
-                    print("Warning: Failed to send ticket status update WhatsApp:", wa_err)
-            break
-
-    if not found:
+    # Baserow filter may not be exact — do client-side match
+    matched = [r for r in raw if r.get("ticket_id") == ticket_id]
+    if not matched:
         raise HTTPException(status_code=404, detail="Support ticket not found.")
 
-    _save_tickets(tickets)
+    row = matched[0]
+    baserow_id = row["id"]
+    old_status = row.get("status", "Pending")
+
+    update_payload = {
+        "status": body.status,
+        "updated_at": datetime.now().isoformat(),
+    }
+    if body.notes:
+        update_payload["notes"] = body.notes
+
+    await client.update_row(TABLE_IDS["support_tickets"], baserow_id, update_payload)
+
+    updated_ticket = _map_ticket_row({**row, **update_payload})
+
+    # Send WhatsApp notification if status changed to Resolved or Cancelled
+    if body.status in ("Resolved", "Cancelled") and old_status != body.status:
+        try:
+            from services.whatsapp import send_ticket_status_update_whatsapp
+            cust_phone = row.get("phone") or ""
+            cust_name = row.get("full_name") or "Customer"
+            cust_subject = row.get("subject") or "Support Enquiry"
+
+            if cust_phone:
+                comment = body.notes or "Your support ticket has been closed."
+                await send_ticket_status_update_whatsapp(
+                    phone=cust_phone,
+                    name=cust_name,
+                    ticket_id=ticket_id,
+                    subject=cust_subject,
+                    status=body.status,
+                    comment=comment
+                )
+        except Exception as wa_err:
+            print("Warning: Failed to send ticket status update WhatsApp:", wa_err)
+
     return {"success": True, "ticket": updated_ticket}
