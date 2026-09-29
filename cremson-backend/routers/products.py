@@ -354,19 +354,33 @@ async def list_products(
             (item.get("combo_product_ids") and str(item.get("combo_product_ids")) != "[]")
         )
 
-    if is_combo is not None and isinstance(is_combo, bool):
+    if category and isinstance(category, str):
+        cat_names = [c.strip().lower() for c in category.split(",")]
+        if is_combo is True:
+            all_results = [
+                r for r in all_results
+                if check_combo(r)
+                or (r.get("category") or "").lower() in cat_names
+                or str(r.get("category_id") or "").lower() in cat_names
+            ]
+        elif is_combo is False:
+            all_results = [
+                r for r in all_results
+                if not check_combo(r)
+                and ((r.get("category") or "").lower() in cat_names
+                     or str(r.get("category_id") or "").lower() in cat_names)
+            ]
+        else:
+            all_results = [
+                r for r in all_results
+                if (r.get("category") or "").lower() in cat_names
+                or str(r.get("category_id") or "").lower() in cat_names
+            ]
+    elif is_combo is not None and isinstance(is_combo, bool):
         if is_combo:
             all_results = [r for r in all_results if check_combo(r)]
         else:
             all_results = [r for r in all_results if not check_combo(r)]
-
-    if category and isinstance(category, str):
-        cat_names = [c.strip().lower() for c in category.split(",")]
-        all_results = [
-            r for r in all_results
-            if (r.get("category") or "").lower() in cat_names
-            or str(r.get("category_id") or "").lower() in cat_names
-        ]
 
     if author and isinstance(author, str):
         author_names = [a.strip().lower() for a in author.split(",")]
