@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Upload, Download, CheckCircle2, Search, Database, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import api from "@/lib/api/axios";
 
 export default function AdminQuestionBankPage() {
   const [questions, setQuestions] = useState([]);
@@ -39,8 +40,8 @@ export default function AdminQuestionBankPage() {
   const fetchQuestions = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/paper-builder/questions?approved_only=false");
-      const data = await res.json();
+      const res = await api.get("/api/paper-builder/questions?approved_only=false");
+      const data = res.data;
       setQuestions(Array.isArray(data) ? data : (data?.questions || data?.results || []));
     } catch (err) {
       toast.error("Failed to load question bank from backend");
@@ -56,20 +57,12 @@ export default function AdminQuestionBankPage() {
   const handleCreateQuestion = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/paper-builder/admin/questions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newQuestion)
-      });
-      if (res.ok) {
-        toast.success("Question created successfully!");
-        setShowAddModal(false);
-        fetchQuestions();
-      } else {
-        toast.error("Error creating question");
-      }
+      await api.post("/api/paper-builder/admin/questions", newQuestion);
+      toast.success("Question created successfully!");
+      setShowAddModal(false);
+      fetchQuestions();
     } catch (err) {
-      toast.error("Connection error");
+      toast.error(err?.response?.data?.detail || "Error creating question");
     }
   };
 
@@ -84,20 +77,15 @@ export default function AdminQuestionBankPage() {
     setImportResult(null);
 
     try {
-      const res = await fetch("/api/paper-builder/admin/import-csv", {
-        method: "POST",
-        body: formData
+      const res = await api.post("/api/paper-builder/admin/import-csv", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
       });
-      const data = await res.json();
-      if (res.ok) {
-        setImportResult(data);
-        toast.success(`CSV Imported: ${data.imported_count} questions added`);
-        fetchQuestions();
-      } else {
-        toast.error(`CSV import failed: ${data?.detail || "Unknown error"}`);
-      }
+      const data = res.data;
+      setImportResult(data);
+      toast.success(`CSV Imported: ${data.imported_count} questions added`);
+      fetchQuestions();
     } catch (err) {
-      toast.error("Failed to upload CSV");
+      toast.error(err?.response?.data?.detail || "CSV import failed");
     } finally {
       setUploading(false);
       // Reset file input so same file can be re-uploaded
