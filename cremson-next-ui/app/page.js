@@ -77,25 +77,19 @@ export default function Home() {
             style={{ transform: `translateX(-${currentSlide * 100}%)` }}
           >
             {slides.map((slide) => (
-              <div key={slide.id} className="w-full h-full flex-shrink-0 relative">
+              <div
+                key={slide.id}
+                className="w-full h-full flex-shrink-0 relative"
+                onClick={() => { if (slide.link_url) window.location.href = slide.link_url; }}
+                style={{ cursor: slide.link_url ? "pointer" : "default" }}
+              >
                 <div className="absolute inset-0">
-                  {slide.link_url ? (
-                    <a href={slide.link_url} className="block w-full h-full">
-                      <img
-                        src={slide.image}
-                        alt={slide.title}
-                        className="w-full h-full object-contain transition-opacity duration-300 ease-in-out cursor-pointer"
-                        style={{ willChange: "opacity" }}
-                      />
-                    </a>
-                  ) : (
-                    <img
-                      src={slide.image}
-                      alt={slide.title}
-                      className="w-full h-full object-contain transition-opacity duration-300 ease-in-out"
-                      style={{ willChange: "opacity" }}
-                    />
-                  )}
+                  <img
+                    src={slide.image}
+                    alt={slide.title}
+                    className="w-full h-full object-contain transition-opacity duration-300 ease-in-out"
+                    style={{ willChange: "opacity" }}
+                  />
                 </div>
               </div>
             ))}
