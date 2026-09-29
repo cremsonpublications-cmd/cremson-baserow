@@ -160,12 +160,14 @@ export default function AdminBulkOrdersPage() {
           </h1>
           <p className="text-xs text-slate-500 mt-1">Review school bulk order requests, approve discounts, track student split payments & initiate shipping</p>
         </div>
+        {/* Create Bulk Order button — commented out
         <button
           onClick={() => setCreateModalOpen(true)}
           className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg text-sm transition-colors cursor-pointer shadow-sm"
         >
           <Plus className="w-4 h-4" /> Create Bulk Order
         </button>
+        */}
       </div>
 
       {/* Filter Tabs & Search */}
