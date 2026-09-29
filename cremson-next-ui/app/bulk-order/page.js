@@ -1,22 +1,14 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Package, Plus, Trash2, CheckCircle2, ArrowRight, BookOpen, Building2, MapPin, User, Phone, Search, ChevronDown, Check, Loader2, LogIn } from "lucide-react";
+import { Package, Plus, Trash2, CheckCircle2, ArrowRight, BookOpen, Building2, MapPin, User, Phone } from "lucide-react";
 import api from "@/lib/api/axios";
-import { useApp } from "@/context/AppContext";
-import Link from "next/link";
-
-const DRAFT_KEY = "bulk_order_draft";
 
 export default function PublicBulkOrderPage() {
-  const { user } = useApp();
   const [items, setItems] = useState([]);
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedProductId, setSelectedProductId] = useState("");
   const [selectedQty, setSelectedQty] = useState(10);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const dropdownRef = useRef(null);
 
   const [form, setForm] = useState({
     contact_name: "",
@@ -31,106 +23,21 @@ export default function PublicBulkOrderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submittedData, setSubmittedData] = useState(null);
   const [error, setError] = useState("");
-  const [pincodeLoading, setPincodeLoading] = useState(false);
-  const [pincodeError, setPincodeError] = useState("");
-  const [pincodeResolved, setPincodeResolved] = useState(false);
-
-  // Restore draft from sessionStorage after login redirect
-  useEffect(() => {
-    if (user) {
-      try {
-        const draft = sessionStorage.getItem(DRAFT_KEY);
-        if (draft) {
-          const { form: savedForm, items: savedItems } = JSON.parse(draft);
-          if (savedForm) setForm(savedForm);
-          if (savedItems && savedItems.length > 0) setItems(savedItems);
-          sessionStorage.removeItem(DRAFT_KEY);
-        }
-      } catch (_) {}
-    }
-  }, [user]);
-
-  // Pre-fill form from user profile if logged in and form is empty
-  useEffect(() => {
-    if (user && !form.contact_name) {
-      setForm((prev) => ({
-        ...prev,
-        contact_name: user.name || prev.contact_name,
-        phone: user.phone || prev.phone,
-        school_name: user.school_name || prev.school_name,
-      }));
-    }
-  }, [user]);
-
-  // Auto-fetch city & state when a 6-digit pincode is entered
-  useEffect(() => {
-    const pin = form.pincode.trim();
-    if (pin.length !== 6) {
-      setPincodeResolved(false);
-      setPincodeError("");
-      return;
-    }
-    setPincodeLoading(true);
-    setPincodeError("");
-    fetch(`https://api.postalpincode.in/pincode/${pin}`)
-      .then((r) => r.json())
-      .then((data) => {
-        const post = data?.[0];
-        if (post?.Status === "Success" && post.PostOffice?.length > 0) {
-          const po = post.PostOffice[0];
-          let city = po.District || po.Division || po.Name || "";
-          // Clean metro sub-district names
-          city = city.replace(/^(North|South|East|West|Central|New)\s+/i, "").trim() || city;
-          const state = po.State || "";
-          setForm((prev) => ({ ...prev, city, state }));
-          setPincodeResolved(true);
-          setPincodeError("");
-        } else {
-          setPincodeResolved(false);
-          setPincodeError("Pincode not found. Please enter city & state manually.");
-        }
-      })
-      .catch(() => {
-        setPincodeResolved(false);
-        setPincodeError("Could not fetch pincode details.");
-      })
-      .finally(() => setPincodeLoading(false));
-  }, [form.pincode]);
 
   const { data: productsData, isLoading: loadingProducts } = useQuery({
     queryKey: ["public-products-bulk"],
     queryFn: async () => {
-      const res = await api.get("/api/products/?size=200&is_active=true");
+      const res = await api.get("/api/products/?size=200");
       return res.data?.results ?? res.data?.items ?? res.data ?? [];
     },
   });
 
   const products = Array.isArray(productsData) ? productsData : [];
 
-  // Close dropdown on click outside
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const filteredProducts = products.filter((p) => {
-    if (!searchTerm.trim()) return true;
-    const term = searchTerm.toLowerCase();
-    const title = (p.title || p.name || "").toLowerCase();
-    const isbn = (p.isbn || "").toLowerCase();
-    const author = (p.author || "").toLowerCase();
-    const classes = (p.classes || "").toLowerCase();
-    return title.includes(term) || isbn.includes(term) || author.includes(term) || classes.includes(term);
-  });
-
   const handleAddItem = () => {
-    if (!selectedProduct) return;
-    const prod = selectedProduct;
+    if (!selectedProductId) return;
+    const prod = products.find((p) => String(p.id) === String(selectedProductId));
+    if (!prod) return;
 
     const existingIndex = items.findIndex((i) => String(i.product_id) === String(prod.id));
     if (existingIndex > -1) {
@@ -143,17 +50,13 @@ export default function PublicBulkOrderPage() {
         {
           product_id: prod.id,
           title: prod.title || prod.name || "Book",
-          classes: prod.classes || "",
-          isbn: prod.isbn || "",
-          main_image: prod.main_image || "",
           qty: Number(selectedQty),
           price: Number(prod.price || prod.mrp || 0),
         },
       ]);
     }
-    setSelectedProduct(null);
+    setSelectedProductId("");
     setSelectedQty(10);
-    setSearchTerm("");
   };
 
   const handleRemoveItem = (index) => {
@@ -172,16 +75,6 @@ export default function PublicBulkOrderPage() {
     e.preventDefault();
     setError("");
 
-    // --- Login Guard ---
-    if (!user) {
-      // Save current draft so data is not lost after login
-      try {
-        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ form, items }));
-      } catch (_) {}
-      window.location.href = `/auth/signin?redirect=/bulk-order`;
-      return;
-    }
-
     if (items.length === 0) {
       setError("Please select at least one book for your bulk order.");
       return;
@@ -190,21 +83,12 @@ export default function PublicBulkOrderPage() {
       setError("Please fill in all required contact details.");
       return;
     }
-    if (form.phone.length !== 10 || !/^\d{10}$/.test(form.phone.trim())) {
-      setError("Phone number must be exactly 10 digits.");
-      return;
-    }
-    if (form.pincode.length !== 6 || !/^\d{6}$/.test(form.pincode.trim())) {
-      setError("Pincode must be exactly 6 digits.");
-      return;
-    }
 
     setSubmitting(true);
     try {
       const payload = {
         ...form,
         items,
-        email: user?.email || undefined,
       };
       const res = await api.post("/api/bulk-orders/", payload);
       setSubmittedData(res.data);
@@ -267,13 +151,8 @@ export default function PublicBulkOrderPage() {
             Place a Bulk Order Request
           </h1>
           <p className="text-slate-600 text-sm sm:text-base max-w-xl mx-auto">
-            Order books directly for your school or class. Search books, submit your details, and receive custom discounted pricing!
+            Order books directly for your school or class. No login required. Select books, submit details, and receive custom discounted pricing!
           </p>
-          {!user && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl inline-block px-4 py-2 font-medium">
-              🔒 A free account is required to place a bulk order.
-            </p>
-          )}
         </div>
 
         {error && (
@@ -291,122 +170,28 @@ export default function PublicBulkOrderPage() {
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Select Books & Quantities</h3>
-                <p className="text-xs text-slate-500">Search and choose books to include in this bulk order</p>
+                <p className="text-xs text-slate-500">Choose books to include in this bulk order</p>
               </div>
             </div>
 
             {/* Selector Row */}
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
-              {/* Custom Searchable Select */}
-              <div className="sm:col-span-7 relative" ref={dropdownRef}>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Select Book *</label>
-
-                <button
-                  type="button"
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="w-full h-11 px-4 border border-slate-300 rounded-xl text-sm bg-white hover:border-purple-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none flex items-center justify-between shadow-sm cursor-pointer"
+              <div className="sm:col-span-7">
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Select Book</label>
+                <select
+                  value={selectedProductId}
+                  onChange={(e) => setSelectedProductId(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                 >
-                  {selectedProduct ? (
-                    <div className="flex items-center gap-3 text-left overflow-hidden">
-                      {selectedProduct.main_image ? (
-                        <img
-                          src={selectedProduct.main_image}
-                          alt=""
-                          className="w-6 h-8 object-cover rounded shadow-sm flex-shrink-0"
-                        />
-                      ) : (
-                        <div className="w-6 h-8 bg-purple-100 text-purple-600 rounded flex items-center justify-center text-xs font-bold flex-shrink-0">
-                          📖
-                        </div>
-                      )}
-                      <div className="truncate leading-tight">
-                        <p className="font-semibold text-slate-900 text-xs sm:text-sm truncate">
-                          {selectedProduct.name || selectedProduct.title}
-                        </p>
-                        <p className="text-[11px] text-slate-500 font-mono">₹{selectedProduct.price || selectedProduct.mrp}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <span className="text-slate-400 text-xs sm:text-sm flex items-center gap-2">
-                      <Search className="w-4 h-4 text-slate-400" /> Search & Select a book...
-                    </span>
-                  )}
-                  <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0 ml-2" />
-                </button>
-
-                {/* Dropdown Menu Popover */}
-                {dropdownOpen && (
-                  <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden space-y-2 p-2 max-h-80 flex flex-col">
-                    {/* Search Input Box */}
-                    <div className="relative sticky top-0 bg-white z-10 pb-2">
-                      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                      <input
-                        type="text"
-                        placeholder="Search book by name, class, ISBN, author..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        autoFocus
-                        className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-500 outline-none bg-slate-50"
-                      />
-                    </div>
-
-                    {/* Products List */}
-                    <div className="overflow-y-auto flex-1 divide-y divide-slate-100">
-                      {loadingProducts ? (
-                        <div className="py-8 text-center text-xs text-slate-400">Loading catalog books...</div>
-                      ) : filteredProducts.length === 0 ? (
-                        <div className="py-8 text-center text-xs text-slate-400">No books found matching search.</div>
-                      ) : (
-                        filteredProducts.map((p) => {
-                          const isSelected = selectedProduct?.id === p.id;
-                          return (
-                            <div
-                              key={p.id}
-                              onClick={() => {
-                                setSelectedProduct(p);
-                                setDropdownOpen(false);
-                              }}
-                              className={`p-2.5 rounded-xl transition-colors flex items-center justify-between cursor-pointer ${
-                                isSelected ? "bg-purple-50 border border-purple-200" : "hover:bg-slate-50"
-                              }`}
-                            >
-                              <div className="flex items-center gap-3 overflow-hidden">
-                                {p.main_image ? (
-                                  <img src={p.main_image} alt="" className="w-9 h-12 object-cover rounded shadow-sm flex-shrink-0" />
-                                ) : (
-                                  <div className="w-9 h-12 bg-purple-100 text-purple-600 rounded flex items-center justify-center font-bold text-xs flex-shrink-0">
-                                    📖
-                                  </div>
-                                )}
-
-                                <div className="space-y-0.5 min-w-0">
-                                  <p className="text-xs font-bold text-slate-900 line-clamp-1">{p.name || p.title}</p>
-                                  <div className="flex items-center gap-2 text-[10px] text-slate-500 flex-wrap">
-                                    {p.classes && (
-                                      <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-semibold">
-                                        Class {p.classes}
-                                      </span>
-                                    )}
-                                    {p.isbn && <span>ISBN: {p.isbn}</span>}
-                                    {p.author && <span className="truncate">By {p.author}</span>}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="text-right flex-shrink-0 ml-3">
-                                <span className="font-mono font-bold text-xs text-slate-900">₹{p.price || p.mrp || 0}</span>
-                                {isSelected && <Check className="w-4 h-4 text-purple-600 ml-auto mt-1" />}
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                )}
+                  <option value="">-- Choose a book --</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title || p.name} (₹{p.price || p.mrp || 0})
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {/* Quantity Field */}
               <div className="sm:col-span-3">
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Quantity</label>
                 <input
@@ -414,18 +199,15 @@ export default function PublicBulkOrderPage() {
                   min="1"
                   value={selectedQty}
                   onChange={(e) => setSelectedQty(e.target.value)}
-                  className="w-full h-11 px-4 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none font-semibold"
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                 />
               </div>
 
-              {/* Add Button */}
               <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-transparent uppercase mb-1 select-none hidden sm:block">Action</label>
                 <button
                   type="button"
                   onClick={handleAddItem}
-                  disabled={!selectedProduct}
-                  className="w-full h-11 px-4 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors inline-flex items-center justify-center cursor-pointer shadow-sm"
+                  className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-xl transition-colors inline-flex items-center justify-center cursor-pointer shadow-sm"
                 >
                   <Plus className="w-4 h-4 mr-1" /> Add
                 </button>
@@ -437,7 +219,7 @@ export default function PublicBulkOrderPage() {
               <div className="text-center py-10 border-2 border-dashed border-slate-200 rounded-xl">
                 <BookOpen className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                 <p className="text-sm font-medium text-slate-500">No books added yet.</p>
-                <p className="text-xs text-slate-400">Search and select a book above, then click Add.</p>
+                <p className="text-xs text-slate-400">Select a book above and click Add.</p>
               </div>
             ) : (
               <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
@@ -449,30 +231,18 @@ export default function PublicBulkOrderPage() {
                 </div>
                 {items.map((item, idx) => (
                   <div key={idx} className="px-4 py-3 grid grid-cols-12 items-center text-sm">
-                    <div className="col-span-6 font-medium text-slate-900 flex items-center gap-3">
+                    <div className="col-span-6 font-medium text-slate-900 flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => handleRemoveItem(idx)}
-                        className="text-red-400 hover:text-red-600 transition-colors p-1 flex-shrink-0"
+                        className="text-red-400 hover:text-red-600 transition-colors p-1"
                         title="Remove"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
-
-                      {item.main_image ? (
-                        <img src={item.main_image} alt="" className="w-8 h-10 object-cover rounded shadow-sm flex-shrink-0" />
-                      ) : (
-                        <div className="w-8 h-10 bg-purple-100 text-purple-600 rounded flex items-center justify-center font-bold text-xs flex-shrink-0">
-                          📖
-                        </div>
-                      )}
-
-                      <div className="truncate">
-                        <p className="truncate text-xs sm:text-sm font-bold text-slate-900">{item.title}</p>
-                        {item.classes && <p className="text-[10px] text-slate-500">Class {item.classes}</p>}
-                      </div>
+                      <span className="truncate">{item.title}</span>
                     </div>
-                    <div className="col-span-2 text-center text-slate-600 font-mono text-xs sm:text-sm">₹{item.price}</div>
+                    <div className="col-span-2 text-center text-slate-600 font-mono">₹{item.price}</div>
                     <div className="col-span-2 text-center">
                       <input
                         type="number"
@@ -482,7 +252,7 @@ export default function PublicBulkOrderPage() {
                         className="w-16 text-center py-1 border border-slate-300 rounded-lg text-xs font-semibold"
                       />
                     </div>
-                    <div className="col-span-2 text-right font-bold text-slate-900 font-mono text-xs sm:text-sm">
+                    <div className="col-span-2 text-right font-bold text-slate-900 font-mono">
                       ₹{(item.price * item.qty).toLocaleString()}
                     </div>
                   </div>
@@ -540,47 +310,28 @@ export default function PublicBulkOrderPage() {
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
                   <Phone className="w-3.5 h-3.5 text-slate-400" /> WhatsApp Phone Number *
                 </label>
-                <div className="relative flex items-center">
-                  <span className="absolute left-3 text-xs font-bold text-slate-600 flex items-center gap-1 select-none border-r border-slate-200 pr-2.5">
-                    🇮🇳 +91
-                  </span>
-                  <input
-                    type="tel"
-                    required
-                    maxLength={10}
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "") })}
-                    placeholder="9876543210"
-                    className="w-full pl-20 pr-4 py-2.5 border border-slate-300 rounded-xl text-sm font-medium placeholder:text-slate-400 placeholder:font-normal focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-                  />
-                </div>
+                <input
+                  type="tel"
+                  required
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  placeholder="e.g. 9876543210"
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-slate-400" /> Pincode *
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    maxLength={6}
-                    value={form.pincode}
-                    onChange={(e) => {
-                      setPincodeResolved(false);
-                      setForm({ ...form, pincode: e.target.value.replace(/\D/g, "").slice(0, 6), city: "", state: "" });
-                    }}
-                    placeholder="6-digit Pincode"
-                    className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-                  />
-                  {pincodeLoading && (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-500 animate-spin" />
-                  )}
-                  {pincodeResolved && !pincodeLoading && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-sm font-bold">✓</span>
-                  )}
-                </div>
-                {pincodeError && <p className="text-xs text-red-500 mt-1">{pincodeError}</p>}
+                <input
+                  type="text"
+                  required
+                  value={form.pincode}
+                  onChange={(e) => setForm({ ...form, pincode: e.target.value })}
+                  placeholder="e.g. 110001"
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                />
               </div>
 
               <div className="sm:col-span-2">
@@ -596,89 +347,37 @@ export default function PublicBulkOrderPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">City {pincodeResolved && <span className="text-green-600 font-normal normal-case text-[10px]">(auto-filled)</span>}</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">City</label>
                 <input
                   type="text"
                   value={form.city}
                   onChange={(e) => setForm({ ...form, city: e.target.value })}
                   placeholder="City"
-                  readOnly={pincodeResolved}
-                  className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none ${
-                    pincodeResolved ? "bg-green-50 border-green-200 text-green-800 cursor-not-allowed" : "border-slate-300"
-                  }`}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">State {pincodeResolved && <span className="text-green-600 font-normal normal-case text-[10px]">(auto-filled)</span>}</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">State</label>
                 <input
                   type="text"
                   value={form.state}
                   onChange={(e) => setForm({ ...form, state: e.target.value })}
                   placeholder="State"
-                  readOnly={pincodeResolved}
-                  className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none ${
-                    pincodeResolved ? "bg-green-50 border-green-200 text-green-800 cursor-not-allowed" : "border-slate-300"
-                  }`}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                 />
               </div>
             </div>
           </div>
 
-          {/* Login Prompt Banner (shown only when not logged in) */}
-          {!user && (
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 flex flex-col sm:flex-row items-center gap-4">
-              <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <LogIn className="w-6 h-6 text-amber-600" />
-              </div>
-              <div className="text-center sm:text-left">
-                <p className="font-bold text-amber-900 text-sm">Sign in to place your bulk order</p>
-                <p className="text-amber-700 text-xs mt-0.5 leading-relaxed">
-                  A free account is required. Your selected books and details will be <strong>saved automatically</strong> — just sign in or sign up and you&apos;ll be brought right back here!
-                </p>
-              </div>
-              <div className="flex gap-2 flex-shrink-0">
-                <Link
-                  href={`/auth/signin?redirect=/bulk-order`}
-                  onClick={() => {
-                    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ form, items })); } catch (_) {}
-                  }}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm"
-                >
-                  Sign In
-                </Link>
-                <Link
-                  href={`/auth/signup?redirect=/bulk-order`}
-                  onClick={() => {
-                    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ form, items })); } catch (_) {}
-                  }}
-                  className="px-4 py-2 bg-white hover:bg-amber-50 text-amber-700 text-xs font-bold rounded-xl border border-amber-300 transition-colors shadow-sm"
-                >
-                  Sign Up Free
-                </Link>
-              </div>
-            </div>
-          )}
-
           {/* Submit Button */}
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-4 px-8 bg-purple-600 hover:bg-purple-700 disabled:opacity-75 text-white font-bold rounded-2xl transition-all shadow-lg text-base cursor-pointer flex items-center justify-center gap-2"
+            className="w-full py-4 px-8 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold rounded-2xl transition-all shadow-lg text-base cursor-pointer flex items-center justify-center gap-2"
           >
-            {submitting ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" /> Submitting Request...
-              </>
-            ) : !user ? (
-              <>
-                <LogIn className="w-5 h-5" /> Sign Up to Continue
-              </>
-            ) : (
-              <>
-                Submit Bulk Order Request <ArrowRight className="w-5 h-5" />
-              </>
-            )}
+            {submitting ? "Submitting Request..." : "Submit Bulk Order Request"}
+            <ArrowRight className="w-5 h-5" />
           </button>
         </form>
       </div>
