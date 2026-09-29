@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Package, Plus, Trash2, CheckCircle2, ArrowRight, BookOpen, Building2, MapPin, User, Phone, Search, X } from "lucide-react";
 import api from "@/lib/api/axios";
@@ -23,6 +23,29 @@ export default function PublicBulkOrderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submittedData, setSubmittedData] = useState(null);
   const [error, setError] = useState("");
+  const [pincodeLoading, setPincodeLoading] = useState(false);
+  const [pincodeError, setPincodeError] = useState("");
+  const [pincodeResolved, setPincodeResolved] = useState(false);
+
+  useEffect(() => {
+    const pin = form.pincode.trim();
+    if (pin.length !== 6) { setPincodeResolved(false); setPincodeError(""); return; }
+    setPincodeLoading(true); setPincodeError("");
+    fetch(`https://api.postalpincode.in/pincode/${pin}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const post = data?.[0];
+        if (post?.Status === "Success" && post.PostOffice?.length > 0) {
+          const po = post.PostOffice[0];
+          let cityVal = po.District || po.Division || po.Name || "";
+          cityVal = cityVal.replace(/^(North|South|East|West|Central|New)\s+/i, "").trim() || cityVal;
+          setForm((f) => ({ ...f, city: cityVal, state: po.State || "" }));
+          setPincodeResolved(true); setPincodeError("");
+        } else { setPincodeResolved(false); setPincodeError("Pincode not found — enter city & state manually."); }
+      })
+      .catch(() => { setPincodeResolved(false); setPincodeError("Could not fetch pincode details."); })
+      .finally(() => setPincodeLoading(false));
+  }, [form.pincode]);
 
   const { data: productsData, isLoading: loadingProducts } = useQuery({
     queryKey: ["public-products-bulk"],
@@ -342,14 +365,26 @@ export default function PublicBulkOrderPage() {
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-slate-400" /> Pincode *
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={form.pincode}
-                  onChange={(e) => setForm({ ...form, pincode: e.target.value })}
-                  placeholder="e.g. 110001"
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={form.pincode}
+                    onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, "") })}
+                    placeholder="e.g. 110001"
+                    className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none pr-10 ${
+                      pincodeResolved ? "border-emerald-400 bg-emerald-50/30" : pincodeError ? "border-red-300" : "border-slate-300"
+                    }`}
+                  />
+                  {pincodeLoading && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                  )}
+                  {pincodeResolved && !pincodeLoading && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 text-sm font-bold">✓</span>
+                  )}
+                </div>
+                {pincodeError && <p className="text-xs text-red-500 mt-1">{pincodeError}</p>}
               </div>
 
               <div className="sm:col-span-2">
@@ -365,24 +400,28 @@ export default function PublicBulkOrderPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">City</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  City {pincodeResolved && <span className="text-emerald-500 font-normal normal-case">(auto-filled)</span>}
+                </label>
                 <input
                   type="text"
                   value={form.city}
                   onChange={(e) => setForm({ ...form, city: e.target.value })}
                   placeholder="City"
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                  className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none ${pincodeResolved ? "border-emerald-400 bg-emerald-50/30" : "border-slate-300"}`}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">State</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  State {pincodeResolved && <span className="text-emerald-500 font-normal normal-case">(auto-filled)</span>}
+                </label>
                 <input
                   type="text"
                   value={form.state}
                   onChange={(e) => setForm({ ...form, state: e.target.value })}
                   placeholder="State"
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                  className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none ${pincodeResolved ? "border-emerald-400 bg-emerald-50/30" : "border-slate-300"}`}
                 />
               </div>
             </div>
