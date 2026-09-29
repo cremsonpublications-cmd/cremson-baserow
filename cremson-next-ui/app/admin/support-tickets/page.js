@@ -41,7 +41,7 @@ export default function AdminSupportTicketsPage() {
   // Edit modal states
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState(null);
-  const [editForm, setEditForm] = useState({ full_name: "", phone: "", email: "", subject: "", message: "" });
+  const [editForm, setEditForm] = useState({ full_name: "", phone: "", email: "", subject: "", message: "", status: "Pending" });
   const [editSubmitting, setEditSubmitting] = useState(false);
 
   // Delete modal states
@@ -101,6 +101,7 @@ export default function AdminSupportTicketsPage() {
       email: ticket.email || "",
       subject: ticket.subject || "",
       message: ticket.message || "",
+      status: ticket.status || "Pending",
     });
     setEditModalOpen(true);
   };
@@ -440,6 +441,19 @@ export default function AdminSupportTicketsPage() {
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                   className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 bg-slate-50/50"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Status</label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 bg-slate-50/50"
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Resolved">Resolved</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
               </div>
 
               <div>
