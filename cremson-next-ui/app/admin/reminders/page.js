@@ -79,12 +79,14 @@ export default function AdminRemindersPage() {
   const pendingReminders = reminders.filter((r) => r.status === "pending");
   const overdueReminders = pendingReminders.filter((r) => r.is_overdue);
   const todayReminders = pendingReminders.filter((r) => r.is_today);
+  const upcomingReminders = pendingReminders.filter((r) => !r.is_overdue && !r.is_today);
   const completedReminders = reminders.filter((r) => r.status === "completed");
 
   const filteredList = reminders.filter((r) => {
     // Tab filter
     if (activeFilter === "overdue" && (!r.is_overdue || r.status === "completed")) return false;
     if (activeFilter === "today" && (!r.is_today && !r.is_overdue || r.status === "completed")) return false;
+    if (activeFilter === "upcoming" && (r.is_overdue || r.is_today || r.status !== "pending")) return false;
     if (activeFilter === "pending" && r.status !== "pending") return false;
     if (activeFilter === "completed" && r.status !== "completed") return false;
 
@@ -247,6 +249,20 @@ export default function AdminRemindersPage() {
         </div>
 
         <div
+          onClick={() => setActiveFilter("upcoming")}
+          className="bg-blue-50 border border-blue-200 rounded-2xl p-5 flex items-center justify-between cursor-pointer hover:shadow-md transition-all"
+        >
+          <div>
+            <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">Upcoming</span>
+            <div className="text-3xl font-extrabold text-blue-700 mt-1">{upcomingReminders.length}</div>
+            <p className="text-xs text-blue-500 mt-1">Future follow-ups</p>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
+            <Calendar className="w-6 h-6" />
+          </div>
+        </div>
+
+        <div
           onClick={() => setActiveFilter("completed")}
           className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 flex items-center justify-between cursor-pointer hover:shadow-md transition-all"
         >
@@ -268,6 +284,7 @@ export default function AdminRemindersPage() {
             { id: "all", label: `All (${reminders.length})` },
             { id: "overdue", label: `Overdue (${overdueReminders.length})` },
             { id: "today", label: `Due Today (${todayReminders.length + overdueReminders.length})` },
+            { id: "upcoming", label: `Upcoming (${upcomingReminders.length})` },
             { id: "pending", label: `Pending (${pendingReminders.length})` },
             { id: "completed", label: `Completed (${completedReminders.length})` },
           ].map((tab) => (
