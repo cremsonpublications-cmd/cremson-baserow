@@ -44,9 +44,9 @@ const coreLinks = [
 ];
 
 const adminLinks = [
-  { href: "/admin/campaigns", label: "Campaign Pages", Icon: Megaphone },
-  { href: "/admin/whatsapp/campaigns", label: "WhatsApp Campaigns", Icon: Send },
-  { href: "/admin/whatsapp/templates", label: "WhatsApp Templates", Icon: FileText },
+  // { href: "/admin/campaigns", label: "Campaign Pages", Icon: Megaphone },
+  // { href: "/admin/whatsapp/campaigns", label: "WhatsApp Campaigns", Icon: Send },
+  // { href: "/admin/whatsapp/templates", label: "WhatsApp Templates", Icon: FileText },
   { href: "/admin/specimen-books", label: "Specimen Books", Icon: BookOpen },
   { href: "/admin/crm?tab=schools", label: "CRM Database Hub", Icon: Database },
   { href: "/admin/categories", label: "Categories", Icon: FolderOpen },
