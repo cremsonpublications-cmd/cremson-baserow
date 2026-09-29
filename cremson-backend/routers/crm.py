@@ -830,3 +830,21 @@ async def update_support_ticket(ticket_id: str, body: UpdateSupportTicketStatusR
             print("Warning: Failed to send ticket status update WhatsApp:", wa_err)
 
     return {"success": True, "ticket": updated_ticket}
+
+
+@router.delete("/support-tickets/{ticket_id}", summary="Delete support ticket")
+async def delete_support_ticket(ticket_id: str):
+    res = await client.get_rows(
+        TABLE_IDS["support_tickets"],
+        page=1, size=200,
+        filters={"ticket_id": ticket_id}
+    )
+    raw = res.get("results", []) if isinstance(res, dict) else (res or [])
+    matched = [r for r in raw if r.get("ticket_id") == ticket_id]
+    if not matched:
+        raise HTTPException(status_code=404, detail="Support ticket not found.")
+
+    baserow_id = matched[0]["id"]
+    await client.delete_row(TABLE_IDS["support_tickets"], baserow_id)
+    return {"success": True, "id": ticket_id}
+
