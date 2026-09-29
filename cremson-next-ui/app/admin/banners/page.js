@@ -327,17 +327,17 @@ export default function AdminBannersPage() {
                           type="text"
                           value={banner.title || ""}
                           onChange={(e) => handleTitleChange(banner.id, e.target.value)}
+                          onBlur={(e) => {
+                            const val = e.target.value;
+                            if ((savedBannersRef.current[banner.id]?.title ?? "") !== val) {
+                              handleSaveTitle(banner.id, val);
+                            }
+                          }}
                           placeholder="Enter banner title..."
                           className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 min-w-0"
                         />
-                        {(savedBannersRef.current[banner.id]?.title ?? "") !== (banner.title || "") && (
-                          <button
-                            onClick={() => handleSaveTitle(banner.id, banner.title)}
-                            disabled={saving === banner.id + "_title"}
-                            className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors shrink-0 disabled:opacity-50"
-                          >
-                            {saving === banner.id + "_title" ? "Saving..." : "Save"}
-                          </button>
+                        {saving === banner.id + "_title" && (
+                          <span className="text-[10px] text-purple-500 font-semibold shrink-0">Saving...</span>
                         )}
                       </div>
                     </div>
@@ -347,22 +347,22 @@ export default function AdminBannersPage() {
                       </label>
                       <div className="flex items-center gap-2 max-w-lg">
                         <input
-                          type="url"
+                          type="text"
                           value={banner.link_url || ""}
                           onChange={(e) => handleLinkChange(banner.id, e.target.value)}
-                          placeholder="https://example.com/shop"
+                          onBlur={(e) => {
+                            const val = e.target.value;
+                            if ((savedBannersRef.current[banner.id]?.link_url ?? "") !== val) {
+                              handleSaveLink(banner.id, val);
+                            }
+                          }}
+                          placeholder="https://cremsonpublications.com/shop/product/92"
                           className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 min-w-0"
                         />
-                        {(savedBannersRef.current[banner.id]?.link_url ?? "") !== (banner.link_url || "") && (
-                          <button
-                            onClick={() => handleSaveLink(banner.id, banner.link_url)}
-                            disabled={saving === banner.id + "_link"}
-                            className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors shrink-0 disabled:opacity-50"
-                          >
-                            {saving === banner.id + "_link" ? "Saving..." : "Save"}
-                          </button>
+                        {saving === banner.id + "_link" && (
+                          <span className="text-[10px] text-purple-500 font-semibold shrink-0">Saving...</span>
                         )}
-                        {banner.link_url && (
+                        {banner.link_url && savedBannersRef.current[banner.id]?.link_url === banner.link_url && (
                           <a
                             href={banner.link_url}
                             target="_blank"
