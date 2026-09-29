@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp } from "../context/AppContext";
 import CPLogo from "./CPLogo";
-import { X, ChevronDown, Search, User, LogOut, Package, MapPin, BookOpen, GraduationCap, Home, ShoppingBag, BookMarked, Newspaper, PhoneCall } from "lucide-react";
+import { X, ChevronDown, Search, User, LogOut, Package, MapPin, BookOpen, GraduationCap, Home, ShoppingBag, BookMarked, Newspaper, PhoneCall, ClipboardList } from "lucide-react";
 import { getApiBaseUrl } from "../lib/api/axios";
 import { navigateToUrl } from "../lib/utils/navigation";
 
@@ -127,6 +127,13 @@ export default function MobileMenuDrawer() {
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-red-50 hover:text-red-600 transition-all text-left"
             >
               <ShoppingBag className="w-4 h-4 text-gray-400" /> Buy Books
+            </button>
+
+            <button
+              onClick={() => handleLinkClick("/bulk-order")}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-red-50 hover:text-red-600 transition-all text-left"
+            >
+              <ClipboardList className="w-4 h-4 text-gray-400" /> Bulk Order
             </button>
 
             <button
