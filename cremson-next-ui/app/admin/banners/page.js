@@ -21,6 +21,7 @@ export default function AdminBannersPage() {
   const fileInputRef = useRef(null);
 
   const bannersRef = useRef(banners);
+  const savedBannersRef = useRef({}); // id → {title, link_url} snapshot of last saved/fetched values
   const draggedIndexRef = useRef(draggedIndex);
 
   useEffect(() => {
@@ -36,6 +37,12 @@ export default function AdminBannersPage() {
     try {
       const res = await api.get("/api/banners/");
       setBanners(res.data);
+      // Snapshot saved values keyed by id so dirty-check is always accurate
+      const snap = {};
+      for (const b of res.data) {
+        snap[b.id] = { title: b.title || "", link_url: b.link_url || "" };
+      }
+      savedBannersRef.current = snap;
     } catch {
       toast.error("Failed to load banners");
     } finally {
@@ -90,6 +97,7 @@ export default function AdminBannersPage() {
     setSaving(id + "_title");
     try {
       await api.patch(`/api/banners/${id}`, { title });
+      savedBannersRef.current = { ...savedBannersRef.current, [id]: { ...savedBannersRef.current[id], title } };
       toast.success("Title saved");
     } catch {
       toast.error("Failed to save title");
@@ -106,6 +114,7 @@ export default function AdminBannersPage() {
     setSaving(id + "_link");
     try {
       await api.patch(`/api/banners/${id}`, { link_url });
+      savedBannersRef.current = { ...savedBannersRef.current, [id]: { ...savedBannersRef.current[id], link_url } };
       toast.success("Link saved");
     } catch {
       toast.error("Failed to save link");
@@ -321,7 +330,7 @@ export default function AdminBannersPage() {
                           placeholder="Enter banner title..."
                           className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 min-w-0"
                         />
-                        {bannersRef.current[index]?.title !== banner.title && (
+                        {(savedBannersRef.current[banner.id]?.title ?? "") !== (banner.title || "") && (
                           <button
                             onClick={() => handleSaveTitle(banner.id, banner.title)}
                             disabled={saving === banner.id + "_title"}
@@ -344,7 +353,7 @@ export default function AdminBannersPage() {
                           placeholder="https://example.com/shop"
                           className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 min-w-0"
                         />
-                        {bannersRef.current[index]?.link_url !== banner.link_url && (
+                        {(savedBannersRef.current[banner.id]?.link_url ?? "") !== (banner.link_url || "") && (
                           <button
                             onClick={() => handleSaveLink(banner.id, banner.link_url)}
                             disabled={saving === banner.id + "_link"}
