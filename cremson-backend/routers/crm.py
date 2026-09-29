@@ -772,17 +772,22 @@ async def update_support_ticket(ticket_id: str, body: UpdateSupportTicketStatusR
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
 
     # Find the Baserow row that matches this ticket_id
-    res = await client.get_rows(
-        TABLE_IDS["support_tickets"],
-        page=1, size=200,
-        filters={"ticket_id": ticket_id}
-    )
-    raw = res.get("results", []) if isinstance(res, dict) else (res or [])
-
-    # Baserow filter may not be exact — do client-side match
-    matched = [r for r in raw if r.get("ticket_id") == ticket_id]
-    if not matched:
-        raise HTTPException(status_code=404, detail="Support ticket not found.")
+    if ticket_id.isdigit():
+        row = await client.get_row(TABLE_IDS["support_tickets"], int(ticket_id))
+        if not row:
+            raise HTTPException(status_code=404, detail="Support ticket not found.")
+        matched = [row]
+    else:
+        res = await client.get_rows(
+            TABLE_IDS["support_tickets"],
+            page=1, size=200,
+            filters={"ticket_id": ticket_id}
+        )
+        raw = res.get("results", []) if isinstance(res, dict) else (res or [])
+        # Baserow filter may not be exact — do client-side match
+        matched = [r for r in raw if r.get("ticket_id") == ticket_id]
+        if not matched:
+            raise HTTPException(status_code=404, detail="Support ticket not found.")
 
     row = matched[0]
     baserow_id = row["id"]
@@ -834,6 +839,11 @@ async def update_support_ticket(ticket_id: str, body: UpdateSupportTicketStatusR
 
 @router.delete("/support-tickets/{ticket_id}", summary="Delete support ticket")
 async def delete_support_ticket(ticket_id: str):
+    # If numeric, it's the Baserow row ID directly
+    if ticket_id.isdigit():
+        await client.delete_row(TABLE_IDS["support_tickets"], int(ticket_id))
+        return {"success": True, "id": ticket_id}
+
     res = await client.get_rows(
         TABLE_IDS["support_tickets"],
         page=1, size=200,
@@ -844,7 +854,6 @@ async def delete_support_ticket(ticket_id: str):
     if not matched:
         raise HTTPException(status_code=404, detail="Support ticket not found.")
 
-    baserow_id = matched[0]["id"]
-    await client.delete_row(TABLE_IDS["support_tickets"], baserow_id)
+    await client.delete_row(TABLE_IDS["support_tickets"], matched[0]["id"])
     return {"success": True, "id": ticket_id}
 
