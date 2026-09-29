@@ -419,7 +419,7 @@ function Shop() {
 
         <hr className="border-t-black/10" />
 
-        {/* Sub Categories */}
+        {/* Subjects */}
         <div>
           <h3 className="flex">
             <button
@@ -427,7 +427,7 @@ function Shop() {
               onClick={() => toggleSection("subCategories")}
               className="flex flex-1 items-center justify-between transition-all text-black font-bold text-xl hover:no-underline p-0 py-0.5"
             >
-              Sub Categories
+              Subjects
               <svg
                 width="15"
                 height="15"
