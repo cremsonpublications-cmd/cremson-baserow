@@ -41,7 +41,7 @@ export default function AdminQuestionBankPage() {
     try {
       const res = await fetch("/api/paper-builder/questions?approved_only=false");
       const data = await res.json();
-      setQuestions(data);
+      setQuestions(Array.isArray(data) ? data : (data?.questions || data?.results || []));
     } catch (err) {
       toast.error("Failed to load question bank from backend");
     } finally {
