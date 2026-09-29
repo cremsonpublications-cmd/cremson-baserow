@@ -80,7 +80,7 @@ export default function Home() {
               <div key={slide.id} className="w-full h-full flex-shrink-0 relative">
                 <div className="absolute inset-0">
                   {slide.link_url ? (
-                    <a href={slide.link_url} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+                    <a href={slide.link_url} className="block w-full h-full">
                       <img
                         src={slide.image}
                         alt={slide.title}
