@@ -579,31 +579,15 @@ async def send_bulk_order_approved(
     order_link: str,
     school: str = "School"
 ):
-    """Sent to teacher upon admin approval & discount application. Template: bulk_order_approved_v10 with Make Payment CTA button."""
-    components = [
-        {
-            "type": "body",
-            "parameters": [
-                _txt(name),
-                _txt(school),
-                _txt(f"₹{final_amount:,.2f}"),
-                _txt(order_link),
-            ],
-        },
-        {
-            "type": "button",
-            "sub_type": "url",
-            "index": "0",
-            "parameters": [_txt(_clean_url_param(order_link, "https://cremsonpublications.com/checkout/bulk/"))],
-        },
-    ]
-    await _send_template(
-        phone=phone,
-        template_name="bulk_order_approved_v11",
-        parameters=[],
-        log_tag=f"bulk_order_approved name={name}",
-        components=components,
+    """Sent to teacher upon admin approval & discount application. Plain text — no button."""
+    msg = (
+        f"Hello {name},\n\n"
+        f"Good news! Your bulk order request for {school} has been approved with special discounted pricing.\n\n"
+        f"Final Amount Payable: ₹{final_amount:,.2f}\n\n"
+        f"Complete Payment Here: {order_link}\n\n"
+        f"Cremson Publications"
     )
+    await _send_text_message(phone, msg, log_tag=f"bulk_order_approved name={name}")
 
 
 async def send_bulk_order_payment_received(phone: str, name: str, school: str, amount: float, order_link: str):
