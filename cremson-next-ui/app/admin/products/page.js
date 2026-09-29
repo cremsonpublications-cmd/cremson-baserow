@@ -2469,7 +2469,7 @@ function AdminProductsContent() {
     if (!currentList.length) return;
 
     setSavingOrder(true);
-    const toastId = toast.loading("Saving new product order...", {
+    const toastId = toast.loading("Updating product positions...", {
       style: {
         background: "#ffffff",
         color: "#000000",
