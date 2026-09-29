@@ -39,7 +39,7 @@ export default function AdminQuestionBankPage() {
   const fetchQuestions = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/api/paper-builder/questions?approved_only=false");
+      const res = await fetch("/api/paper-builder/questions?approved_only=false");
       const data = await res.json();
       setQuestions(data);
     } catch (err) {
@@ -56,7 +56,7 @@ export default function AdminQuestionBankPage() {
   const handleCreateQuestion = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:8000/api/paper-builder/admin/questions", {
+      const res = await fetch("/api/paper-builder/admin/questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newQuestion)

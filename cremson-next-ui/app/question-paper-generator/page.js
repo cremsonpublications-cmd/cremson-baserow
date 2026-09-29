@@ -50,7 +50,7 @@ export default function QuestionPaperGeneratorPage() {
   const [generatedQuestions, setGeneratedQuestions] = useState([]);
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/paper-builder/meta")
+    fetch("/api/paper-builder/meta")
       .then((res) => res.json())
       .then((data) => setMeta(data))
       .catch(() => toast.error("Could not fetch metadata"));
@@ -58,7 +58,7 @@ export default function QuestionPaperGeneratorPage() {
 
   useEffect(() => {
     if (mode === "manual") {
-      fetch("http://localhost:8000/api/paper-builder/questions?approved_only=true")
+      fetch("/api/paper-builder/questions?approved_only=true")
         .then((res) => res.json())
         .then((data) => setManualQuestions(data))
         .catch(() => toast.error("Error fetching questions list"));
@@ -68,7 +68,7 @@ export default function QuestionPaperGeneratorPage() {
   const handleQuickGenerate = async () => {
     setIsGenerating(true);
     try {
-      const res = await fetch("http://localhost:8000/api/paper-builder/generate", {
+      const res = await fetch("/api/paper-builder/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -111,7 +111,7 @@ export default function QuestionPaperGeneratorPage() {
 
   const handleReplaceQuestion = async (currentId, chapter, questionType, marks) => {
     try {
-      const res = await fetch("http://localhost:8000/api/paper-builder/replace-question", {
+      const res = await fetch("/api/paper-builder/replace-question", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
