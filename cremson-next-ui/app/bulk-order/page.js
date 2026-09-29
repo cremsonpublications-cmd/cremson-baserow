@@ -2,12 +2,12 @@
 
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Package, Plus, Trash2, CheckCircle2, ArrowRight, BookOpen, Building2, MapPin, User, Phone } from "lucide-react";
+import { Package, Plus, Trash2, CheckCircle2, ArrowRight, BookOpen, Building2, MapPin, User, Phone, Search, X } from "lucide-react";
 import api from "@/lib/api/axios";
 
 export default function PublicBulkOrderPage() {
   const [items, setItems] = useState([]);
-  const [selectedProductId, setSelectedProductId] = useState("");
+  const [bookSearch, setBookSearch] = useState("");
   const [selectedQty, setSelectedQty] = useState(10);
 
   const [form, setForm] = useState({
@@ -34,11 +34,8 @@ export default function PublicBulkOrderPage() {
 
   const products = Array.isArray(productsData) ? productsData : [];
 
-  const handleAddItem = () => {
-    if (!selectedProductId) return;
-    const prod = products.find((p) => String(p.id) === String(selectedProductId));
+  const handleAddItem = (prod) => {
     if (!prod) return;
-
     const existingIndex = items.findIndex((i) => String(i.product_id) === String(prod.id));
     if (existingIndex > -1) {
       const updated = [...items];
@@ -52,12 +49,15 @@ export default function PublicBulkOrderPage() {
           title: prod.title || prod.name || "Book",
           qty: Number(selectedQty),
           price: Number(prod.price || prod.mrp || 0),
+          image: prod.main_image || "",
         },
       ]);
     }
-    setSelectedProductId("");
-    setSelectedQty(10);
   };
+
+  const filteredProducts = products.filter((p) =>
+    (p.title || p.name || "").toLowerCase().includes(bookSearch.toLowerCase())
+  );
 
   const handleRemoveItem = (index) => {
     setItems(items.filter((_, i) => i !== index));
@@ -174,44 +174,62 @@ export default function PublicBulkOrderPage() {
               </div>
             </div>
 
-            {/* Selector Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
-              <div className="sm:col-span-7">
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Select Book</label>
-                <select
-                  value={selectedProductId}
-                  onChange={(e) => setSelectedProductId(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-                >
-                  <option value="">-- Choose a book --</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title || p.name} (₹{p.price || p.mrp || 0})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="sm:col-span-3">
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Quantity</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={selectedQty}
-                  onChange={(e) => setSelectedQty(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <button
-                  type="button"
-                  onClick={handleAddItem}
-                  className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-xl transition-colors inline-flex items-center justify-center cursor-pointer shadow-sm"
-                >
-                  <Plus className="w-4 h-4 mr-1" /> Add
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search books by name..."
+                value={bookSearch}
+                onChange={(e) => setBookSearch(e.target.value)}
+                className="w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:bg-white outline-none transition-all"
+              />
+              {bookSearch && (
+                <button type="button" onClick={() => setBookSearch("")} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
+                  <X className="w-4 h-4" />
                 </button>
-              </div>
+              )}
+            </div>
+
+            {/* Book Picker List */}
+            <div className="max-h-64 overflow-y-auto bg-slate-50 border border-slate-200 rounded-2xl divide-y divide-slate-100">
+              {loadingProducts ? (
+                <div className="py-8 text-center text-sm text-slate-400">Loading books...</div>
+              ) : filteredProducts.length === 0 ? (
+                <p className="text-center text-sm text-slate-400 py-8">No books match your search.</p>
+              ) : filteredProducts.map((p) => {
+                const isAdded = items.some((i) => String(i.product_id) === String(p.id));
+                const price = p.price || p.mrp || 0;
+                return (
+                  <div key={p.id} className={`flex items-center gap-3 p-3.5 transition-all ${isAdded ? "bg-purple-50/60" : "hover:bg-white"}`}>
+                    {p.main_image
+                      ? <img src={p.main_image} alt={p.title || p.name} className="w-10 h-12 object-cover rounded-lg border border-slate-200 flex-shrink-0" />
+                      : <div className="w-10 h-12 bg-purple-50 rounded-lg flex items-center justify-center flex-shrink-0 border border-purple-100"><BookOpen className="w-5 h-5 text-purple-400" /></div>
+                    }
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-900 truncate">{p.title || p.name}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">₹{price}</p>
+                    </div>
+                    {isAdded ? (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(items.findIndex((i) => String(i.product_id) === String(p.id)))}
+                        className="shrink-0 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-red-50 hover:text-red-600 hover:border-red-200 border border-emerald-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                      >
+                        ✓ Added
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleAddItem(p)}
+                        className="shrink-0 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                      >
+                        + Add
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Selected Items Table */}
