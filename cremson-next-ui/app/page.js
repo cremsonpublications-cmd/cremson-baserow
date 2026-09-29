@@ -19,7 +19,7 @@ export default function Home() {
       .then((res) => {
         const data = res.data;
         if (Array.isArray(data)) {
-          setSlides(data.map((b) => ({ id: b.id, image: b.image_url, title: b.title })));
+          setSlides(data.map((b) => ({ id: b.id, image: b.image_url, title: b.title, link_url: b.link_url || "" })));
         }
       })
       .catch((err) => {
@@ -79,12 +79,23 @@ export default function Home() {
             {slides.map((slide) => (
               <div key={slide.id} className="w-full h-full flex-shrink-0 relative">
                 <div className="absolute inset-0">
-                  <img
-                    src={slide.image}
-                    alt={slide.title}
-                    className="w-full h-full object-contain transition-opacity duration-300 ease-in-out"
-                    style={{ willChange: "opacity" }}
-                  />
+                  {slide.link_url ? (
+                    <a href={slide.link_url} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+                      <img
+                        src={slide.image}
+                        alt={slide.title}
+                        className="w-full h-full object-contain transition-opacity duration-300 ease-in-out cursor-pointer"
+                        style={{ willChange: "opacity" }}
+                      />
+                    </a>
+                  ) : (
+                    <img
+                      src={slide.image}
+                      alt={slide.title}
+                      className="w-full h-full object-contain transition-opacity duration-300 ease-in-out"
+                      style={{ willChange: "opacity" }}
+                    />
+                  )}
                 </div>
               </div>
             ))}

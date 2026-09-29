@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import api from "../../../lib/api/axios";
 import { toast } from "sonner";
-import { ImagePlus, Trash2, GripVertical, Eye, EyeOff, Plus, Loader2 } from "lucide-react";
+import { ImagePlus, Trash2, GripVertical, Eye, EyeOff, Plus, Loader2, Link2 } from "lucide-react";
 
 const CLOUDINARY_UPLOAD_URL = "https://api.cloudinary.com/v1_1/dkxxa3xt0/image/upload";
 const UPLOAD_PRESET = "unsigned_preset";
@@ -87,12 +87,28 @@ export default function AdminBannersPage() {
   }
 
   async function handleSaveTitle(id, title) {
-    setSaving(id);
+    setSaving(id + "_title");
     try {
       await api.patch(`/api/banners/${id}`, { title });
       toast.success("Title saved");
     } catch {
       toast.error("Failed to save title");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function handleLinkChange(id, link_url) {
+    setBanners((prev) => prev.map((b) => (b.id === id ? { ...b, link_url } : b)));
+  }
+
+  async function handleSaveLink(id, link_url) {
+    setSaving(id + "_link");
+    try {
+      await api.patch(`/api/banners/${id}`, { link_url });
+      toast.success("Link saved");
+    } catch {
+      toast.error("Failed to save link");
     } finally {
       setSaving(null);
     }
@@ -308,11 +324,45 @@ export default function AdminBannersPage() {
                         {bannersRef.current[index]?.title !== banner.title && (
                           <button
                             onClick={() => handleSaveTitle(banner.id, banner.title)}
-                            disabled={saving === banner.id}
+                            disabled={saving === banner.id + "_title"}
                             className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors shrink-0 disabled:opacity-50"
                           >
-                            {saving === banner.id ? "Saving..." : "Save"}
+                            {saving === banner.id + "_title" ? "Saving..." : "Save"}
                           </button>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                        <span className="flex items-center gap-1"><Link2 size={10} /> Click URL (Optional)</span>
+                      </label>
+                      <div className="flex items-center gap-2 max-w-lg">
+                        <input
+                          type="url"
+                          value={banner.link_url || ""}
+                          onChange={(e) => handleLinkChange(banner.id, e.target.value)}
+                          placeholder="https://example.com/shop"
+                          className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 min-w-0"
+                        />
+                        {bannersRef.current[index]?.link_url !== banner.link_url && (
+                          <button
+                            onClick={() => handleSaveLink(banner.id, banner.link_url)}
+                            disabled={saving === banner.id + "_link"}
+                            className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors shrink-0 disabled:opacity-50"
+                          >
+                            {saving === banner.id + "_link" ? "Saving..." : "Save"}
+                          </button>
+                        )}
+                        {banner.link_url && (
+                          <a
+                            href={banner.link_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors shrink-0"
+                            title="Open link"
+                          >
+                            <Link2 size={14} />
+                          </a>
                         )}
                       </div>
                     </div>

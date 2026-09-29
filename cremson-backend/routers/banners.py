@@ -23,6 +23,7 @@ def _row_to_banner(row: dict) -> dict:
         "id": row["id"],
         "image_url": row.get("image_url") or "",
         "title": row.get("title") or "",
+        "link_url": row.get("link_url") or "",
         "sort_order": row.get("sort_order") or 0,
         "is_active": bool(row.get("is_active")),
     }
@@ -31,6 +32,7 @@ def _row_to_banner(row: dict) -> dict:
 class BannerCreate(BaseModel):
     image_url: str
     title: str = ""
+    link_url: str = ""
     sort_order: int = 0
     is_active: bool = True
 
@@ -38,6 +40,7 @@ class BannerCreate(BaseModel):
 class BannerUpdate(BaseModel):
     image_url: Optional[str] = None
     title: Optional[str] = None
+    link_url: Optional[str] = None
     sort_order: Optional[int] = None
     is_active: Optional[bool] = None
 
@@ -73,6 +76,7 @@ async def create_banner(body: BannerCreate):
     payload = {
         "image_url": body.image_url,
         "title": body.title,
+        "link_url": body.link_url,
         "sort_order": body.sort_order,
         "is_active": body.is_active,
     }
