@@ -11,8 +11,8 @@ JWT_SECRET    = os.getenv("JWT_SECRET", "changeme")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 TOKEN_EXPIRE  = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "14400"))
 
-ADMIN_EMAIL    = "cremsonpublications@gmail.com"
-ADMIN_PASSWORD = "12345678"
+ADMIN_EMAIL    = os.getenv("ADMIN_EMAIL", "cremsonpublications@gmail.com")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "Possible@007")
 
 
 class AdminLoginRequest(BaseModel):
