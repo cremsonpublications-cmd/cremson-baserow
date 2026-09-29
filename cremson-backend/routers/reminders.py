@@ -187,6 +187,66 @@ async def complete_reminder(reminder_id: str):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@router.patch("/{reminder_id}", summary="Edit reminder")
+async def edit_reminder(reminder_id: str, payload: dict = Body(...)):
+    notes = payload.get("notes", "")
+    due_date = payload.get("due_date", "")
+
+    if reminder_id.startswith("teacher_"):
+        try:
+            teacher_id = int(reminder_id.split("_")[1])
+            baserow_client = BaserowClient()
+            old_teacher = {}
+            try:
+                old_teacher = await baserow_client.get_row(TABLE_IDS["teacher"], teacher_id)
+            except Exception:
+                pass
+
+            update_fields = {}
+            if due_date:
+                update_fields["NextFollow-upDate"] = due_date
+            if notes is not None:
+                update_fields["Notes"] = notes
+
+            updated_teacher = await baserow_client.update_row(TABLE_IDS["teacher"], teacher_id, update_fields)
+
+            if old_teacher:
+                try:
+                    from db.blogs import log_teacher_edit
+                    log_teacher_edit(
+                        teacher_row_id=teacher_id,
+                        teacher_name=old_teacher.get("Teacher Name") or updated_teacher.get("Teacher Name", ""),
+                        old_dict=old_teacher,
+                        new_dict=updated_teacher,
+                        changed_keys=list(update_fields.keys()),
+                        changed_by="Admin"
+                    )
+                except Exception as exc:
+                    logger.warning(f"[Teacher Audit Log] Error logging edit: {exc}")
+
+            return {"success": True, "id": reminder_id, "message": "Teacher follow-up updated"}
+        except Exception as exc:
+            logger.error(f"[Reminders API] Error editing teacher reminder {reminder_id}: {exc}")
+            raise HTTPException(status_code=500, detail=str(exc))
+
+    try:
+        title = payload.get("title", notes[:80] if notes else "")
+        due_time = payload.get("due_time", "")
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE reminders
+            SET title = ?, notes = ?, due_date = ?, due_time = ?
+            WHERE id = ?
+        """, (title, notes, due_date, due_time, int(reminder_id)))
+        conn.commit()
+        conn.close()
+        return {"success": True, "id": reminder_id, "message": "Reminder updated"}
+    except Exception as exc:
+        logger.error(f"[Reminders API] Error editing reminder {reminder_id}: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @router.delete("/{reminder_id}", summary="Delete reminder")
 async def delete_reminder(reminder_id: str):
     if reminder_id.startswith("teacher_"):

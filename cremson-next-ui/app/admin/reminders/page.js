@@ -15,6 +15,7 @@ import {
   X,
   Check,
   Search,
+  Pencil,
 } from "lucide-react";
 import api from "@/lib/api/axios";
 import { toast } from "sonner";
@@ -25,6 +26,10 @@ export default function AdminRemindersPage() {
   const [search, setSearch] = useState("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingReminder, setEditingReminder] = useState(null);
+  const [editForm, setEditForm] = useState({ notes: "", due_date: "" });
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   // Form State
   const [form, setForm] = useState({
@@ -94,6 +99,33 @@ export default function AdminRemindersPage() {
     }
     return true;
   });
+
+  // Handle Edit
+  const openEditModal = (item) => {
+    setEditingReminder(item);
+    setEditForm({ notes: item.notes || "", due_date: item.due_date || "" });
+    setEditModalOpen(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!editForm.due_date) {
+      toast.error("Please provide a due date.");
+      return;
+    }
+    setEditSubmitting(true);
+    try {
+      await api.patch(`/api/reminders/${editingReminder.id}`, editForm);
+      toast.success("Reminder updated!");
+      queryClient.invalidateQueries({ queryKey: ["admin-reminders"] });
+      setEditModalOpen(false);
+      setEditingReminder(null);
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Failed to update reminder.");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
 
   // Handle Mark Completed
   const handleMarkCompleted = async (id) => {
@@ -421,6 +453,16 @@ export default function AdminRemindersPage() {
                   </button>
                 )}
 
+                {item.status === "pending" && (
+                  <button
+                    onClick={() => openEditModal(item)}
+                    className="p-2 rounded-xl text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors cursor-pointer"
+                    title="Edit Reminder"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
+
                 <button
                   onClick={() => handleDelete(item.id)}
                   className="p-2 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
@@ -433,6 +475,69 @@ export default function AdminRemindersPage() {
           ))
         )}
       </div>
+      )}
+
+      {/* ── Edit Reminder Modal ── */}
+      {editModalOpen && editingReminder && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-purple-600" />
+                Edit Reminder
+              </h2>
+              <button
+                onClick={() => { setEditModalOpen(false); setEditingReminder(null); }}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Notes</label>
+                <textarea
+                  rows={4}
+                  placeholder="Notes..."
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs focus:outline-none focus:border-purple-500 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Reminder Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={editForm.due_date}
+                  onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => { setEditModalOpen(false); setEditingReminder(null); }}
+                  className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSubmitting}
+                  className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-5 py-2.5 rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                >
+                  {editSubmitting ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* ── Create Reminder Modal ── */}
