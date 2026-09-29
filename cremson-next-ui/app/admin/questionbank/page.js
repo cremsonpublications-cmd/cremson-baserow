@@ -84,7 +84,7 @@ export default function AdminQuestionBankPage() {
     setImportResult(null);
 
     try {
-      const res = await fetch("http://localhost:8000/api/paper-builder/admin/import-csv", {
+      const res = await fetch("/api/paper-builder/admin/import-csv", {
         method: "POST",
         body: formData
       });
@@ -94,12 +94,14 @@ export default function AdminQuestionBankPage() {
         toast.success(`CSV Imported: ${data.imported_count} questions added`);
         fetchQuestions();
       } else {
-        toast.error("CSV import failed");
+        toast.error(`CSV import failed: ${data?.detail || "Unknown error"}`);
       }
     } catch (err) {
       toast.error("Failed to upload CSV");
     } finally {
       setUploading(false);
+      // Reset file input so same file can be re-uploaded
+      e.target.value = "";
     }
   };
 
@@ -166,20 +168,26 @@ export default function AdminQuestionBankPage() {
       ]
     ];
     
-    const csvContent = "data:text/csv;charset=utf-8," + [
+    const csvRows = [
       headers.join(","),
-      ...sampleRows.map(row => row.map(cell => `"${(cell || "").replace(/"/g, '""')}"`).join(","))
+      ...sampleRows.map(row =>
+        row.map(cell => `"${(cell || "").replace(/"/g, '""')}"`).join(",")
+      )
     ].join("\n");
-    
-    const encodedUri = encodeURI(csvContent);
+
+    // Use Blob so newlines and special chars inside cells are preserved
+    const blob = new Blob([csvRows], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", url);
     link.setAttribute("download", "cremson_sample_question_bank_all_marks.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     toast.success("Sample CSV format with all question marks downloaded!");
   };
+
 
   const handleExportCSV = () => {
     if (questions.length === 0) {
