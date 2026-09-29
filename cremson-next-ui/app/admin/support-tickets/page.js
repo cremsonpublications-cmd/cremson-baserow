@@ -19,7 +19,9 @@ import {
   ChevronLeft,
   ChevronRight,
   HelpCircle,
-  FileText
+  FileText,
+  Pencil,
+  X,
 } from "lucide-react";
 
 export default function AdminSupportTicketsPage() {
@@ -33,6 +35,12 @@ export default function AdminSupportTicketsPage() {
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [targetTicket, setTargetTicket] = useState(null); // { id, status }
   const [resolutionComment, setResolutionComment] = useState("");
+
+  // Edit modal states
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingTicket, setEditingTicket] = useState(null);
+  const [editForm, setEditForm] = useState({ full_name: "", phone: "", email: "", subject: "", message: "" });
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-support-tickets", statusFilter, searchQuery, page],
@@ -75,6 +83,34 @@ export default function AdminSupportTicketsPage() {
       setTargetTicket({ id: ticketId, status: newStatus });
       setResolutionComment("");
       setStatusModalOpen(true);
+    }
+  };
+
+  const openEditModal = (ticket) => {
+    setEditingTicket(ticket);
+    setEditForm({
+      full_name: ticket.full_name || "",
+      phone: ticket.phone || "",
+      email: ticket.email || "",
+      subject: ticket.subject || "",
+      message: ticket.message || "",
+    });
+    setEditModalOpen(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setEditSubmitting(true);
+    try {
+      await api.patch(`/api/crm/support-tickets/${editingTicket.id}`, editForm);
+      toast.success("Ticket updated!");
+      queryClient.invalidateQueries({ queryKey: ["admin-support-tickets"] });
+      setEditModalOpen(false);
+      setEditingTicket(null);
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Failed to update ticket.");
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
@@ -222,6 +258,13 @@ export default function AdminSupportTicketsPage() {
                         {st}
                       </button>
                     ))}
+                    <button
+                      onClick={() => openEditModal(ticket)}
+                      className="ml-1 p-1.5 rounded-lg text-slate-400 hover:text-purple-600 hover:bg-purple-50 transition-colors cursor-pointer"
+                      title="Edit Ticket"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
 
@@ -281,6 +324,96 @@ export default function AdminSupportTicketsPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Ticket Modal */}
+      {editModalOpen && editingTicket && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-purple-600" />
+                Edit Ticket #{editingTicket.id}
+              </h3>
+              <button
+                onClick={() => { setEditModalOpen(false); setEditingTicket(null); }}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    value={editForm.full_name}
+                    onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 bg-slate-50/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Phone</label>
+                  <input
+                    type="text"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 bg-slate-50/50"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Email</label>
+                <input
+                  type="text"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 bg-slate-50/50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Subject</label>
+                <input
+                  type="text"
+                  value={editForm.subject}
+                  onChange={(e) => setEditForm({ ...editForm, subject: e.target.value })}
+                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 bg-slate-50/50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Message</label>
+                <textarea
+                  rows={4}
+                  value={editForm.message}
+                  onChange={(e) => setEditForm({ ...editForm, message: e.target.value })}
+                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 bg-slate-50/50 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => { setEditModalOpen(false); setEditingTicket(null); }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSubmitting}
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {editSubmitting ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {statusModalOpen && targetTicket && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">

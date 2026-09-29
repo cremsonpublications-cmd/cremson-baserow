@@ -654,8 +654,13 @@ class CreateSupportTicketRequest(BaseModel):
 
 
 class UpdateSupportTicketStatusRequest(BaseModel):
-    status: str   # "Pending", "Resolved", "Cancelled"
+    status: Optional[str] = None   # "Pending", "Resolved", "Cancelled"
     notes: Optional[str] = ""
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    subject: Optional[str] = None
+    message: Optional[str] = None
 
 
 @router.post("/support-tickets", summary="Create support ticket / Contact Us submission")
@@ -763,7 +768,7 @@ async def list_support_tickets(
 @router.patch("/support-tickets/{ticket_id}", summary="Update support ticket status")
 async def update_support_ticket(ticket_id: str, body: UpdateSupportTicketStatusRequest):
     valid_statuses = {"Pending", "Resolved", "Cancelled"}
-    if body.status not in valid_statuses:
+    if body.status is not None and body.status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
 
     # Find the Baserow row that matches this ticket_id
@@ -783,12 +788,21 @@ async def update_support_ticket(ticket_id: str, body: UpdateSupportTicketStatusR
     baserow_id = row["id"]
     old_status = row.get("status", "Pending")
 
-    update_payload = {
-        "status": body.status,
-        "updated_at": datetime.now().isoformat(),
-    }
+    update_payload = {"updated_at": datetime.now().isoformat()}
+    if body.status is not None:
+        update_payload["status"] = body.status
     if body.notes:
         update_payload["notes"] = body.notes
+    if body.full_name is not None:
+        update_payload["full_name"] = body.full_name
+    if body.phone is not None:
+        update_payload["phone"] = body.phone
+    if body.email is not None:
+        update_payload["email"] = body.email
+    if body.subject is not None:
+        update_payload["subject"] = body.subject
+    if body.message is not None:
+        update_payload["message"] = body.message
 
     await client.update_row(TABLE_IDS["support_tickets"], baserow_id, update_payload)
 
