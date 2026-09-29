@@ -1171,8 +1171,55 @@ async def ready_for_pickup(order_id: str, background_tasks: BackgroundTasks):
         })
     logger.info(f"[Orders] Order {order_id} → PICKUP_REQUESTED")
 
-    # ── 5. Notification (WhatsApp bypassed per request for pickup_requested) ─────
-    logger.info(f"[Orders] Order {order_id} pickup requested in Shipway & Baserow (WhatsApp notification bypassed).")
+    # ── 5. Send WhatsApp + Email shipment notification to customer ─────────────
+    # Triggered here (admin "Packed & Request Pickup") instead of on payment.
+    try:
+        _user_info_raw = order.get("user_info") or "{}"
+        try:
+            _user_info = json.loads(_user_info_raw) if isinstance(_user_info_raw, str) else (_user_info_raw or {})
+        except Exception:
+            _user_info = {}
+
+        _phone = delivery_data.get("phone") or _user_info.get("phone") or _user_info.get("whatsapp_phone") or ""
+        _email = delivery_data.get("email") or _user_info.get("email") or ""
+        _name  = delivery_data.get("name")  or _user_info.get("name")  or "Customer"
+        _awb   = awb or delivery_data.get("awb") or ""
+        _tracking_url = tracking_url or delivery_data.get("tracking_url") or ""
+        _courier = delivery_data.get("courier") or ""
+
+        # Email
+        if _email:
+            try:
+                from services.email import send_shipment_created_email
+                await send_shipment_created_email(
+                    to_email=_email,
+                    customer_name=_name,
+                    order_id=order_id,
+                    awb=_awb,
+                    courier_name=_courier,
+                    tracking_url=_tracking_url,
+                )
+                logger.info(f"[Orders] Shipment email sent to {_email} for {order_id}")
+            except Exception as mail_err:
+                logger.error(f"[Orders] Shipment email failed for {order_id}: {mail_err}")
+
+        # WhatsApp
+        if _phone:
+            try:
+                from services.whatsapp import send_shipment_created
+                await send_shipment_created(
+                    phone=_phone,
+                    customer_name=_name,
+                    order_id=order_id,
+                    awb=_awb,
+                    courier_name=_courier,
+                    tracking_url=_tracking_url,
+                )
+                logger.info(f"[Orders] Shipment WhatsApp sent to {_phone} for {order_id}")
+            except Exception as wa_err:
+                logger.error(f"[Orders] Shipment WhatsApp failed for {order_id}: {wa_err}")
+    except Exception as notify_err:
+        logger.error(f"[Orders] Notification block failed for {order_id}: {notify_err}")
 
     return {
         "success": True,

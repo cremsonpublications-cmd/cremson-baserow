@@ -170,41 +170,12 @@ async def _create_shipway_shipment(
     except Exception as err:
         logger.error(f"[Shipway BG] Baserow update failed for order={order_id}: {err}")
 
-    # WhatsApp & Email: notify customer that shipment is created (only if Shipway succeeded)
+    # NOTE: WhatsApp & Email shipment notifications are intentionally NOT sent here.
+    # They will be triggered when admin clicks "Packed & Request Pickup" in the admin panel.
     if result["success"]:
-        phone = user_info.get("phone") or user_info.get("whatsapp_phone") or ""
-        email = user_info.get("email") or ""
-        name = user_info.get("name", "Customer")
-        
-        # Email Dispatch
-        if email:
-            try:
-                from services.email import send_shipment_created_email
-                await send_shipment_created_email(
-                    to_email=email,
-                    customer_name=name,
-                    order_id=order_id,
-                    awb=result.get("awb", ""),
-                    courier_name=result.get("courier_name", ""),
-                    tracking_url=result.get("tracking_url", ""),
-                )
-                logger.info(f"[Shipway BG] Email shipment created sent successfully to {email}")
-            except Exception as mail_err:
-                logger.error(f"[Shipway BG] Email send_shipment_created failed: {mail_err}")
-
-        # WhatsApp Dispatch
-        if phone:
-            try:
-                await send_shipment_created(
-                    phone=phone,
-                    customer_name=name,
-                    order_id=order_id,
-                    awb=result.get("awb", ""),
-                    courier_name=result.get("courier_name", ""),
-                    tracking_url=result.get("tracking_url", ""),
-                )
-            except Exception as wa_err:
-                logger.error(f"[Shipway BG] WhatsApp send_shipment_created failed: {wa_err}")
+        logger.info(f"[Shipway BG] Shipment created for order={order_id}. Notifications deferred to admin pickup action.")
+    else:
+        logger.warning(f"[Shipway BG] Shipment creation failed for order={order_id}. Notifications skipped.")
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
