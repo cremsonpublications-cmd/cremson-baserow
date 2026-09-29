@@ -363,7 +363,8 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
         val = float(match.group(1))
         if val <= 0:
             return 0.5
-        if "gm" in s or "g" in s and "kg" not in s:
+        # Fix: correct operator precedence — check unit AFTER extracting number
+        if ("gm" in s or "g" in s) and "kg" not in s:
             return val / 1000.0
         return val
 
@@ -422,10 +423,18 @@ async def create_shipment(order: Dict[str, Any]) -> Dict[str, Any]:
                             sku_val = str(prod_row.get("sku")).strip() or prod_id
                         if prod_row.get("weight"):
                             weight_kg = parse_weight_kg(prod_row.get("weight"))
+                            logger.info(f"[Shipway] Product {prod_id} weight={prod_row.get('weight')} → {weight_kg:.3f}kg")
                         if prod_row.get("dimension"):
                             length, breadth, height = parse_dimension_cm(prod_row.get("dimension"))
+                            logger.info(f"[Shipway] Product {prod_id} dimension={prod_row.get('dimension')} → L={length} B={breadth} H={height}")
+                        else:
+                            logger.warning(f"[Shipway] Product {prod_id} has no dimension set — using defaults (20x15x2)")
+                    else:
+                        logger.warning(f"[Shipway] Product {prod_id} not found in Baserow — using defaults")
                 except Exception as e:
                     logger.error(f"[Shipway] Error fetching product {prod_id} details: {e}")
+            else:
+                logger.warning(f"[Shipway] Product ID '{prod_id}' is not numeric — cannot fetch dimension from Baserow, using defaults")
             
             total_weight_kg += weight_kg * qty
             max_length = max(max_length, length)
