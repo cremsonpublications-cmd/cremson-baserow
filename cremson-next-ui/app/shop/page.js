@@ -261,12 +261,12 @@ function Shop() {
   const uniqueAuthors = useMemo(() => [...new Set(allBooksData.map((b) => b.author).filter(Boolean))].sort(), [allBooksData]);
   const uniqueClasses = useMemo(() => [...new Set(allBooksData.flatMap((b) => b.classes).filter(Boolean))].sort(), [allBooksData]);
   const uniqueSubCategories = useMemo(() => {
-    const fromBooks = allBooksData.flatMap((b) => b.subCategories || []).filter(Boolean);
+    // Only use subcategories defined in admin Categories panel (not from individual product fields)
     const fromCats = (categoriesData?.results || [])
       .flatMap((c) => (c.sub_categories ? c.sub_categories.split(",").map((s) => s.trim()) : []))
       .filter(Boolean);
-    return [...new Set([...fromBooks, ...fromCats])].sort();
-  }, [allBooksData, categoriesData]);
+    return [...new Set(fromCats)].sort();
+  }, [categoriesData]);
   const uniqueEditions = useMemo(() => [...new Set(allBooksData.map((b) => b.edition).filter(Boolean))].sort(), [allBooksData]);
   const uniqueStatuses = useMemo(() => {
     const map = { in_stock: "In Stock", out_of_stock: "Out of Stock", on_backorders: "On Backorders" };
