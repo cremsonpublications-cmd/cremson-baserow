@@ -77,12 +77,7 @@ export default function Home() {
             style={{ transform: `translateX(-${currentSlide * 100}%)` }}
           >
             {slides.map((slide) => (
-              <div
-                key={slide.id}
-                className="w-full h-full flex-shrink-0 relative"
-                onClick={() => { if (slide.link_url) window.location.href = slide.link_url; }}
-                style={{ cursor: slide.link_url ? "pointer" : "default" }}
-              >
+              <div key={slide.id} className="w-full h-full flex-shrink-0 relative">
                 <div className="absolute inset-0">
                   <img
                     src={slide.image}
@@ -91,6 +86,14 @@ export default function Home() {
                     style={{ willChange: "opacity" }}
                   />
                 </div>
+                {slide.link_url && (
+                  <a
+                    href={slide.link_url}
+                    className="absolute inset-0"
+                    style={{ cursor: "pointer" }}
+                    aria-label={slide.title || "View offer"}
+                  />
+                )}
               </div>
             ))}
           </div>
