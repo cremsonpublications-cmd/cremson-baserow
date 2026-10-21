@@ -30,6 +30,7 @@ import {
   Send,
   Megaphone,
   Lock,
+  FlaskConical,
 } from "lucide-react";
 
 const coreLinks = [
@@ -41,6 +42,7 @@ const coreLinks = [
   { href: "/admin/support-tickets", label: "Support & Enquiries", Icon: MessageSquare },
   { href: "/admin/reminders", label: "Reminders", Icon: Bell, badgeKey: "reminders" },
   { href: "/admin/questionbank", label: "Question Bank", Icon: Database },
+  { href: "/admin/test-builder", label: "Test Builder", Icon: FlaskConical },
 ];
 
 const adminLinks = [
@@ -100,6 +102,7 @@ export default function AdminLayout({ children }) {
       "/admin/support-tickets": "Support & Enquiries",
       "/admin/reminders": "Reminders",
       "/admin/questionbank": "Question Bank",
+      "/admin/test-builder": "Test Builder",
       "/admin/whatsapp/campaigns": "WhatsApp Campaigns",
       "/admin/whatsapp/templates": "WhatsApp Templates",
       "/admin/specimen-books": "Specimen Books",
