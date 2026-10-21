@@ -442,11 +442,15 @@ async def handle_incoming_message(from_phone: str, message_text: str, msg_id: st
 
     else:
         # Check direct Order ID / Specimen ID match
+        # Recognized prefixes: BOOK*, CR*, SPEC*, WABOOK*, CP* (website orders), or pure digits
         clean_upper = clean_text.upper()
-        if clean_upper.startswith("BOOK") or clean_upper.startswith("CR") or clean_upper.startswith("SPEC") or clean_upper.isdigit():
+        if clean_upper.startswith("BOOK") or clean_upper.startswith("CR") or clean_upper.startswith("SPEC") or clean_upper.startswith("WABOOK") or clean_upper.startswith("CP") or clean_upper.isdigit():
             await _process_track_order_id_input(from_phone, clean_text)
         else:
-            await send_text_message(from_phone, get_welcome_menu())
+            # For unrecognized formats, try a general search before showing the menu.
+            # This handles order IDs with other prefixes or formats that may not
+            # match the known prefix patterns above.
+            await _process_track_order_id_input(from_phone, clean_text)
 
 
 # --- BASEROW LOOKUP HELPERS ---
@@ -731,7 +735,7 @@ async def _send_order_details_response(from_phone: str, order_id: str) -> None:
 
         if not results:
             set_conversation_state(from_phone, "MAIN_MENU")
-            await send_text_message(from_phone, "Order or Specimen request not found.\nPlease check your ID and try again.")
+            await send_text_message(from_phone, "Order or Specimen request not found.\n\nPlease double-check your Order ID / Specimen ID and try again.\n\nOr track directly on our website:\nhttps://cremsonpublications.com/track-order")
             return
 
         order = results[0]

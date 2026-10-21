@@ -46,7 +46,7 @@ async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks):
     if channel and channel not in ("Channel::Whatsapp", "Channel::Api"):
         return {"status": "ignored", "channel": channel}
 
-    content = payload.get("content", "").strip()
+    content = (payload.get("content") or "").strip()
     if not content:
         return {"status": "ignored", "reason": "empty content"}
 
@@ -66,7 +66,6 @@ async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks):
     msg_id = str(payload.get("id", ""))
     chatwoot_conversation_id = conversation.get("id")
 
-    logger.info(f"[ChatwootWH] Incoming message from {from_phone}: '{content[:60]}'")
     background_tasks.add_task(handle_incoming_message, from_phone, content, msg_id, chatwoot_conversation_id)
 
     return {"status": "success"}
