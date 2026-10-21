@@ -7,6 +7,10 @@ import CustomDropdown from "@/components/CustomDropdown";
 export default function PaperSetupForm({ setup, onChange, onNext, meta }) {
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!setup.max_marks || parseInt(setup.max_marks) <= 0) {
+      alert("Please enter Maximum Marks before proceeding.");
+      return;
+    }
     onNext();
   };
 
@@ -107,10 +111,12 @@ export default function PaperSetupForm({ setup, onChange, onNext, meta }) {
           </label>
           <input
             type="number"
-            min={5}
-            max={100}
             value={setup.max_marks}
-            onChange={(e) => onChange({ ...setup, max_marks: parseInt(e.target.value) || 30 })}
+            onChange={(e) => {
+              const val = e.target.value;
+              onChange({ ...setup, max_marks: val === "" ? "" : parseInt(val) });
+            }}
+            placeholder="e.g. 30"
             className="w-full px-4 py-2.5 bg-white border border-neutral-300 rounded-lg text-black focus:ring-2 focus:ring-black focus:outline-none transition"
           />
         </div>
