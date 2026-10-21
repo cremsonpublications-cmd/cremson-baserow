@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Sparkles, Calendar, BookOpen, User, Building2, Clock, Award } from "lucide-react";
+import CustomDropdown from "@/components/CustomDropdown";
 
 export default function PaperSetupForm({ setup, onChange, onNext, meta }) {
   const handleSubmit = (e) => {
@@ -37,16 +38,11 @@ export default function PaperSetupForm({ setup, onChange, onNext, meta }) {
           <label className="block text-xs font-semibold uppercase tracking-wider text-black mb-2">
             Paper Type
           </label>
-          <select
+          <CustomDropdown
+            options={["Chapter Test", "Unit Test", "Practice Worksheet", "Custom Paper"]}
             value={setup.paper_type}
-            onChange={(e) => onChange({ ...setup, paper_type: e.target.value })}
-            className="w-full px-4 py-2.5 bg-white border border-neutral-300 rounded-lg text-black focus:ring-2 focus:ring-black focus:outline-none transition"
-          >
-            <option value="Chapter Test">Chapter Test</option>
-            <option value="Unit Test">Unit Test</option>
-            <option value="Practice Worksheet">Practice Worksheet</option>
-            <option value="Custom Paper">Custom Paper</option>
-          </select>
+            onChange={(val) => onChange({ ...setup, paper_type: val })}
+          />
         </div>
 
         {/* Test Title */}
@@ -69,17 +65,12 @@ export default function PaperSetupForm({ setup, onChange, onNext, meta }) {
           <label className="block text-xs font-semibold uppercase tracking-wider text-black mb-2">
             Class
           </label>
-          <select
+          <CustomDropdown
+            options={meta?.classes || []}
             value={setup.class_name}
-            onChange={(e) => onChange({ ...setup, class_name: e.target.value })}
-            className="w-full px-4 py-2.5 bg-white border border-neutral-300 rounded-lg text-black focus:ring-2 focus:ring-black focus:outline-none transition"
-          >
-            {meta?.classes?.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => onChange({ ...setup, class_name: val })}
+            placeholder="Select Class"
+          />
         </div>
 
         {/* Subject */}
@@ -87,17 +78,12 @@ export default function PaperSetupForm({ setup, onChange, onNext, meta }) {
           <label className="block text-xs font-semibold uppercase tracking-wider text-black mb-2">
             Subject
           </label>
-          <select
+          <CustomDropdown
+            options={meta?.subjects || []}
             value={setup.subject}
-            onChange={(e) => onChange({ ...setup, subject: e.target.value })}
-            className="w-full px-4 py-2.5 bg-white border border-neutral-300 rounded-lg text-black focus:ring-2 focus:ring-black focus:outline-none transition"
-          >
-            {meta?.subjects?.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => onChange({ ...setup, subject: val })}
+            placeholder="Select Subject"
+          />
         </div>
 
         {/* Duration */}
@@ -134,15 +120,15 @@ export default function PaperSetupForm({ setup, onChange, onNext, meta }) {
           <label className="block text-xs font-semibold uppercase tracking-wider text-black mb-2">
             Target Difficulty Level
           </label>
-          <select
+          <CustomDropdown
+            options={[
+              { label: "Balanced (Standard CBSE Ratio)", value: "Balanced" },
+              { label: "Easy (Conceptual Emphasis)", value: "Easy" },
+              { label: "Challenging (High Competency)", value: "Challenging" },
+            ]}
             value={setup.difficulty}
-            onChange={(e) => onChange({ ...setup, difficulty: e.target.value })}
-            className="w-full px-4 py-2.5 bg-white border border-neutral-300 rounded-lg text-black focus:ring-2 focus:ring-black focus:outline-none transition"
-          >
-            <option value="Balanced">Balanced (Standard CBSE Ratio)</option>
-            <option value="Easy">Easy (Conceptual Emphasis)</option>
-            <option value="Challenging">Challenging (High Competency)</option>
-          </select>
+            onChange={(val) => onChange({ ...setup, difficulty: val })}
+          />
         </div>
 
         {/* Examination Date */}
