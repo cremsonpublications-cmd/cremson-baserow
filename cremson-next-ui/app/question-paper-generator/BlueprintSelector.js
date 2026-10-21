@@ -78,6 +78,15 @@ export default function BlueprintSelector({
 
   return (
     <div className="space-y-6 text-black">
+      {/* Back button — top */}
+      <button
+        type="button"
+        onClick={onBack}
+        className="cursor-pointer inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-500 hover:text-black transition"
+      >
+        ← Back to Setup
+      </button>
+
       {/* Mode Switcher Single Line Tab */}
       <div className="border-b border-neutral-300 flex items-center gap-8 px-2 mb-6">
         <button
@@ -204,14 +213,6 @@ export default function BlueprintSelector({
           )}
 
           <div className="mt-8 flex justify-between items-center">
-            <button
-              type="button"
-              onClick={onBack}
-              className="cursor-pointer flex items-center gap-1.5 text-sm font-semibold text-neutral-500 hover:text-black transition"
-            >
-              ← Back to Setup
-            </button>
-
             <div className="flex items-center gap-4">
               <button
                 type="button"
@@ -220,44 +221,35 @@ export default function BlueprintSelector({
               >
                 Switch to Manual instead →
               </button>
-
-              <button
-                type="button"
-                disabled={isGenerating || isAiAnalyzing}
-                onClick={handleStartAiGeneration}
-                className="cursor-pointer px-8 py-3 bg-black hover:bg-neutral-900 disabled:opacity-50 text-white font-semibold rounded-xl shadow transition-all flex items-center justify-center gap-2"
-              >
-                {isGenerating || isAiAnalyzing ? (
-                  <>
-                    <RefreshCw className="w-5 h-5 animate-spin" />
-                    Generating Question Paper...
-                  </>
-                ) : (
-                  <>Quick Generate Paper</>
-                )}
-              </button>
             </div>
+
+            <button
+              type="button"
+              disabled={isGenerating || isAiAnalyzing}
+              onClick={handleStartAiGeneration}
+              className="cursor-pointer px-8 py-3 bg-black hover:bg-neutral-900 disabled:opacity-50 text-white font-semibold rounded-xl shadow transition-all flex items-center justify-center gap-2"
+            >
+              {isGenerating || isAiAnalyzing ? (
+                <>
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  Generating Question Paper...
+                </>
+              ) : (
+                <>Quick Generate Paper</>
+              )}
+            </button>
           </div>
         </div>
       ) : (
         /* MANUAL SELECTION LIST */
         <div className="bg-white rounded-2xl border border-neutral-300 p-6 md:p-8 shadow-sm">
           <div className="sticky top-4 z-10 bg-black text-white p-4 rounded-xl shadow-md mb-6 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={onBack}
-                className="cursor-pointer flex items-center gap-1.5 text-sm font-semibold text-neutral-300 hover:text-white transition"
-              >
-                ← Back
-              </button>
-              <div>
-                <div className="text-xs text-neutral-400 font-medium uppercase tracking-wider">
-                  Current Manual Selection Tally
-                </div>
-                <div className="text-lg font-bold">
-                  Selected: {selectedManualIds.length} questions · {manualTotalMarks} / {setup.max_marks} marks
-                </div>
+            <div>
+              <div className="text-xs text-neutral-400 font-medium uppercase tracking-wider">
+                Current Manual Selection Tally
+              </div>
+              <div className="text-lg font-bold">
+                Selected: {selectedManualIds.length} questions · {manualTotalMarks} / {setup.max_marks} marks
               </div>
             </div>
 
