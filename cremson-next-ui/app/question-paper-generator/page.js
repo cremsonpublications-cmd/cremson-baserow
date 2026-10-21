@@ -7,6 +7,7 @@ import PaperReview from "./PaperReview";
 import { toast } from "sonner";
 import { BookOpen, Sparkles, CheckCircle, Database } from "lucide-react";
 import Link from "next/link";
+import api from "@/lib/api/axios";
 
 export default function QuestionPaperGeneratorPage() {
   const [step, setStep] = useState(1); // 1: Setup, 2: Blueprint/Selection, 3: Review
@@ -50,17 +51,15 @@ export default function QuestionPaperGeneratorPage() {
   const [generatedQuestions, setGeneratedQuestions] = useState([]);
 
   useEffect(() => {
-    fetch("/api/paper-builder/meta")
-      .then((res) => res.json())
-      .then((data) => setMeta(data))
+    api.get("/api/paper-builder/meta")
+      .then((res) => setMeta(res.data))
       .catch(() => toast.error("Could not fetch metadata"));
   }, []);
 
   useEffect(() => {
     if (mode === "manual") {
-      fetch("/api/paper-builder/questions?approved_only=true")
-        .then((res) => res.json())
-        .then((data) => setManualQuestions(data))
+      api.get("/api/paper-builder/questions?approved_only=true")
+        .then((res) => setManualQuestions(res.data))
         .catch(() => toast.error("Error fetching questions list"));
     }
   }, [mode]);
@@ -68,25 +67,17 @@ export default function QuestionPaperGeneratorPage() {
   const handleQuickGenerate = async () => {
     setIsGenerating(true);
     try {
-      const res = await fetch("/api/paper-builder/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...setup,
-          blueprint
-        })
+      const res = await api.post("/api/paper-builder/generate", {
+        ...setup,
+        blueprint
       });
-      const data = await res.json();
-      if (res.ok) {
-        setGeneratedQuestions(data.questions);
-        if (data.warnings && data.warnings.length > 0) {
-          data.warnings.forEach((w) => toast.warning(w));
-        }
-        setStep(3);
-        toast.success("Question paper generated successfully!");
-      } else {
-        toast.error("Failed to generate paper");
+      const data = res.data;
+      setGeneratedQuestions(data.questions);
+      if (data.warnings && data.warnings.length > 0) {
+        data.warnings.forEach((w) => toast.warning(w));
       }
+      setStep(3);
+      toast.success("Question paper generated successfully!");
     } catch (err) {
       toast.error("Error connecting to server");
     } finally {
@@ -111,27 +102,18 @@ export default function QuestionPaperGeneratorPage() {
 
   const handleReplaceQuestion = async (currentId, chapter, questionType, marks) => {
     try {
-      const res = await fetch("/api/paper-builder/replace-question", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          current_question_id: currentId,
-          chapter,
-          question_type: questionType,
-          marks
-        })
+      const res = await api.post("/api/paper-builder/replace-question", {
+        current_question_id: currentId,
+        chapter,
+        question_type: questionType,
+        marks
       });
-      const replacement = await res.json();
-      if (res.ok) {
-        setGeneratedQuestions((prev) =>
-          prev.map((q) => (q.id === currentId ? replacement : q))
-        );
-        toast.success("Question replaced successfully!");
-      } else {
-        toast.error(replacement.detail || "No suitable replacement available");
-      }
+      setGeneratedQuestions((prev) =>
+        prev.map((q) => (q.id === currentId ? res.data : q))
+      );
+      toast.success("Question replaced successfully!");
     } catch (err) {
-      toast.error("Error replacing question");
+      toast.error(err?.response?.data?.detail || "No suitable replacement available");
     }
   };
 
