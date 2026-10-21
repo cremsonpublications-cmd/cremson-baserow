@@ -187,6 +187,7 @@ export default function AdminTestBuilderPage() {
           selectedManualIds={selectedManualIds}
           onToggleManualQuestion={handleToggleManualQuestion}
           isGenerating={isGenerating}
+          onBack={() => setStep(1)}
         />
       )}
 

@@ -217,6 +217,7 @@ export default function QuestionPaperGeneratorPage() {
             selectedManualIds={selectedManualIds}
             onToggleManualQuestion={handleToggleManualQuestion}
             isGenerating={isGenerating}
+            onBack={() => setStep(1)}
           />
         )}
 

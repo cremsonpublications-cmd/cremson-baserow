@@ -22,7 +22,8 @@ export default function BlueprintSelector({
   manualQuestions,
   selectedManualIds,
   onToggleManualQuestion,
-  isGenerating
+  isGenerating,
+  onBack
 }) {
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
   const [analysisIndex, setAnalysisIndex] = useState(0);
@@ -205,39 +206,58 @@ export default function BlueprintSelector({
           <div className="mt-8 flex justify-between items-center">
             <button
               type="button"
-              onClick={() => onModeChange("manual")}
-              className="text-black font-semibold text-sm underline hover:text-neutral-700"
+              onClick={onBack}
+              className="cursor-pointer flex items-center gap-1.5 text-sm font-semibold text-neutral-500 hover:text-black transition"
             >
-              Switch to Manual Question Picker instead →
+              ← Back to Setup
             </button>
 
-            <button
-              type="button"
-              disabled={isGenerating || isAiAnalyzing}
-              onClick={handleStartAiGeneration}
-              className="cursor-pointer px-8 py-3 bg-black hover:bg-neutral-900 disabled:opacity-50 text-white font-semibold rounded-xl shadow transition-all flex items-center justify-center gap-2"
-            >
-              {isGenerating || isAiAnalyzing ? (
-                <>
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                  Generating Question Paper...
-                </>
-              ) : (
-                <>Quick Generate Paper</>
-              )}
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => onModeChange("manual")}
+                className="text-black font-semibold text-sm underline hover:text-neutral-700"
+              >
+                Switch to Manual instead →
+              </button>
+
+              <button
+                type="button"
+                disabled={isGenerating || isAiAnalyzing}
+                onClick={handleStartAiGeneration}
+                className="cursor-pointer px-8 py-3 bg-black hover:bg-neutral-900 disabled:opacity-50 text-white font-semibold rounded-xl shadow transition-all flex items-center justify-center gap-2"
+              >
+                {isGenerating || isAiAnalyzing ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    Generating Question Paper...
+                  </>
+                ) : (
+                  <>Quick Generate Paper</>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       ) : (
         /* MANUAL SELECTION LIST */
         <div className="bg-white rounded-2xl border border-neutral-300 p-6 md:p-8 shadow-sm">
           <div className="sticky top-4 z-10 bg-black text-white p-4 rounded-xl shadow-md mb-6 flex items-center justify-between">
-            <div>
-              <div className="text-xs text-neutral-400 font-medium uppercase tracking-wider">
-                Current Manual Selection Tally
-              </div>
-              <div className="text-lg font-bold">
-                Selected: {selectedManualIds.length} questions · {manualTotalMarks} / {setup.max_marks} marks
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={onBack}
+                className="cursor-pointer flex items-center gap-1.5 text-sm font-semibold text-neutral-300 hover:text-white transition"
+              >
+                ← Back
+              </button>
+              <div>
+                <div className="text-xs text-neutral-400 font-medium uppercase tracking-wider">
+                  Current Manual Selection Tally
+                </div>
+                <div className="text-lg font-bold">
+                  Selected: {selectedManualIds.length} questions · {manualTotalMarks} / {setup.max_marks} marks
+                </div>
               </div>
             </div>
 
