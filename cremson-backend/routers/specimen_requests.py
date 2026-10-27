@@ -32,6 +32,7 @@ class AdminCreateSpecimenRequest(BaseModel):
     books_requested: List[str]
     feedback_notes: Optional[str] = ""
     dispatch_immediately: bool = True
+    id_card_url: Optional[str] = ""
 
 
 async def _resolve_specimen_names(rows: list):
@@ -709,11 +710,19 @@ async def admin_create_specimen_request(body: AdminCreateSpecimenRequest):
                 t_data["Pin Code"] = int(body.pincode)
             except Exception:
                 pass
+        if body.id_card_url:
+            t_data["IdCardUrl"] = body.id_card_url
         try:
             new_teacher = await client.create_row(TABLE_IDS["teacher"], t_data)
             teacher_id = new_teacher.get("id")
         except Exception as err:
             logger.error(f"[Admin Create Specimen] Failed to create teacher in Table 877: {err}")
+    elif body.id_card_url and teacher_id:
+        # Update existing teacher's ID card URL
+        try:
+            await client.update_row(TABLE_IDS["teacher"], teacher_id, {"IdCardUrl": body.id_card_url})
+        except Exception as err:
+            logger.warning(f"[Admin Create Specimen] Failed to update IdCardUrl for teacher #{teacher_id}: {err}")
 
     # Build row data for Table 878 (Only writable fields, NO lookup fields!)
     row_data = {

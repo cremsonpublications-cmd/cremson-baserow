@@ -11,6 +11,8 @@ import {
   BookOpen,
   Send,
   RefreshCw,
+  Upload,
+  ImageIcon,
 } from "lucide-react";
 
 export default function CreateSpecimenModal({ onClose, onSuccess }) {
@@ -32,6 +34,8 @@ export default function CreateSpecimenModal({ onClose, onSuccess }) {
 
   const [selectedBooks, setSelectedBooks] = useState([]);
   const [bookSearch, setBookSearch] = useState("");
+  const [idCardUrl, setIdCardUrl] = useState("");
+  const [idCardUploading, setIdCardUploading] = useState(false);
   const [pincodeLoading, setPincodeLoading] = useState(false);
   const [pincodeError, setPincodeError] = useState("");
   const [pincodeResolved, setPincodeResolved] = useState(false);
@@ -110,7 +114,35 @@ export default function CreateSpecimenModal({ onClose, onSuccess }) {
       city: teacher["City"] || "",
       pincode: teacher["Pin Code"] ? String(teacher["Pin Code"]) : "",
     }));
+    setIdCardUrl(teacher["IdCardUrl"] || "");
     setTeacherSearch("");
+  }
+
+  async function handleIdCardUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIdCardUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", "unsigned_preset");
+      formData.append("folder", "id-cards");
+      const res = await fetch("https://api.cloudinary.com/v1_1/dkxxa3xt0/image/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.secure_url) {
+        setIdCardUrl(data.secure_url);
+        toast.success("ID card uploaded successfully.");
+      } else {
+        toast.error("Upload failed. Please try again.");
+      }
+    } catch {
+      toast.error("Upload failed. Please try again.");
+    } finally {
+      setIdCardUploading(false);
+    }
   }
 
   function toggleBook(bookName) {
@@ -152,6 +184,7 @@ export default function CreateSpecimenModal({ onClose, onSuccess }) {
         books_requested: selectedBooks,
         feedback_notes: form.feedback_notes,
         dispatch_immediately: form.dispatch_immediately,
+        id_card_url: idCardUrl || "",
       };
 
       const res = await api.post("/api/specimen-requests/admin-create", payload);
@@ -355,6 +388,53 @@ export default function CreateSpecimenModal({ onClose, onSuccess }) {
                 )}
               </div>
               {pincodeError && <p className="text-xs text-red-500 mt-1">{pincodeError}</p>}
+            </div>
+          </div>
+
+          {/* ID Card Image */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+              Teacher ID Card Image
+            </label>
+            <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3">
+              {idCardUrl ? (
+                <div className="flex items-start gap-3">
+                  <img
+                    src={idCardUrl}
+                    alt="Teacher ID Card"
+                    className="w-24 h-24 object-cover rounded-xl border border-slate-200 shadow-xs flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-bold text-emerald-700 mb-1">ID card on file</p>
+                    <button
+                      type="button"
+                      onClick={() => setIdCardUrl("")}
+                      className="mt-2 text-[11px] font-semibold text-rose-600 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <ImageIcon className="w-4 h-4 flex-shrink-0" />
+                  <span>No ID card image {selectedTeacher ? "on file for this teacher" : "uploaded"}</span>
+                </div>
+              )}
+              <label className={`flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-dashed rounded-xl cursor-pointer transition-all text-xs font-bold ${idCardUploading ? "opacity-50 cursor-not-allowed border-slate-200 text-slate-400" : "border-red-200 text-red-600 hover:border-red-400 hover:bg-red-50"}`}>
+                {idCardUploading ? (
+                  <><RefreshCw className="w-4 h-4 animate-spin" /> Uploading...</>
+                ) : (
+                  <><Upload className="w-4 h-4" /> {idCardUrl ? "Replace ID Card Image" : "Upload ID Card Image"}</>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={idCardUploading}
+                  onChange={handleIdCardUpload}
+                />
+              </label>
             </div>
           </div>
 
