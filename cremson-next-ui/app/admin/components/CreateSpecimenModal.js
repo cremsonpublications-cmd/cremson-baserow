@@ -249,7 +249,14 @@ export default function CreateSpecimenModal({ onClose, onSuccess }) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSelectedTeacher(null)}
+                  onClick={() => {
+                    setSelectedTeacher(null);
+                    setForm({ teacher_name: "", school_name: "", phone: "", email: "", full_address: "", city: "", pincode: "", feedback_notes: "", dispatch_immediately: true });
+                    setSelectedBooks([]);
+                    setIdCardUrl("");
+                    setPincodeResolved(false);
+                    setPincodeError("");
+                  }}
                   className="text-[11px] font-semibold text-emerald-700 hover:underline"
                 >
                   Clear Selection
