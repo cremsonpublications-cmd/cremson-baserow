@@ -415,7 +415,13 @@ export default function CreateSpecimenModal({ onClose, onSuccess }) {
                     <p className="text-[11px] font-bold text-emerald-700 mb-1">ID card on file</p>
                     <button
                       type="button"
-                      onClick={() => setIdCardUrl("")}
+                      onClick={async () => {
+                        const urlToDelete = idCardUrl;
+                        setIdCardUrl("");
+                        try {
+                          await api.post("/api/admin/cloudinary/delete", { url: urlToDelete });
+                        } catch {}
+                      }}
                       className="mt-2 text-[11px] font-semibold text-rose-600 hover:underline"
                     >
                       Remove
